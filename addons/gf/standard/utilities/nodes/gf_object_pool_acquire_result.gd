@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFObjectPoolAcquireResult
 extends RefCounted
 
@@ -17,7 +17,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Status {
 	## 已完成挂载并交付借用。
 	SUCCEEDED,
@@ -69,7 +69,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: status 为 SUCCEEDED 时为 true。
 func is_successful() -> bool:
@@ -80,7 +80,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本次请求的 Status。
 func get_status() -> Status:
@@ -91,7 +91,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: validation、allocation、prepare、attach 或 complete。
 func get_stage() -> StringName:
@@ -102,7 +102,7 @@ func get_stage() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: acquired、invalid_scene、invalid_parent、invalid_owner、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。
 func get_reason() -> StringName:
@@ -113,7 +113,7 @@ func get_reason() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 仅成功时非 null；是否仍可使用节点应查询 Lease。
 func get_lease() -> GFObjectPoolLease:

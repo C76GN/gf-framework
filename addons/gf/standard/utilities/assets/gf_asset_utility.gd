@@ -416,7 +416,7 @@ func set_resource_broker(broker: GFResourceBroker) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param domain: 已配置且接纳请求的服务域。
 ## [br]
@@ -486,7 +486,7 @@ func get_resource_broker() -> GFResourceBroker:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 可选 owner；Node 退出树自动关闭，其余 owner 失效由 tick 检测。
 ## [br]
@@ -579,7 +579,7 @@ func load_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 资源路径。
 ## [br]

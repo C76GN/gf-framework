@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFScenePlacementOperation" path="addons/gf/tools/scene_placement/gf_scene_placement_operation.gd" module="tools" extends="GFEditorPickOperation" classDigest="60021493c8c229d67e265ec585c07a7fb43e87a6c90f8eb06ab2b465bbfed3f9">
+<class name="GFScenePlacementOperation" path="addons/gf/tools/scene_placement/gf_scene_placement_operation.gd" module="tools" extends="GFEditorPickOperation" classDigest="58da66a92712488795c540d245392a3ed2118c504605c2f57a6e2dcbc5efb4a8">
 	<description>GFScenePlacementOperation: 编辑器内显式场景、父节点与命中位置的单次摆放操作。
 预览只计算变换，不实例化源场景。确认时才通过编辑器撤销历史创建实例。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -23,7 +23,7 @@
 				<tag name="param">options: 有限的摆放参数。</tag>
 				<tag name="return">配置错误码；失败不允许产生预览或实例。</tag>
 				<tag name="schema">options: Dictionary，支持 mode: String (plane/surface)、plane_normal/plane_origin/anchor/scale: Vector3、grid_step/yaw_degrees/surface_offset/max_distance: float、align_normal: bool。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin">
@@ -33,7 +33,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">context: 当前编辑器工具上下文。</tag>
 				<tag name="return">成功开始返回 true；正在提交时返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pick">
@@ -44,7 +44,7 @@
 				<tag name="param">input_data: 视口射线或调用方已经查询到的表面命中。</tag>
 				<tag name="return">本次输入后的操作状态。</tag>
 				<tag name="schema">input_data: Dictionary，平面模式使用 ray_origin/ray_direction: Vector3；表面模式使用 hit: Dictionary，包含 position/normal: Vector3。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply">
@@ -54,7 +54,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">确认结果；重入返回 ERR_BUSY，不改变外层确认的状态。</tag>
 				<tag name="schema">return: Dictionary，至少包含 ok: bool、reason: StringName；实际提交与重入结果另含 error_code: Error、node: Node3D|null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_destination_valid">
@@ -63,7 +63,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">父节点仍位于原场景内，且世界变换可逆时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_on_pick">
@@ -75,7 +75,7 @@
 				<tag name="return">分阶段拾取响应；任何无效输入都会清除上一有效命中。</tag>
 				<tag name="schema">input_data: Dictionary，ray_origin/ray_direction 为 Vector3；hit 为包含 position/normal: Vector3 的 Dictionary。表面模式可附射线以检查最大距离。</tag>
 				<tag name="schema">return: Dictionary，preview/result 包含 valid: bool、world_transform/local_transform: Transform3D、position/normal: Vector3、reason: StringName；local_transform 是父坐标换算值，top_level 根确认后的原生 transform 使用 world_transform；ready: bool 表示是否可确认。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_on_can_apply">
@@ -84,7 +84,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">最近命中有效且目标仍有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_on_apply">
@@ -97,7 +97,7 @@
 				<tag name="return">本次确认结果。</tag>
 				<tag name="schema">result: Dictionary，world_transform 为 Transform3D。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool、error_code: Error、reason: StringName、node: Node3D|null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_on_cancel">
@@ -106,7 +106,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="param">_tool_context: 原拾取上下文。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageSyncJournal
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 即将发送的冻结请求，包含实际 CAS revision。
 ## [br]
@@ -35,7 +35,7 @@ func persist_intent(request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 原持久化意图。
 ## [br]
@@ -52,7 +52,7 @@ func persist_outcome(request: GFStorageSyncRequest, outcome: Dictionary) -> GFAs
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record_namespace: 稳定命名空间。
 ## [br]
@@ -71,7 +71,7 @@ func load_intent(record_namespace: String, record_key: String) -> GFAsyncComplet
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _request: 冻结意图。
 ## [br]
@@ -84,7 +84,7 @@ func _persist_intent(_request: GFStorageSyncRequest) -> GFAsyncCompletion:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _request: 原意图。
 ## [br]
@@ -101,7 +101,7 @@ func _persist_outcome(_request: GFStorageSyncRequest, _outcome: Dictionary) -> G
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _record_namespace: 稳定命名空间。
 ## [br]

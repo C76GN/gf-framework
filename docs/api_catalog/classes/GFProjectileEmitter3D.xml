@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFProjectileEmitter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" module="extensions/combat" extends="Node3D" classDigest="485014f1d2718b68476d4e8412f42ca6ae12df2800c58e68bc610a300a0981e7">
+<class name="GFProjectileEmitter3D" path="addons/gf/extensions/combat/projectiles/gf_projectile_emitter_3d.gd" module="extensions/combat" extends="Node3D" classDigest="f7e7b9801470c0790907da35abdcb2775c3d49a9b5d573add663233ded96a30d">
 	<description>GFProjectileEmitter3D: 在安全点借用完整场景，以一次等待原子发射一批 3D projectile。</description>
 	<tags>
 		<tag name="api">public</tag>
@@ -119,7 +119,7 @@
 				<tag name="param">projectile_id: 可选 catalog ID；空值使用默认配置。</tag>
 				<tag name="param">emit_count: 正数覆盖 pattern 数量；负值使用 pattern 默认值。</tag>
 				<tag name="return">唯一结果；失败时不交付部分 Session，成功数量可以受发射策略和硬上限限制。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="resolve_projectile_definition">

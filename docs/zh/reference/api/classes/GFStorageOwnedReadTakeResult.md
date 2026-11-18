@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次独占读取领取的结果。 SUCCESS 时持有从句柄移交的完整读取结果，不复制业务载荷。重复调用 `get_read_result()` 返回同一对象；此后的引用共享由领取方负责。
 
@@ -27,7 +27,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Status {
@@ -57,7 +57,7 @@ enum Status {
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -72,7 +72,7 @@ func get_status() -> Status:
 ### `is_ok`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_ok() -> bool:
@@ -87,7 +87,7 @@ func is_ok() -> bool:
 ### `get_read_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_read_result() -> GFStorageReadResult:

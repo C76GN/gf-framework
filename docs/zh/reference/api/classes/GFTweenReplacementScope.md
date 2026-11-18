@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 配置化 Tween 显式共享的属性替换作用域。 仅管理主动加入本作用域的动作，不查找目标上的其他 Tween。 相同目标的同一顶层属性及其分量互斥；Node2D、Node3D 的 rotation_degrees 与 rotation 视为同一属性。其他属性别名和项目 setter 的关联不作推断。 作用域只弱引用动作与目标；持有者应在自身生命周期结束时调用 dispose()。
 
@@ -26,7 +26,7 @@
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -39,7 +39,7 @@ func dispose() -> void:
 ### `is_disposed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_disposed() -> bool:
@@ -54,7 +54,7 @@ func is_disposed() -> bool:
 ### `get_active_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_active_count() -> int:

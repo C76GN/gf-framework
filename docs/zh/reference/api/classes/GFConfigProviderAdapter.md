@@ -115,7 +115,7 @@ func has_table_source(table_name: StringName) -> bool:
 ### `get_source_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_source_ids() -> PackedStringArray:
@@ -130,7 +130,7 @@ func get_source_ids() -> PackedStringArray:
 ### `prepare_tables`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:
@@ -157,7 +157,7 @@ func prepare_tables(table_names: PackedStringArray, options: Dictionary = {}) ->
 ### `load_tables`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func load_tables(table_names: PackedStringArray, options: Dictionary = {}) -> Dictionary:

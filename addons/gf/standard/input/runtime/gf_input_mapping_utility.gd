@@ -172,7 +172,7 @@ const _INPUT_KEY_SCHEMA_PREFIX: String = "gf_input_key_v1"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var automatic_input_routing: bool = true:
 	set(value):
 		if automatic_input_routing == value:

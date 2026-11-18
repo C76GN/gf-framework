@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigTableReference" path="addons/gf/standard/utilities/config/gf_config_table_reference.gd" module="standard" extends="Resource" classDigest="c0e419bfbae3fabc5de58f87fac51dc94d6da2b641a034b7d5242a602e7c57fe">
+<class name="GFConfigTableReference" path="addons/gf/standard/utilities/config/gf_config_table_reference.gd" module="standard" extends="Resource" classDigest="c3777cae9daffc2a96c7ee27db261e5f777aa263266b0a09a15d4a6ee02fd52e">
 	<description>GFConfigTableReference: 导表跨表引用声明。
 描述当前记录的一组字段如何指向另一张表的一组字段，或声明一维数组中每个标量值的引用约束。</description>
 	<tags>
@@ -19,7 +19,7 @@
 			<description>来源引用的取值方式。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -45,7 +45,7 @@
 元素支持 bool、int、有限 float、String、StringName，以及允许的 null；空数组合法，重复值按各自位置校验。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="target_table_name" decorators="@export">

@@ -239,7 +239,7 @@ var metadata: Dictionary = {}
 ### `consumer_targets`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -257,7 +257,7 @@ var consumer_targets: Array[GFConfigPipelineConsumerTarget] = []
 ### `default_consumer_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -271,7 +271,7 @@ var default_consumer_target: StringName = &""
 ### `stable_id_registry_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -285,7 +285,7 @@ var stable_id_registry_path: String = ""
 ### `stable_id_bindings`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -303,7 +303,7 @@ var stable_id_bindings: Dictionary = {}
 ### `stable_id_scope_tables`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -321,7 +321,7 @@ var stable_id_scope_tables: Array[String] = []
 ### `stable_id_restorations`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -341,7 +341,7 @@ var stable_id_restorations: Dictionary = {}
 ### `resolve_consumer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func resolve_consumer(options: Dictionary = {}) -> Dictionary:
@@ -560,7 +560,7 @@ func duplicate_profile() -> GFConfigPipelineProfile:
 ### `describe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func describe() -> Dictionary:

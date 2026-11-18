@@ -336,7 +336,7 @@ var obfuscation_key: int = 0
 ### `max_decode_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -392,7 +392,7 @@ func encode(data: Dictionary, options: Dictionary = {}) -> PackedByteArray:
 ### `encode_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func encode_result(data: Dictionary, options: Dictionary = {}) -> Dictionary:

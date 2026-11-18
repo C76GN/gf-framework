@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 单次资源请求的终态事实；scope 关闭后成功事实保留，但句柄不再可用。
 
@@ -28,7 +28,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Status {
@@ -50,7 +50,7 @@ enum Status {
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -65,7 +65,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -80,7 +80,7 @@ func get_status() -> Status:
 ### `get_handle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_handle() -> GFAssetHandle:
@@ -95,7 +95,7 @@ func get_handle() -> GFAssetHandle:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_code() -> Error:

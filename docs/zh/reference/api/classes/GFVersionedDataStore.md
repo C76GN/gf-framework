@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 受控写入、原子提交的分页纯数据记录序列。 只有交给此容器的记录参与版本管理。嵌套容器按值隔离，共享引用不保留业务身份。 支持替换、追加与清空；不提供任意位置插删或通用对象图。固定版本不遍历记录。 单线程串行使用；close 后仍须保留存储并推进 collect_garbage，直到回收债务归零。
 
@@ -30,7 +30,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create(limits: Dictionary = {}) -> GFVersionedDataStore:
@@ -55,7 +55,7 @@ static func create(limits: Dictionary = {}) -> GFVersionedDataStore:
 ### `commit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func commit( replacements: Dictionary, appended: Array = [], expected_revision: int = -1 ) -> Dictionary:
@@ -84,7 +84,7 @@ func commit( replacements: Dictionary, appended: Array = [], expected_revision: 
 ### `clear`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func clear() -> Dictionary:
@@ -103,7 +103,7 @@ func clear() -> Dictionary:
 ### `acquire_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func acquire_snapshot() -> GFDataVersion:
@@ -118,7 +118,7 @@ func acquire_snapshot() -> GFDataVersion:
 ### `close`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func close() -> void:
@@ -131,7 +131,7 @@ func close() -> void:
 ### `collect_garbage`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func collect_garbage(max_nodes: int = 64) -> int:
@@ -152,7 +152,7 @@ func collect_garbage(max_nodes: int = 64) -> int:
 ### `get_statistics`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_statistics() -> Dictionary:

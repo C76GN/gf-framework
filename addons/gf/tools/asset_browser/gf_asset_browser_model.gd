@@ -738,7 +738,7 @@ func get_page(page: int = 1, page_size: int = 50) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param page: 从 1 开始的页码。
 ## [br]
@@ -774,7 +774,7 @@ func create_page_query(page: int = 1, page_size: int = 50) -> RefCounted:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param catalog_revision: 任务捕获的目录代次。
 ## [br]

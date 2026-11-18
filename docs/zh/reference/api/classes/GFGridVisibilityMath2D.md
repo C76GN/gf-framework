@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 有界二维网格的整片视野查询。 使用迭代对称阴影扫描，只返回当前可见格，不持有场景、阵营或探索历史。 固定允许两堵仅在角点接触的墙之间透视；不等价于 Bresenham 点对点 LOS。 每次调用独立缓存阻挡值，回调须同步且不修改正在查询的地图。
 
@@ -26,7 +26,7 @@
 ### `MAX_RADIUS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const MAX_RADIUS: int = 128
@@ -39,7 +39,7 @@ const MAX_RADIUS: int = 128
 ### `MAX_CELLS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const MAX_CELLS: int = 66049
@@ -54,7 +54,7 @@ const MAX_CELLS: int = 66049
 ### `compute_fov`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func compute_fov( grid_size: Vector2i, origin: Vector2i, radius: int, is_blocking: Callable, include_walls: bool = true, max_cells: int = MAX_CELLS ) -> Dictionary:

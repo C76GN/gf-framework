@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一个已经固定版本的记录序列读取租约。 每个实例独占一次读取租约；交给捕获会话后由会话或成功快照释放。 项目适配器负责保持版本稳定，逐条返回已就绪的 GFDataSnapshot。 单条读取必须有界；本协议不提供线程同步，也不验证项目底层存储的不可变性。
 
@@ -32,7 +32,7 @@
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_available() -> bool:
@@ -47,7 +47,7 @@ func is_available() -> bool:
 ### `get_record_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_record_count() -> int:
@@ -62,7 +62,7 @@ func get_record_count() -> int:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_revision() -> int:
@@ -77,7 +77,7 @@ func get_revision() -> int:
 ### `read_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func read_record(index: int) -> GFDataSnapshot:
@@ -98,7 +98,7 @@ func read_record(index: int) -> GFDataSnapshot:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func release() -> void:
@@ -111,7 +111,7 @@ func release() -> void:
 ### `_get_record_count`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _get_record_count() -> int:
@@ -126,7 +126,7 @@ func _get_record_count() -> int:
 ### `_get_revision`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _get_revision() -> int:
@@ -141,7 +141,7 @@ func _get_revision() -> int:
 ### `_read_record`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _read_record(_index: int) -> GFDataSnapshot:
@@ -162,7 +162,7 @@ func _read_record(_index: int) -> GFDataSnapshot:
 ### `_release`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _release() -> void:

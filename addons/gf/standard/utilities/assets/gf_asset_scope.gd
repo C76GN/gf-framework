@@ -6,7 +6,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFAssetScope
 extends RefCounted
 
@@ -61,7 +61,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close() -> void:
 	stop_accepting_for_framework()
 	var operations: Array[GFAssetLoadOperation] = _operations.duplicate()
@@ -78,7 +78,7 @@ func close() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 未关闭且 owner 存活时为 true。
 func is_open() -> bool:
@@ -98,7 +98,7 @@ func is_open() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func stop_accepting_for_framework() -> void:
 	if _closed:
 		return

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="4b22302829733f8a8213cb82d21ad7ca9eb030d0ff503fce076b199820352f1d">
+<class name="GFUIRouterUtility" path="addons/gf/standard/utilities/ui/gf_ui_router_utility.gd" module="standard" extends="GFUtility" classDigest="c2e6290a7f62121dd8a0d6311f0b450ac334583b31f4e569cb64e1f7fd6e9689">
 	<description>GFUIRouterUtility: 基于路由 ID 的 UI 导航工具。
 作为 GFUIUtility 之上的轻量路由层，负责把稳定 route_id 映射到面板场景、
 打开参数、层级和历史记录，不接管具体页面业务或动画表现。</description>
@@ -144,7 +144,7 @@ Node owner 和 GFAsyncScope 取消通过信号处理；普通 Object 与正常�
 				<tag name="api">public</tag>
 				<tag name="param">clock: 非空时钟；默认服务直接使用 GFClock。</tag>
 				<tag name="return">未释放且没有 pending 请求时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure">

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncJournal" path="addons/gf/standard/utilities/storage/gf_storage_sync_journal.gd" module="standard" extends="RefCounted" classDigest="a318de1f6d7739e96476fca59587a6de7fe1772de230c16b0f5e05a7e4cd6686">
+<class name="GFStorageSyncJournal" path="addons/gf/standard/utilities/storage/gf_storage_sync_journal.gd" module="standard" extends="RefCounted" classDigest="577c5d330064e9f7aa465086f2c960beadfee0d3847def877e2985c3155703b2">
 	<description>GFStorageSyncJournal: 同步意图与提交结果的持久化边界。
 完成源成功表示持久化已经确认，不能只表示已排队或内存更新。一个记录只能有一个
 未解决意图；不同 operation_id 不得覆盖它。Save 通过现有 Profile 事务实现本接口，
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -21,7 +21,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">request: 即将发送的冻结请求，包含实际 CAS revision。</tag>
 				<tag name="return">成功表示意图已持久化；失败或未知时引擎不得发送远端写入。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="persist_outcome">
@@ -35,7 +35,7 @@
 				<tag name="param">outcome: 已经过协议校验的远端终态。</tag>
 				<tag name="return">成功表示 checkpoint 已持久化；失败要求保留待恢复状态。</tag>
 				<tag name="schema">outcome: Closed Dictionary following GFStorageSyncTransport.conditional_write(); status is committed,conflict or not_committed. Contains namespace,key,operation_id,exists,revision,data; may contain business payload and must not be logged.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_intent">
@@ -47,7 +47,7 @@
 				<tag name="param">record_key: 稳定记录键。</tag>
 				<tag name="return">成功结果为规范意图记录；空字典仅表示确认不存在意图，读取失败不得冒充空。</tag>
 				<tag name="schema">return: GFAsyncCompletion success result is Dictionary accepted by GFStorageSyncRequest.from_record(), or empty Dictionary when no unresolved intent exists.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_persist_intent">
@@ -57,7 +57,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">_request: 冻结意图。</tag>
 				<tag name="return">主线程完成源，成功必须表示持久化完成。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_persist_outcome">
@@ -69,7 +69,7 @@
 				<tag name="param">_outcome: 已校验结果。</tag>
 				<tag name="return">主线程完成源。</tag>
 				<tag name="schema">_outcome: Closed transport result described by persist_outcome().</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_load_intent">
@@ -80,7 +80,7 @@
 				<tag name="param">_record_namespace: 稳定命名空间。</tag>
 				<tag name="param">_record_key: 稳定记录键。</tag>
 				<tag name="return">主线程完成源，成功值遵守 load_intent() 契约。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

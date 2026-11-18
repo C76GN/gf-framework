@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageSyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd" module="standard" extends="RefCounted" classDigest="fa1b5cf302bf90750f314a0257745d59310125fc47ed431b294df3540e8c8d64">
+<class name="GFStorageSyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_sync_operation.gd" module="standard" extends="RefCounted" classDigest="ebeeaac4a984ca33f65a3ae3eb0539bba270e69aecaba0bad5ac9e0595065b51">
 	<description>GFStorageSyncOperation: 一次同步观察的取消与唯一终态句柄。
 取消只结束调用方等待，不能证明远端停止写入。已发送提交的取消、超时或释放结果
 由引擎报告为未知，并通过原操作 ID 恢复；迟到响应不会改变已经交付的终态。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -15,7 +15,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">result: 不可变终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -29,7 +29,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已交付终态返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -38,7 +38,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">终态；等待中为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_result_async">
@@ -47,7 +47,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不可变终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_wait">
@@ -56,7 +56,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首次仍在等待的请求返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_cancel_requested">
@@ -65,7 +65,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已请求返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

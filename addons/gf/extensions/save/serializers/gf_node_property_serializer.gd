@@ -17,7 +17,7 @@ extends GFNodeSerializer
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const PREPARED_PAYLOADS_CONTEXT_KEY: StringName = &"_gf_save_prepared_property_payloads"
 
 ## 编码预算通过后验证原始纯数据值，避免 Float/Vector 等类型标记隐藏 Save 禁止的非有限分量。
@@ -195,7 +195,7 @@ func apply(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param node: 目标节点。
 ## [br]

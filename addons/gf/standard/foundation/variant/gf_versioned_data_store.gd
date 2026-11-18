@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFVersionedDataStore
 extends RefCounted
 
@@ -95,7 +95,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param limits: 正整数限制，未知选项被拒绝。
 ## [br]
@@ -140,7 +140,7 @@ static func create(limits: Dictionary = {}) -> GFVersionedDataStore:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param replacements: 已有非负记录位置到新纯数据值的映射。
 ## [br]
@@ -237,7 +237,7 @@ func commit(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 新版本或失败原因；回收由 collect_garbage 推进。
 ## [br]
@@ -270,7 +270,7 @@ func clear() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 独占读取租约；关闭或读者预算耗尽为 null。
 func acquire_snapshot() -> GFDataVersion:
@@ -301,7 +301,7 @@ func acquire_snapshot() -> GFDataVersion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close() -> void:
 	if not _open:
 		return
@@ -318,7 +318,7 @@ func close() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param max_nodes: 本次最多回收的节点数，必须为正。
 ## [br]
@@ -333,7 +333,7 @@ func collect_garbage(max_nodes: int = 64) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 纯标量诊断副本，pending_nodes 为零表示当前没有回收债务。
 ## [br]

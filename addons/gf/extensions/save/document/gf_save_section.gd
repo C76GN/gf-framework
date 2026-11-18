@@ -274,7 +274,7 @@ func duplicate_section() -> GFSaveSection:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param read_result: 同次已验证读取；为空或已迁移时清除来源。
 ## [br]
@@ -302,7 +302,7 @@ func bind_storage_json_projection_for_framework(read_result: GFStorageReadResult
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 内部来源记录或无来源时的空字典；不复制共享的原始 JSON 树。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVersionedDataStore" path="addons/gf/standard/foundation/variant/gf_versioned_data_store.gd" module="standard" extends="RefCounted" classDigest="3172aed64e439e9e97c75e7a562d4e221971aec9e84b553cf51c05b1d5a3585f">
+<class name="GFVersionedDataStore" path="addons/gf/standard/foundation/variant/gf_versioned_data_store.gd" module="standard" extends="RefCounted" classDigest="25e6490e3dd70062fbc7e41e4d41d62b7f5ae1c2720118529d5d3ac4fb01ad1b">
 	<description>GFVersionedDataStore: 受控写入、原子提交的分页纯数据记录序列。
 只有交给此容器的记录参与版本管理。嵌套容器按值隔离，共享引用不保留业务身份。
 支持替换、追加与清空；不提供任意位置插删或通用对象图。固定版本不遍历记录。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -22,7 +22,7 @@
 				<tag name="param">limits: 正整数限制，未知选项被拒绝。</tag>
 				<tag name="return">开放存储；非法配置返回 null。</tag>
 				<tag name="schema">limits: Dictionary with optional max_records (1000000, at most 2147483647), max_owned_bytes (134217728), max_nodes (2000000), max_versions (16), max_readers (64), max_record_items (4096), max_record_payload_bytes (65536), max_record_depth (32, at most 255), max_record_elapsed_msec (100). Byte accounting includes unique retained nodes, staged input allowance and pending reclamation; it is not process RSS.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit">
@@ -39,7 +39,7 @@
 				<tag name="schema">replacements: Dictionary[int, Variant], positions must be less than current count; values follow GFDataSnapshot pure-data rules and per-record limits.</tag>
 				<tag name="schema">appended: Array of pure-data records, each independently isolated.</tag>
 				<tag name="schema">return: Dictionary with ok: bool, revision: int, error_kind: String; optional record_error: Dictionary from GFDataSnapshot.capture without snapshot.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">
@@ -49,7 +49,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">新版本或失败原因；回收由 collect_garbage 推进。</tag>
 				<tag name="schema">return: Dictionary with ok: bool, revision: int and error_kind: String.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="acquire_snapshot">
@@ -58,7 +58,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">独占读取租约；关闭或读者预算耗尽为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="close">
@@ -66,7 +66,7 @@
 			<description>停止写入与新租约，退还当前根；现有租约继续有效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="collect_garbage">
@@ -76,7 +76,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">max_nodes: 本次最多回收的节点数，必须为正。</tag>
 				<tag name="return">实际回收数量；不会扫描仍被保留的版本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_statistics">
@@ -86,7 +86,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">纯标量诊断副本，pending_nodes 为零表示当前没有回收债务。</tag>
 				<tag name="schema">return: Dictionary with open: bool, revision, count, charged_bytes, peak_bytes, nodes, pending_nodes, versions and readers: int. Caller-owned detached read copies are outside store accounting.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

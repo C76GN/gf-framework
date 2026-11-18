@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkRequestTracker" path="addons/gf/extensions/network/runtime/gf_network_request_tracker.gd" module="extensions/network" extends="RefCounted" classDigest="735f861d6af48d3551743a4d5ef5b72e8dbe0c02eecfdced80b8c158fcb91cc9">
+<class name="GFNetworkRequestTracker" path="addons/gf/extensions/network/runtime/gf_network_request_tracker.gd" module="extensions/network" extends="RefCounted" classDigest="623b1d427131ab1a218f206a10b60acd2f87b726c3ab2c95a980ff597e2153ea">
 	<description>GFNetworkRequestTracker: 可选的有界网络请求关联器。
 主线程显式驱动会话、请求与回复，不拥有传输后端，不解释业务成功或自动重试。
 send 回调同步接收必须原样回显的请求 ID；适配器识别回复后传入真实传输 peer。
@@ -7,7 +7,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -21,7 +21,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 				<tag name="api">public</tag>
 				<tag name="param">clock: 同步、无副作用的单调时钟；null 使用系统 GFClock。</tag>
 				<tag name="param">max_pending: 在途上限，必须为 1 至 4096；无效配置无法开始会话。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dispose">
@@ -29,7 +29,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 			<description>不可逆地关闭准入并终结所有在途请求，不关闭共享网络工具。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="begin_session">
@@ -39,7 +39,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功为 OK；非主线程、已释放或开启期间被关闭为 ERR_UNAVAILABLE，清理中为 ERR_BUSY，无效配置为 ERR_INVALID_PARAMETER。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="end_session">
@@ -47,7 +47,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 			<description>结束当前会话；批量提交所有旧终态后才发通知。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="disconnect_peer">
@@ -56,7 +56,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">peer_id: 实际传输 peer，必须大于 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="request">
@@ -70,7 +70,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 				<tag name="param">send: 同步 Callable，接收不透明 String 请求 ID 并返回 Error；不得 await。</tag>
 				<tag name="param">timeout_msec: 单调超时，1 至 86400000 毫秒，不允许无限等待。</tag>
 				<tag name="return">在途或已完成句柄；非主线程返回 null 且不发送。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="receive_reply">
@@ -85,7 +85,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 				<tag name="param">response: 需要保留的回复值，可为 null。</tag>
 				<tag name="return">本次提交 received 终态时为 true；其他情况为 false。</tag>
 				<tag name="schema">response: Variant，传输安全纯值；拒绝 Object、Callable、Signal、RID、循环和非有限数，限制深度 16、节点 4096、估算传输字节 65536。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="tick">
@@ -94,7 +94,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 本次到期集合在通知前全部提交；监听者新建的请求留待下一次 tick。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_pending_count">
@@ -103,7 +103,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">在途数量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">
@@ -113,7 +113,7 @@ send 回调同步接收必须原样回显的请求 ID；适配器识别回复后
 				<tag name="api">public</tag>
 				<tag name="return">当前关联器状态。</tag>
 				<tag name="schema">return: Dictionary，包含 active、disposed、pending_count、max_pending。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

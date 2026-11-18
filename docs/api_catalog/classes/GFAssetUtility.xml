@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="823f238ad97a09b89500d53a850a278c803f66ba783c4f545a44f5e108d8cc44">
+<class name="GFAssetUtility" path="addons/gf/standard/utilities/assets/gf_asset_utility.gd" module="standard" extends="GFUtility" classDigest="c1be920dde5c80b2c6f8885af09ea237b004fd378e6cc97e3e645a96ac27a245">
 	<description>GFAssetUtility: 异步资源加载管理器，带 LRU 缓存。
 封装 Godot 的 threaded `ResourceLoader` 请求，
 用于避免大资源同步加载阻塞主线程，并在完成后统一分发回调与维护缓存。</description>
@@ -155,7 +155,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">domain: 已配置且接纳请求的服务域。</tag>
 				<tag name="return">已有不同绑定返回 ERR_ALREADY_IN_USE；未就绪域返回 ERR_UNAVAILABLE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="setup_standalone_resource_broker">
@@ -187,7 +187,7 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 				<tag name="api">public</tag>
 				<tag name="param">owner: 可选 owner；Node 退出树自动关闭，其余 owner 失效由 tick 检测。</tag>
 				<tag name="return">独立资源 scope。服务释放时一并关闭。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_async">
@@ -214,7 +214,7 @@ set_resource_broker()；本入口只适合单个独立 Utility。</description>
 				<tag name="param">type_hint: 可选资源类型提示。</tag>
 				<tag name="param">resource_override: 可选资源实例；为空时使用缓存。</tag>
 				<tag name="return">成功句柄；scope 关闭或资源不可用时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release_handle">

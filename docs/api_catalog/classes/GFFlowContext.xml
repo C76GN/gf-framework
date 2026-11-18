@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="28a4ddfdaee13c17c2cf48fbb37d242eb0198be01f17df8479a71180de71ed37">
+<class name="GFFlowContext" path="addons/gf/extensions/flow/runtime/gf_flow_context.gd" module="extensions/flow" extends="RefCounted" classDigest="ad08dd97dda2f50d78e35b127855fe118853eb9a5f862c60f443f4c36421f8dc">
 	<description>GFFlowContext: 各次流程运行共享的业务上下文。
 用于在流程节点之间共享数据，并提供可选的 GFArchitecture 访问入口。</description>
 	<tags>
@@ -127,7 +127,7 @@
 				<tag name="return">独立业务数据快照。</tag>
 				<tag name="schema">options: 可选布尔开关与项目附加的 metadata 字典。</tag>
 				<tag name="schema">return: 包含 values、metadata 以及可选 condition_handler_ids。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

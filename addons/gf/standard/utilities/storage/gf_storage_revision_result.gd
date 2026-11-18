@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageRevisionResult
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Status {
 	## 已取得成功提交对应的非空 revision。
 	AVAILABLE,
@@ -66,7 +66,7 @@ var _revision: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param revision: 非空不透明字符串；原样保存，不裁剪或解析。
 ## [br]
@@ -85,7 +85,7 @@ static func available(revision: String) -> GFStorageRevisionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param status: 除 AVAILABLE 外的有效 Status。
 ## [br]
@@ -109,7 +109,7 @@ static func failure(status: Status, error: Error) -> GFStorageRevisionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 仅 AVAILABLE、OK 与非空 revision 同时成立时返回 true。
 func is_successful() -> bool:
@@ -124,7 +124,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时为 OK；失败时为非 OK 错误码。
 func get_error_code() -> Error:
@@ -135,7 +135,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return Status 枚举值。
 func get_status() -> Status:
@@ -146,7 +146,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时为原始 revision；失败时为空字符串。
 func get_revision() -> String:
@@ -157,7 +157,7 @@ func get_revision() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 修改返回字典不会改变当前结果或其他字典副本。
 ## [br]

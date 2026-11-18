@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="6aa6c59a78479eb39a6ce44206160dda0b7c2672322ace58b818c569c46a2a5d">
+<class name="GFObjectPoolUtility" path="addons/gf/standard/utilities/nodes/gf_object_pool_utility.gd" module="standard" extends="GFUtility" classDigest="e958a539fe3c2dd3841fd5cf0e569a651b26a161b177a43a328f83e8652c5a38">
 	<description>GFObjectPoolUtility: 在安全点借出和归还节点的对象池。
 空闲实例完全离树；借出时返回一次性 Lease。所有挂载、脱树及清理均在主线程
 deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) -&gt; Error，
@@ -75,7 +75,7 @@ deferred 安全点执行。根节点可实现同步 on_gf_pool_prepare(context) 
 			<description>等待 dispose 已发起的节点清理及全部已接纳请求与 Lease 的终态通知；允许在完成后重复等待。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_available_count">

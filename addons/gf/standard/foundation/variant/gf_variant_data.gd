@@ -79,7 +79,7 @@ static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Varian
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 稳定的纯 Variant。
 ## [br]
@@ -101,7 +101,7 @@ static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 待复制的值。
 ## [br]

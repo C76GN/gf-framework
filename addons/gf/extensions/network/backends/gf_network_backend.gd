@@ -322,7 +322,7 @@ func _reset_transport_metrics() -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func _reset_transport_connection() -> void:
 	_transport_connected = false
 	_transport_connected_at_msec = 0

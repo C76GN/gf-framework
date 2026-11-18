@@ -197,7 +197,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param launch_input: 可选 typed 调用输入；容器值复制，目标节点保持弱引用。
 ## [br]

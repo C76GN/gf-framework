@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次 committed revision 查询的不可变结果。 revision 是只用于相等比较的不透明字符串，不表示时间顺序或内容完整性。 通过工厂创建结果；未使用工厂创建的实例保持 INVALID_REQUEST 失败状态。
 
@@ -31,7 +31,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Status {
@@ -63,7 +63,7 @@ committed revision 的可用性与失败分类。
 ### `available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func available(revision: String) -> GFStorageRevisionResult:
@@ -84,7 +84,7 @@ static func available(revision: String) -> GFStorageRevisionResult:
 ### `failure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func failure(status: Status, error: Error) -> GFStorageRevisionResult:
@@ -106,7 +106,7 @@ static func failure(status: Status, error: Error) -> GFStorageRevisionResult:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -121,7 +121,7 @@ func is_successful() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -136,7 +136,7 @@ func get_error_code() -> Error:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -151,7 +151,7 @@ func get_status() -> Status:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_revision() -> String:
@@ -166,7 +166,7 @@ func get_revision() -> String:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

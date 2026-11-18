@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次同步观察的不可变终态。 COMMITTED 表示远端提交与本地 checkpoint 均已确认。OUTCOME_UNKNOWN 表示无法 查证远端结果；RECOVERY_REQUIRED 可以表示远端已确认而本地 checkpoint 尚未确认。 preview 和 remote_selected 都不表示已写入本地业务状态。
 
@@ -37,7 +37,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Status {
@@ -71,7 +71,7 @@ enum Status {
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -86,7 +86,7 @@ func is_valid() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -101,7 +101,7 @@ func get_status() -> Status:
 ### `get_status_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status_name() -> StringName:
@@ -116,7 +116,7 @@ func get_status_name() -> StringName:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -131,7 +131,7 @@ func is_successful() -> bool:
 ### `requires_recovery`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func requires_recovery() -> bool:
@@ -146,7 +146,7 @@ func requires_recovery() -> bool:
 ### `get_request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_request() -> GFStorageSyncRequest:
@@ -161,7 +161,7 @@ func get_request() -> GFStorageSyncRequest:
 ### `get_error_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_kind() -> StringName:
@@ -176,7 +176,7 @@ func get_error_kind() -> StringName:
 ### `record_exists`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func record_exists() -> bool:
@@ -191,7 +191,7 @@ func record_exists() -> bool:
 ### `get_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_revision() -> String:
@@ -206,7 +206,7 @@ func get_revision() -> String:
 ### `get_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_data() -> Dictionary:
@@ -225,7 +225,7 @@ func get_data() -> Dictionary:
 ### `is_remote_committed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_remote_committed() -> bool:
@@ -240,7 +240,7 @@ func is_remote_committed() -> bool:
 ### `get_conflict_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_conflict_report() -> GFStorageConflictReport:
@@ -255,7 +255,7 @@ func get_conflict_report() -> GFStorageConflictReport:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

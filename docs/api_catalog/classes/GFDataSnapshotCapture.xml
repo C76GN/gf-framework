@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataSnapshotCapture" path="addons/gf/standard/foundation/variant/gf_data_snapshot_capture.gd" module="standard" extends="RefCounted" classDigest="c2e76addcc492f2a549cb8bb0262db86079a0f75e8bac0096fccf04419a9f1da">
+<class name="GFDataSnapshotCapture" path="addons/gf/standard/foundation/variant/gf_data_snapshot_capture.gd" module="standard" extends="RefCounted" classDigest="a183dd58bad8b25b64bebcad6383dc5c00f123b2a14afa53b8f1dc5130b8be55">
 	<description>GFDataSnapshotCapture: 从固定版本记录源按共享帧预算构造完整快照。
 一个 step 是一条有界记录，不是一个任意大小的对象图。帧额度耗尽仅暂停，
 累计数据、工作时间和生命期超限失败。失败输出逐条清理，完成前不交付快照。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -24,7 +24,7 @@
 				<tag name="param">clock: 可选单调时钟，用于确定性预算测试；为空时使用系统时钟。</tag>
 				<tag name="return">会话；非法输入产生已失败会话，报告说明原因。</tag>
 				<tag name="schema">limits: Dictionary with optional positive max_records (1000000), max_items (1000000), max_payload_bytes (67108864), max_depth (64, at most 256), max_record_items (4096), max_record_payload_bytes (65536), max_work_msec (30000), max_age_msec (120000). Per-record limits bound the admitted unit; adapter callbacks must themselves be bounded.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="advance">
@@ -34,7 +34,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">budget: 本帧共享额度，一个 step 对应一条记录或一次清理；调用方每帧重置一次。</tag>
 				<tag name="return">pending、ready、failed 或 cancelled；失败不一定已物理 settled。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">
@@ -42,7 +42,7 @@
 			<description>请求取消；若适配器正在读取，只在它返回后停止并释放。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_snapshot">
@@ -51,7 +51,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">ready 时的唯一快照；否则为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_report">
@@ -61,7 +61,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">标量状态和累计计量副本。</tag>
 				<tag name="schema">return: Dictionary with state, error_kind: String, settled: bool, processed_records, total_records, source_revision, items, payload_bytes, work_msec: int. Ready transfers the lease to the result; failed settlement requires advance with a fresh budget.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

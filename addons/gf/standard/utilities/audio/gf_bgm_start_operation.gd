@@ -114,7 +114,7 @@ func get_result() -> GFBgmStartResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前启动请求的隔离结果。
 func wait_result_async() -> GFBgmStartResult:

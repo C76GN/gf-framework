@@ -84,7 +84,7 @@ var _service_generation: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 固定代次；直接 Broker 绑定为 0。
 func get_service_generation() -> int:

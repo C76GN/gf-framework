@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataBatchSnapshot" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd" module="extensions/data_batch" extends="RefCounted" classDigest="a3d451f6b5e18289e8897f65b06f86195423b8d910a6c735112169cb10cef56a">
+<class name="GFDataBatchSnapshot" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd" module="extensions/data_batch" extends="RefCounted" classDigest="b7638c7874728b381a7c06fb7e52531cb073822aee30a2e24e4dfa410d37f469">
 	<description>GFDataBatchSnapshot: 固定元数据和数值列的独立发布快照。
 发布者替换或关闭后仍可读取。copy 方法提供修改隔离；borrow 方法返回共享
 PackedArray，只能按合作约定读取。Godot 不提供此类数组的强制只读或 move 保证。
@@ -7,7 +7,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">schema；直接 new 的未发布对象为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_producer_id">
@@ -29,7 +29,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">固定的生产者标识。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_producer_generation">
@@ -38,7 +38,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">固定的正代次。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_publication_sequence">
@@ -47,7 +47,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正发布序号；不代表此快照仍是当前发布。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_structural_revision">
@@ -56,7 +56,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">行身份、顺序和布局的版本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_value_revision">
@@ -65,7 +65,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">数值版本，不依赖帧或 tick。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_count">
@@ -74,7 +74,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不超过 capacity 的行数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_capacity">
@@ -83,7 +83,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">列容量。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_payload_bytes">
@@ -92,7 +92,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">capacity 乘以 schema 每行字节数。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="copy_int32_column">
@@ -102,7 +102,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 				<tag name="api">public</tag>
 				<tag name="param">column_index: 初始化时绑定的 Int32 列索引。</tag>
 				<tag name="return">独立 PackedInt32Array；索引或类型不匹配返回空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="copy_int64_column">
@@ -112,7 +112,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 				<tag name="api">public</tag>
 				<tag name="param">column_index: 初始化时绑定的 Int64 列索引。</tag>
 				<tag name="return">独立 PackedInt64Array；索引或类型不匹配返回空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="borrow_int32_column">
@@ -122,7 +122,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 				<tag name="api">public</tag>
 				<tag name="param">column_index: 初始化时绑定的 Int32 列索引。</tag>
 				<tag name="return">共享 PackedInt32Array；索引或类型不匹配返回空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="borrow_int64_column">
@@ -132,7 +132,7 @@ count 是有效前缀长度，capacity 是列数组长度，容量尾部不属�
 				<tag name="api">public</tag>
 				<tag name="param">column_index: 初始化时绑定的 Int64 列索引。</tag>
 				<tag name="return">共享 PackedInt64Array；索引或类型不匹配返回空数组。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

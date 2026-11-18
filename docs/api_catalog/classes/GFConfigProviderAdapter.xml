@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFConfigProviderAdapter" path="addons/gf/standard/utilities/config/gf_config_provider_adapter.gd" module="standard" extends="GFResourceConfigProvider" classDigest="0e9300814b32dbed75d3bff8319774dab426d3e0fcb2e453d85b96c205206673">
+<class name="GFConfigProviderAdapter" path="addons/gf/standard/utilities/config/gf_config_provider_adapter.gd" module="standard" extends="GFResourceConfigProvider" classDigest="2649933754a548b1f5772fb6b3a9df076399f82c20db69852787bacb5f81e591">
 	<description>GFConfigProviderAdapter: 外部配置来源的显式捕获适配器。
 注册仅建立来源清单；prepare_tables() 捕获引用闭包，load_tables() 验收后发布。
 查询继承已发布快照协议，不执行加载器。生成对象提供整表方法，或明确的
@@ -62,7 +62,7 @@ record_ids 与记录方法；对象记录通过 record_projector 转为 Dictiona
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">排序后的来源表名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prepare_tables">
@@ -77,7 +77,7 @@ record_ids 与记录方法；对象记录通过 record_projector 转为 Dictiona
 				<tag name="return">候选及其发布代际，失败不影响活动数据。</tag>
 				<tag name="schema">options: Dictionary，与 prepare_update() 相同；非空来源 content_version 必须匹配 version。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、snapshot、expected_generation；成功另含 prepared_tables、source_generation、validation_report、work_report。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="load_tables">
@@ -90,7 +90,7 @@ record_ids 与记录方法；对象记录通过 record_projector 转为 Dictiona
 				<tag name="return">准备诊断与发布结果。</tag>
 				<tag name="schema">options: Dictionary，可包含 version、removed_tables、work_budget 或 work_limits。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、generation，以及准备结果中的诊断字段。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_load_report">

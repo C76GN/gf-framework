@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Resolution {
 	## 尚未决定。
 	UNRESOLVED,
@@ -47,7 +47,7 @@ var _record: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param record_namespace: 记录命名空间。
 ## [br]
@@ -118,7 +118,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param resolution: 明确的解决方式。
 ## [br]
@@ -146,7 +146,7 @@ func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorage
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立报告副本。
 func duplicate_report() -> GFStorageConflictReport:
@@ -157,7 +157,7 @@ func duplicate_report() -> GFStorageConflictReport:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 稳定命名空间。
 func get_namespace() -> String:
@@ -168,7 +168,7 @@ func get_namespace() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 稳定记录键。
 func get_key() -> String:
@@ -179,7 +179,7 @@ func get_key() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不透明 revision。
 func get_expected_revision() -> String:
@@ -190,7 +190,7 @@ func get_expected_revision() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不透明 revision。
 func get_actual_revision() -> String:
@@ -201,7 +201,7 @@ func get_actual_revision() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 完整候选副本。
 ## [br]
@@ -214,7 +214,7 @@ func get_local_data() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 完整候选副本。
 ## [br]
@@ -227,7 +227,7 @@ func get_remote_data() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 尚未持久化的候选副本。
 ## [br]
@@ -240,7 +240,7 @@ func get_resolved_data() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已观察远端存在时为 true。
 func remote_exists() -> bool:
@@ -251,7 +251,7 @@ func remote_exists() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return Resolution 枚举值。
 func get_resolution() -> Resolution:
@@ -273,7 +273,7 @@ func get_resolution() -> Resolution:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已选择或跳过时为 true。
 func is_resolved() -> bool:
@@ -284,7 +284,7 @@ func is_resolved() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 诊断摘要。
 ## [br]

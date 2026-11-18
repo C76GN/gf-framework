@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 每个消费者独立的资源请求。完成通知无条件发生，取消只影响本请求。
 
@@ -28,7 +28,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal completed(result: GFAssetLoadResult)
@@ -49,7 +49,7 @@ signal completed(result: GFAssetLoadResult)
 ### `wait_result_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_result_async() -> GFAssetLoadResult:
@@ -64,7 +64,7 @@ func wait_result_async() -> GFAssetLoadResult:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_result() -> GFAssetLoadResult:
@@ -79,7 +79,7 @@ func get_result() -> GFAssetLoadResult:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -94,7 +94,7 @@ func is_completed() -> bool:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel() -> bool:

@@ -9,7 +9,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageRevisionMigration
 extends RefCounted
 
@@ -98,7 +98,7 @@ var _descriptors_captured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param save_dir_name: 与 GFStorageUtility.save_dir_name 相同的合法存储目录配置。
 ## [br]

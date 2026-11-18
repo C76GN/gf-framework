@@ -18,7 +18,7 @@ extends GFConfigProvider
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param database: 待捕获的作者数据库。
 ## [br]
@@ -48,7 +48,7 @@ func prepare_database(database: GFConfigDatabaseResource, options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param database: 待发布的数据库。
 ## [br]
@@ -67,7 +67,7 @@ func replace_database(database: GFConfigDatabaseResource, options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param tables: 本次新增或替换的表。
 ## [br]
@@ -104,7 +104,7 @@ func prepare_update(tables: Array[GFConfigTableResource], options: Dictionary = 
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param tables: 新增或替换的表。
 ## [br]

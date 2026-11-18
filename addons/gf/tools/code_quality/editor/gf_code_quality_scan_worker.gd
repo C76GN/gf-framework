@@ -9,7 +9,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFCodeQualityScanWorker
 extends RefCounted
 
@@ -46,7 +46,7 @@ var _cancelled: bool = false
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 主线程准备的单次请求。
 ## [br]
@@ -97,7 +97,7 @@ func run_request(request: Dictionary) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel() -> void:
 	_cancel_mutex.lock()
 	_cancelled = true

@@ -38,7 +38,7 @@
 ### `Resolution`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Resolution {
@@ -64,7 +64,7 @@ enum Resolution {
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( record_namespace: String, record_key: String, local_data: Dictionary, remote_data: Dictionary, options: Dictionary = {} ) -> GFStorageConflictReport:
@@ -95,7 +95,7 @@ static func create( record_namespace: String, record_key: String, local_data: Di
 ### `with_resolution`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorageConflictReport:
@@ -121,7 +121,7 @@ func with_resolution(resolution: Resolution, data: Dictionary = {}) -> GFStorage
 ### `duplicate_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func duplicate_report() -> GFStorageConflictReport:
@@ -136,7 +136,7 @@ func duplicate_report() -> GFStorageConflictReport:
 ### `get_namespace`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_namespace() -> String:
@@ -151,7 +151,7 @@ func get_namespace() -> String:
 ### `get_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_key() -> String:
@@ -166,7 +166,7 @@ func get_key() -> String:
 ### `get_expected_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_expected_revision() -> String:
@@ -181,7 +181,7 @@ func get_expected_revision() -> String:
 ### `get_actual_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_actual_revision() -> String:
@@ -196,7 +196,7 @@ func get_actual_revision() -> String:
 ### `get_local_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_local_data() -> Dictionary:
@@ -215,7 +215,7 @@ func get_local_data() -> Dictionary:
 ### `get_remote_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_remote_data() -> Dictionary:
@@ -234,7 +234,7 @@ func get_remote_data() -> Dictionary:
 ### `get_resolved_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_resolved_data() -> Dictionary:
@@ -253,7 +253,7 @@ func get_resolved_data() -> Dictionary:
 ### `remote_exists`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func remote_exists() -> bool:
@@ -268,7 +268,7 @@ func remote_exists() -> bool:
 ### `get_resolution`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_resolution() -> Resolution:
@@ -283,7 +283,7 @@ func get_resolution() -> Resolution:
 ### `is_resolved`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_resolved() -> bool:
@@ -298,7 +298,7 @@ func is_resolved() -> bool:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

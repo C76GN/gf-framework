@@ -365,7 +365,7 @@ func make_manifest(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile: 当前作者声明；同时摘要内存声明与已保存资源依赖。
 ## [br]

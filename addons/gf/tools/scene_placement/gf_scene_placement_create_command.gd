@@ -8,7 +8,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFScenePlacementCreateCommand
 extends GFEditorCommand
 
@@ -64,7 +64,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 失效父节点或场景返回错误，不写入其他场景。
 func _do_it() -> Error:
@@ -127,7 +127,7 @@ func _do_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 实例或原父节点失效时返回错误。
 func _undo_it() -> Error:
@@ -145,7 +145,7 @@ func _undo_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 原场景根或 null。
 func _get_undo_context() -> Object:
@@ -156,7 +156,7 @@ func _get_undo_context() -> Object:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 实际发生结构修改的父节点。
 func _get_undo_targets() -> Array[Object]:
@@ -170,7 +170,7 @@ func _get_undo_targets() -> Array[Object]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source: 已选择的场景。
 ## [br]
@@ -198,7 +198,7 @@ func configure(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 仍存活的创建实例。
 func get_instance() -> Node3D:

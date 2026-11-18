@@ -7,7 +7,7 @@
 - 继承：`VBoxContainer`
 - API：`public`
 - 类别：编辑器 API (`editor_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 编辑器中多个对象的单属性暂存输入。 显示一致、混合、缺失与不兼容状态。标量整值编辑，Vector2/3/4 及其整数类型按分量编辑。 输入不写对象；调用方将 prepare_changes 的结果交给 GFEditorPropertyBatchCommand。 目标在暂存期间使用弱引用，取消、重新配置和离树均丢弃草稿。
 
@@ -28,7 +28,7 @@
 ### `draft_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal draft_changed()
@@ -43,7 +43,7 @@ signal draft_changed()
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func configure(targets: Array[Object], property: StringName) -> void:
@@ -63,7 +63,7 @@ func configure(targets: Array[Object], property: StringName) -> void:
 ### `cancel_edit`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_edit() -> void:
@@ -76,7 +76,7 @@ func cancel_edit() -> void:
 ### `get_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_snapshot() -> Dictionary:
@@ -95,7 +95,7 @@ func get_snapshot() -> Dictionary:
 ### `prepare_changes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_changes() -> Dictionary:

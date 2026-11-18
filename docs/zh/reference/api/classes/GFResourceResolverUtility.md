@@ -411,7 +411,7 @@ func load( resource_key: StringName, type_hint_override: String = "", cache_mode
 ### `load_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func load_async( asset_utility: GFAssetUtility, resource_key: StringName, scope: GFAssetScope, type_hint_override: String = "", options: Dictionary = {} ) -> GFAssetLoadOperation:

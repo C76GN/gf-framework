@@ -578,7 +578,7 @@ func load(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param asset_utility: 资源服务。
 ## [br]

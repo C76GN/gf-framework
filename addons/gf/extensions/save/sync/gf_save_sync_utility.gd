@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFSaveSyncUtility
 extends GFUtility
 
@@ -96,7 +96,7 @@ var _disposed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	_disposed = true
 	close_session()
@@ -109,7 +109,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _scope: 架构静默作用域。
 ## [br]
@@ -127,7 +127,7 @@ func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profiles: 本地存档服务。
 ## [br]
@@ -167,7 +167,7 @@ func setup(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_id: 已注册目标 Profile。
 ## [br]
@@ -187,7 +187,7 @@ func prepare_profile(profile_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_id: 已准备、加载且当前活动的 Profile。
 ## [br]
@@ -243,7 +243,7 @@ func open_session(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close_session() -> void:
 	_epoch += 1
 	if _engine != null:
@@ -281,7 +281,7 @@ func close_session() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param operation_id: 本次新提交的唯一 ID。
 ## [br]
@@ -374,7 +374,7 @@ func synchronize(operation_id: String, options: Dictionary = {}) -> GFAsyncCompl
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 与 synchronize() 相同的完成记录；本地处于对账阻断时须先完成 Profile 恢复。
 ## [br]
@@ -397,7 +397,7 @@ func recover_pending() -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 有观察可结束时为 true。
 func cancel_wait() -> bool:
@@ -420,7 +420,7 @@ func cancel_wait() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param delta: 帧间隔，远端超时仍使用单调时间。
 func tick(delta: float) -> void:
@@ -446,7 +446,7 @@ func tick(delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 会话和观察计数。
 ## [br]
@@ -1088,7 +1088,7 @@ class _ProfileJournal extends GFStorageSyncJournal:
 	## [br]
 	## @api protected
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @param record_namespace: 原命名空间。
 	## [br]
@@ -1111,7 +1111,7 @@ class _ProfileJournal extends GFStorageSyncJournal:
 	## [br]
 	## @api protected
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @param request: 原冻结请求。
 	## [br]
@@ -1132,7 +1132,7 @@ class _ProfileJournal extends GFStorageSyncJournal:
 	## [br]
 	## @api protected
 	## [br]
-	## @since unreleased
+	## @since 12.0.0
 	## [br]
 	## @param request: 原冻结请求。
 	## [br]

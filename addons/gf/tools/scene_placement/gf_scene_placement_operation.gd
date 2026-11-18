@@ -8,7 +8,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFScenePlacementOperation
 extends GFEditorPickOperation
 
@@ -84,7 +84,7 @@ var _applying: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param scene: 显式选择的 PackedScene。
 ## [br]
@@ -142,7 +142,7 @@ func configure(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param context: 当前编辑器工具上下文。
 ## [br]
@@ -157,7 +157,7 @@ func begin(context: GFEditorToolContext) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param input_data: 视口射线或调用方已经查询到的表面命中。
 ## [br]
@@ -174,7 +174,7 @@ func pick(input_data: Dictionary) -> State:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 确认结果；重入返回 ERR_BUSY，不改变外层确认的状态。
 ## [br]
@@ -192,7 +192,7 @@ func apply() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 父节点仍位于原场景内，且世界变换可逆时返回 true。
 func is_destination_valid() -> bool:
@@ -208,7 +208,7 @@ func is_destination_valid() -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param input_data: 平面模式提供 ray_origin/ray_direction；表面模式提供 hit。
 ## [br]
@@ -287,7 +287,7 @@ func _on_pick(input_data: Dictionary) -> Dictionary:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 最近命中有效且目标仍有效时返回 true。
 func _on_can_apply() -> bool:
@@ -298,7 +298,7 @@ func _on_can_apply() -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param tool_context: 必须提供 undo_manager 和同一个 edited_scene_root。
 ## [br]
@@ -355,7 +355,7 @@ func _on_apply(tool_context: GFEditorToolContext, result: Dictionary) -> Diction
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _tool_context: 原拾取上下文。
 func _on_cancel(_tool_context: GFEditorToolContext) -> void:

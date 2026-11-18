@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 同步验证、复制或合作移交并原子替换当前数值批次。 只持有当前快照；消费者可以自行跨帧保留历史快照。预算限制发布者当前与 待构造批次的 PackedArray payload 峰值，不限制外部保留、读取副本或源数据。 项目负责字段语义、实体身份、权限和结构/值版本，不提供线程同步或异步调度。
 
@@ -33,7 +33,7 @@
 ### `Failure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Failure {
@@ -75,7 +75,7 @@ enum Failure {
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int, backend: GFDataBatchBackend = GFDataBatchNativeBackend.create(), require_backend: bool = false ) -> GFDataBatchPublication:
@@ -102,7 +102,7 @@ static func create( schema: GFDataBatchSchema, producer_id: StringName, producer
 ### `publish_copy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func publish_copy( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:
@@ -131,7 +131,7 @@ func publish_copy( columns: Dictionary, count: int, capacity: int, structural_re
 ### `publish_transfer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func publish_transfer( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:
@@ -160,7 +160,7 @@ func publish_transfer( columns: Dictionary, count: int, capacity: int, structura
 ### `publish_gather_copy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func publish_gather_copy( source_columns: Dictionary, source_count: int, source_capacity: int, row_indices: PackedInt32Array, structural_revision: int, value_revision: int ) -> Error:
@@ -190,7 +190,7 @@ func publish_gather_copy( source_columns: Dictionary, source_count: int, source_
 ### `get_current`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_current() -> GFDataBatchSnapshot:
@@ -205,7 +205,7 @@ func get_current() -> GFDataBatchSnapshot:
 ### `is_current`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_current(snapshot: GFDataBatchSnapshot) -> bool:
@@ -226,7 +226,7 @@ func is_current(snapshot: GFDataBatchSnapshot) -> bool:
 ### `close`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func close() -> void:
@@ -239,7 +239,7 @@ func close() -> void:
 ### `get_last_failure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_last_failure() -> Failure:
@@ -254,7 +254,7 @@ func get_last_failure() -> Failure:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

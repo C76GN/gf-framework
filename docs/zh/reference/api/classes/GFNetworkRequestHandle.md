@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 网络请求关联的本地等待句柄。 句柄弱引用关联器，只允许关联器提交终态。批量清理可以先提交全部结果， 再逐个发布 completed；取消只结束本地等待，不撤销服务器操作。 状态变更和信号发布只允许在主线程执行。
 
@@ -31,7 +31,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal completed(result: GFNetworkRequestResult)
@@ -52,7 +52,7 @@ signal completed(result: GFNetworkRequestResult)
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_request_id() -> String:
@@ -67,7 +67,7 @@ func get_request_id() -> String:
 ### `get_peer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_peer_id() -> int:
@@ -82,7 +82,7 @@ func get_peer_id() -> int:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -97,7 +97,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -112,7 +112,7 @@ func is_completed() -> bool:
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -127,7 +127,7 @@ func is_successful() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_result() -> GFNetworkRequestResult:
@@ -142,7 +142,7 @@ func get_result() -> GFNetworkRequestResult:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel() -> bool:

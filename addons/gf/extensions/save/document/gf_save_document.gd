@@ -533,7 +533,7 @@ static func from_dict(data: Dictionary) -> GFSaveDocument:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param read_result: 用来构造本文档的同次 Storage 读取；为空或已迁移时清除所有分区来源。
 func bind_storage_json_projection_for_framework(read_result: GFStorageReadResult) -> void:

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 独立于运行状态的冻结任务定义。 指标由项目查询或输入提供；完成策略与指标模式独立。接取条件和完成阻塞器是 GFQuestUtility 中的运行时回调，不进入可持久化定义。自动完成不发放业务奖励。
 
@@ -40,7 +40,7 @@
 ### `HISTORY`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const HISTORY: StringName = &"history"
@@ -53,7 +53,7 @@ const HISTORY: StringName = &"history"
 ### `SINCE_ACCEPTANCE`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const SINCE_ACCEPTANCE: StringName = &"since_acceptance"
@@ -66,7 +66,7 @@ const SINCE_ACCEPTANCE: StringName = &"since_acceptance"
 ### `CURRENT`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const CURRENT: StringName = &"current"
@@ -79,7 +79,7 @@ const CURRENT: StringName = &"current"
 ### `AUTOMATIC`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const AUTOMATIC: StringName = &"automatic"
@@ -92,7 +92,7 @@ const AUTOMATIC: StringName = &"automatic"
 ### `MANUAL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const MANUAL: StringName = &"manual"
@@ -105,7 +105,7 @@ const MANUAL: StringName = &"manual"
 ### `EXTERNAL`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const EXTERNAL: StringName = &"external"
@@ -120,7 +120,7 @@ const EXTERNAL: StringName = &"external"
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( quest_id: StringName, metric_id: StringName, options: Dictionary = {} ) -> GFQuestDefinition:
@@ -147,7 +147,7 @@ static func create( quest_id: StringName, metric_id: StringName, options: Dictio
 ### `validate_create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func validate_create( quest_id: StringName, metric_id: StringName, options: Dictionary = {} ) -> Dictionary:
@@ -175,7 +175,7 @@ static func validate_create( quest_id: StringName, metric_id: StringName, option
 ### `from_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func from_record(record: Dictionary) -> GFQuestDefinition:
@@ -200,7 +200,7 @@ static func from_record(record: Dictionary) -> GFQuestDefinition:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:
@@ -219,7 +219,7 @@ func to_record() -> Dictionary:
 ### `get_quest_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_quest_id() -> StringName:
@@ -234,7 +234,7 @@ func get_quest_id() -> StringName:
 ### `get_metric_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_metric_id() -> StringName:
@@ -249,7 +249,7 @@ func get_metric_id() -> StringName:
 ### `get_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_version() -> int:
@@ -264,7 +264,7 @@ func get_version() -> int:
 ### `get_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_mode() -> StringName:
@@ -279,7 +279,7 @@ func get_mode() -> StringName:
 ### `get_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_target() -> int:
@@ -294,7 +294,7 @@ func get_target() -> int:
 ### `get_completion`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_completion() -> StringName:
@@ -309,7 +309,7 @@ func get_completion() -> StringName:
 ### `allows_negative`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func allows_negative() -> bool:

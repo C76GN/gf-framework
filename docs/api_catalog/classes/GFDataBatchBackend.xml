@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataBatchBackend" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd" module="extensions/data_batch" extends="RefCounted" classDigest="263401f9d8e3c70634bbedcb05f2dfb8b91a93e02686c859b8c0e9d310a0500a">
+<class name="GFDataBatchBackend" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd" module="extensions/data_batch" extends="RefCounted" classDigest="f61c4416eca2e90f7c22441884309018e570fe68a41de97c6b035f438a543586">
 	<description>GFDataBatchBackend: 可选同步 PackedArray gather 协议。
 后端只计算列，不拥有 GF 的 schema、版本或发布权。输入在调用期间只读且不得保留；
 输出必须独立拥有，类型、顺序和整数值精确保持。返回空数组表示失败，不允许部分结果。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已实现协议版本；默认零表示不可用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="supports_type">
@@ -30,7 +30,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">_numeric_type: GFDataBatchSchema.NumericType 值。</tag>
 				<tag name="return">能精确执行 gather 时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_scratch_bytes">
@@ -40,7 +40,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">_output_bytes: 已由 GF 计算的全部输出列 payload。</tag>
 				<tag name="return">非负额外字节数；负值表示拒绝。零表示没有额外 payload 缓冲。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="gather">
@@ -54,7 +54,7 @@
 				<tag name="return">完整独立输出列，长度均等于 indices.size；失败为空。</tag>
 				<tag name="schema">_columns: Array containing only PackedInt32Array or PackedInt64Array, ordered by the publication schema.</tag>
 				<tag name="schema">return: Array of PackedInt32Array or PackedInt64Array matching input types and column order, or empty on failure. Caller takes exclusive ownership; backend retains no output aliases.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

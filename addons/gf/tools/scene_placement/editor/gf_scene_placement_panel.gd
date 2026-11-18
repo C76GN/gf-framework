@@ -6,7 +6,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFScenePlacementPanel
 extends VBoxContainer
 
@@ -214,7 +214,7 @@ static func get_drag_resource_paths(data: Variant) -> PackedStringArray:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param scene: 源场景；null 清除选择。
 func set_source_scene(scene: PackedScene) -> void:
@@ -229,7 +229,7 @@ func set_source_scene(scene: PackedScene) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param parent: 父节点；null 清除选择。
 func set_parent_node(parent: Node3D) -> void:
@@ -242,7 +242,7 @@ func set_parent_node(parent: Node3D) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前显式选择的场景。
 func get_source_scene() -> PackedScene:
@@ -253,7 +253,7 @@ func get_source_scene() -> PackedScene:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 父节点或 null。
 func get_parent_node() -> Node3D:
@@ -269,7 +269,7 @@ func get_parent_node() -> Node3D:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return GFScenePlacementOperation.configure 的 options。
 ## [br]
@@ -293,7 +293,7 @@ func get_options() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 默认 false；此选项不属于单次 Operation 的 options。
 func is_continuous_placement_enabled() -> bool:
@@ -304,7 +304,7 @@ func is_continuous_placement_enabled() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 源根本地空间的代理尺寸，不是实际模型 bounds。
 func get_proxy_size() -> Vector3:
@@ -315,7 +315,7 @@ func get_proxy_size() -> Vector3:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 原生 PhysicsRayQueryParameters3D 的 collision_mask。
 func get_collision_mask() -> int:
@@ -326,7 +326,7 @@ func get_collision_mask() -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param message: 当前操作的用户提示。
 func show_status(message: String) -> void:
@@ -337,7 +337,7 @@ func show_status(message: String) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param report: GFScenePlacementOperation.apply 返回的失败报告。
 ## [br]

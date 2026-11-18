@@ -26,7 +26,7 @@
 ### `format_number`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -> String:
@@ -52,7 +52,7 @@ static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -
 ### `try_format`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> Dictionary:
@@ -79,7 +79,7 @@ static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> D
 ### `try_format_options`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func try_format_options(value: Variant, options: Dictionary = {}) -> Dictionary:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="4d3098c9d5ee8f15dd59a87d2c5739f54749845a1645a62a1145c1def5c3e6ce">
+<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="8f2fa523a374655362b380d5499452f7acf006d882f24f36b2dccf81bd29bbf5">
 	<description>GFResourceTableEditor: 通用 Resource 表格编辑控件。
 提供资源扫描、属性列提取、表格刷新与单元格提交，不绑定具体资源类型或业务数据。</description>
 	<tags>
@@ -137,7 +137,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">context: 编辑器工具上下文；null 使多选应用入口不可用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="apply_selected_property">
@@ -150,7 +150,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">本次提交结果，并更新面板中的结果提示。</tag>
 				<tag name="schema">return: Dictionary 包含 ok: bool、error: Error、status: String、transaction: Dictionary（GFEditorPropertyBatchCommand 报告）；仅需显式恢复时含 transaction_command: GFEditorPropertyBatchCommand。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="recover_pending_edit">
@@ -162,7 +162,7 @@ Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新�
 				<tag name="api">public</tag>
 				<tag name="return">恢复结果；无待恢复命令时返回 ERR_UNAVAILABLE。</tag>
 				<tag name="schema">return: Dictionary 与 apply_selected_property 返回结构相同；恢复失败仍保留 transaction_command，成功后移除此字段。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_multi_edit_report">
@@ -173,7 +173,7 @@ Undo 失败后的恢复仍保留命令的 executed 状态，调用方需重新�
 				<tag name="api">public</tag>
 				<tag name="return">最近一次命令操作的结果；尚未提交时为空。待恢复句柄不会被取消、上下文替换或重绑定覆盖。</tag>
 				<tag name="schema">return: Dictionary 与 apply_selected_property 返回结构相同。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="build_export_columns">

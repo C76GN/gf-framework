@@ -109,7 +109,7 @@ const STATUS_CANCELLED: StringName = &"cancelled"
 ### `get_service_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_service_generation() -> int:

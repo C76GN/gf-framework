@@ -7,7 +7,7 @@
 - 继承：`GFCameraRig2D`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 根据显式目标锚点计算共同入镜的二维相机姿态。 目标位置按期望相机旋转投影，再由实际 Camera2D 输出 Viewport 的尺寸计算统一缩放。 只计算锚点，不推断精灵、碰撞或项目对象的外形；目标路径的选择和维护属于调用方。 复用基础 Rig 的 active、priority、作用域、blend、offset 和旋转偏移。 单目标字段 target_path、use_target_rotation 与固定 zoom 不参与群体取景。 fits 仅表示期望姿态下的锚点几何，不能保证混合途中、原生限位、拖拽或平滑后的画面。
 
@@ -31,7 +31,7 @@
 ### `target_paths`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -49,7 +49,7 @@ var target_paths: Array[NodePath] = []
 ### `viewport_margin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -63,7 +63,7 @@ var viewport_margin: Vector2 = Vector2(16.0, 16.0)
 ### `min_zoom`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(0.0001, 1000000.0, 0.001)
@@ -77,7 +77,7 @@ var min_zoom: float = 0.1
 ### `max_zoom`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(0.0001, 1000000.0, 0.001)
@@ -91,7 +91,7 @@ var max_zoom: float = 10.0
 ### `min_extent`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -107,7 +107,7 @@ var min_extent: Vector2 = Vector2.ONE
 ### `get_framing_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_framing_report(camera: Camera2D) -> Dictionary:
@@ -132,7 +132,7 @@ func get_framing_report(camera: Camera2D) -> Dictionary:
 ### `get_camera_pose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_camera_pose(camera: Camera2D = null) -> Dictionary:
@@ -157,7 +157,7 @@ func get_camera_pose(camera: Camera2D = null) -> Dictionary:
 ### `is_available`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_available() -> bool:

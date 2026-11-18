@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFPeriodSchedule
 extends RefCounted
 
@@ -41,7 +41,7 @@ var _identity_prefix: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param schedule_id: 非空计划身份，最多256字符，无首尾空白和控制字符。
 ## [br]
@@ -169,7 +169,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param unix_msec: Unix 毫秒时间戳，范围 ±4×10^15；负值和锚点前时间同样支持。
 ## [br]
@@ -196,7 +196,7 @@ func get_window(unix_msec: int) -> GFTimeWindow:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 政策副本；未经工厂创建时为空。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 有界、冻结的纯数值 Tween 时间轴。 捕获与采样不接受目标对象、Resource、Callable 或业务上下文。调用方负责时钟和提交值。 直接 int/float 根属性共享运行时编译核心；任何不支持或越界的成员导致整组拒绝。
 
@@ -28,7 +28,7 @@
 ### `capture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GFTweenNumericTimeline:
@@ -55,7 +55,7 @@ static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GF
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -70,7 +70,7 @@ func get_error() -> String:
 ### `get_duration_seconds`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_duration_seconds() -> float:
@@ -85,7 +85,7 @@ func get_duration_seconds() -> float:
 ### `get_initial_values`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_initial_values() -> Dictionary:
@@ -104,7 +104,7 @@ func get_initial_values() -> Dictionary:
 ### `sample`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func sample(time_seconds: float) -> Dictionary:

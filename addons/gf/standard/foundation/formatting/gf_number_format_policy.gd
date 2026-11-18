@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFNumberFormatPolicy
 extends RefCounted
 
@@ -26,7 +26,7 @@ var _record: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 显示政策。
 ## [br]
@@ -43,7 +43,7 @@ static func create(options: Dictionary = {}) -> GFNumberFormatPolicy:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 与 create 相同的显示声明。
 ## [br]
@@ -320,7 +320,7 @@ static func try_create(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param group_base: 1000或10000；其他输入返回空数组。
 ## [br]
@@ -372,7 +372,7 @@ static func get_default_suffixes(group_base: int = 1000) -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 完整实际政策；未经工厂创建的实例返回空字典。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 单次配置操作及批次共享的有限工作预算。 句柄只累计、不重置；首次失败锁存。它约束受信任配置代码的协作工作量， 不隔离自定义代码，也不统计 Resource 属性或引擎内部全部内存。
 
@@ -34,7 +34,7 @@
 ### `_init`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _init(limits: Dictionary = {}) -> void:
@@ -57,7 +57,7 @@ func _init(limits: Dictionary = {}) -> void:
 ### `get_remaining_work_units`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_remaining_work_units() -> int:
@@ -72,7 +72,7 @@ func get_remaining_work_units() -> int:
 ### `from_options`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func from_options(options: Dictionary = {}) -> GFConfigWorkBudget:
@@ -97,7 +97,7 @@ static func from_options(options: Dictionary = {}) -> GFConfigWorkBudget:
 ### `check_input_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func check_input_bytes(amount: int, context: String = "") -> bool:
@@ -119,7 +119,7 @@ func check_input_bytes(amount: int, context: String = "") -> bool:
 ### `consume_input_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func consume_input_bytes(amount: int, context: String = "") -> bool:
@@ -141,7 +141,7 @@ func consume_input_bytes(amount: int, context: String = "") -> bool:
 ### `consume_output_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func consume_output_bytes(amount: int, context: String = "") -> bool:
@@ -163,7 +163,7 @@ func consume_output_bytes(amount: int, context: String = "") -> bool:
 ### `consume_work`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func consume_work(amount: int = 1, context: String = "") -> bool:
@@ -185,7 +185,7 @@ func consume_work(amount: int = 1, context: String = "") -> bool:
 ### `check_depth`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func check_depth(depth: int, context: String = "") -> bool:
@@ -207,7 +207,7 @@ func check_depth(depth: int, context: String = "") -> bool:
 ### `admit_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func admit_value(value: Variant, context: String = "") -> bool:
@@ -233,7 +233,7 @@ func admit_value(value: Variant, context: String = "") -> bool:
 ### `is_ok`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_ok() -> bool:
@@ -248,7 +248,7 @@ func is_ok() -> bool:
 ### `get_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_report() -> Dictionary:

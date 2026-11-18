@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFUIBadgeUtility
 extends GFUtility
 
@@ -19,7 +19,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param changes: 仅包含数值改变的叶子与祖先。
 ## [br]
@@ -86,7 +86,7 @@ var _disposed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _delta: 未使用的帧间隔。
 func tick(_delta: float) -> void:
@@ -100,7 +100,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -121,7 +121,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param parents: ID 到父级 ID；允许多个根，不允许缺失父级、自环或环。
 ## [br]
@@ -151,7 +151,7 @@ func configure(parents: Dictionary) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param parents: 与 configure 相同的 ID 到父级映射。
 ## [br]
@@ -170,7 +170,7 @@ func validate_configuration(parents: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param badge_id: 已声明的叶子 ID。
 ## [br]
@@ -205,7 +205,7 @@ func set_leaf_count(badge_id: StringName, count: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param badge_id: 节点 ID。
 ## [br]
@@ -218,7 +218,7 @@ func is_leaf(badge_id: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param badge_id: 节点 ID。
 ## [br]
@@ -234,7 +234,7 @@ func get_count(badge_id: StringName) -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param badge_id: 已声明节点 ID。
 ## [br]

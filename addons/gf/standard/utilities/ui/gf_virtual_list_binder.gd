@@ -631,7 +631,7 @@ func bind(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 生命周期 owner；退出 SceneTree 后 Binder 自动 dispose。
 ## [br]

@@ -74,7 +74,7 @@ const DEFAULT_PROVIDER_ACCESSOR: String = "null"
 ### `get_capabilities`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_capabilities() -> Dictionary:

@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageOwnedReadReceipt
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum FailureKind {
 	## 读取及交付均成功。
 	NONE,
@@ -153,7 +153,7 @@ var _committed_revision: GFStorageRevisionResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 大于零的请求 ID；未配置时为 0。
 func get_request_id() -> int:
@@ -164,7 +164,7 @@ func get_request_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 大于零的 consumer ID；未配置时为 0。
 func get_consumer_id() -> int:
@@ -175,7 +175,7 @@ func get_consumer_id() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 逻辑文件名；文件名校验前失败时可能为空。
 func get_file_name() -> String:
@@ -186,7 +186,7 @@ func get_file_name() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return PHYSICAL_SETTLED 或 CANCELLED；独占读取不会返回 OUTCOME_UNKNOWN。
 func get_status() -> GFStorageAsyncCallerResult.Status:
@@ -197,7 +197,7 @@ func get_status() -> GFStorageAsyncCallerResult.Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 物理结算、显式取消、令牌、超时、owner 释放或 Utility dispose。
 func get_end_kind() -> GFStorageAsyncCallerResult.EndKind:
@@ -208,7 +208,7 @@ func get_end_kind() -> GFStorageAsyncCallerResult.EndKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时为 OK，失败或取消时为非 OK。
 func get_error_code() -> Error:
@@ -219,7 +219,7 @@ func get_error_code() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功、读取失败、不支持独占交付或取消。
 func get_failure_kind() -> FailureKind:
@@ -230,7 +230,7 @@ func get_failure_kind() -> FailureKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return READ_FAILED 的具体原因；成功、取消和不支持交付时为 NONE。
 func get_read_failure_kind() -> GFStorageReadResult.FailureKind:
@@ -241,7 +241,7 @@ func get_read_failure_kind() -> GFStorageReadResult.FailureKind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已完成读取且没有读取或交付失败时返回 true。
 func is_ok() -> bool:
@@ -257,7 +257,7 @@ func is_ok() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 迁移前的数据版本；未取得版本时为 0。
 func get_source_version() -> int:
@@ -268,7 +268,7 @@ func get_source_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 迁移后的数据版本；未取得版本时为 0。
 func get_target_version() -> int:
@@ -279,7 +279,7 @@ func get_target_version() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已执行数据迁移时返回 true。
 func was_migrated() -> bool:
@@ -290,7 +290,7 @@ func was_migrated() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 完整性状态不是 NOT_CHECKED 时返回 true。
 func was_integrity_checked() -> bool:
@@ -301,7 +301,7 @@ func was_integrity_checked() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 完整性状态为 VALID 时返回 true；未检查不视为已通过。
 func is_integrity_ok() -> bool:
@@ -314,7 +314,7 @@ func is_integrity_ok() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 本次捕获的 revision 状态；未捕获时为 null。
 func get_committed_revision() -> GFStorageRevisionResult:
@@ -325,7 +325,7 @@ func get_committed_revision() -> GFStorageRevisionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不包含载荷、任意 metadata、物理路径或领取权限的诊断字典。
 ## [br]
@@ -355,7 +355,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param info: 完整且闭合匹配的诊断字段，不含 payload 或任意 metadata。
 ## [br]

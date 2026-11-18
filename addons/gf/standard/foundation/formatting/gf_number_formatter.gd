@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 要显示的数值。
 ## [br]
@@ -39,7 +39,7 @@ static func format_number(value: Variant, policy: GFNumberFormatPolicy = null) -
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 与 format_number 相同的数值域。
 ## [br]
@@ -119,7 +119,7 @@ static func try_format(value: Variant, policy: GFNumberFormatPolicy = null) -> D
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 与format_number相同的精确值或近似值。
 ## [br]

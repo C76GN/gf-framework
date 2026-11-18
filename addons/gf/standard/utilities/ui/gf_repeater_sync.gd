@@ -66,7 +66,7 @@ const _SNAPSHOT_MAX_NODES: int = 4096
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param container: 当前组的容器。
 ## [br]
@@ -142,7 +142,7 @@ static func synchronize(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: Repeater 选项。
 ## [br]
@@ -192,7 +192,7 @@ static func validate_options(options: Dictionary) -> StringName:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param container: 目标容器。
 ## [br]
@@ -214,7 +214,7 @@ static func is_busy(container: Node, group_key: StringName) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param container: 目标容器。
 ## [br]
@@ -246,7 +246,7 @@ static func interrupt(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param container: 目标容器。
 ## [br]

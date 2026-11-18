@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 配置值的结构化类型声明。 同一资源用于导入规范化、校验和生成描述；每次调用建立有限编译会话， 不缓存调用之间可能改变的资源。结构字段使用 GFConfigTableColumn 的约束。
 
@@ -42,7 +42,7 @@
 ### `Kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Kind {
@@ -70,7 +70,7 @@ enum Kind {
 ### `kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -84,7 +84,7 @@ var kind: Kind = Kind.SCALAR
 ### `type_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -98,7 +98,7 @@ var type_name: StringName = &""
 ### `allow_null`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -112,7 +112,7 @@ var allow_null: bool = false
 ### `scalar_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -126,7 +126,7 @@ SCALAR 的标量类型；不接受 ANY、ARRAY 或 DICTIONARY。
 ### `fields`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -140,7 +140,7 @@ STRUCT 自己声明的字段；继承字段在前，禁止覆盖任何基类字�
 ### `base_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -154,7 +154,7 @@ STRUCT 的可选基类；只接受 STRUCT，整个定义图不允许循环。
 ### `element_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -168,7 +168,7 @@ ARRAY 的元素类型。
 ### `map_key_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -182,7 +182,7 @@ MAP 的键类型；只允许 STRING、STRING_NAME 和 INT，转换后重复键�
 ### `map_value_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -196,7 +196,7 @@ MAP 的值类型。
 ### `symbols`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -214,7 +214,7 @@ ENUM 的具名整数值；符号及整数值均必须唯一。
 ### `discriminator`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -228,7 +228,7 @@ POLYMORPHIC 的必需判别字段；不得与任何分支的结构字段重名�
 ### `variants`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -244,7 +244,7 @@ POLYMORPHIC 的可选分支；每项必须是具名 GFConfigTypeDefinition STRUC
 ### `validate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func validate_definition(options: Dictionary = {}) -> Dictionary:
@@ -270,7 +270,7 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 ### `compile_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func compile_definition(options: Dictionary = {}) -> Dictionary:
@@ -296,7 +296,7 @@ func compile_definition(options: Dictionary = {}) -> Dictionary:
 ### `try_normalize`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func try_normalize(value: Variant, options: Dictionary = {}) -> Dictionary:
@@ -324,7 +324,7 @@ func try_normalize(value: Variant, options: Dictionary = {}) -> Dictionary:
 ### `describe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func describe(options: Dictionary = {}) -> Dictionary:
@@ -350,7 +350,7 @@ func describe(options: Dictionary = {}) -> Dictionary:
 ### `try_duplicate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func try_duplicate_definition(options: Dictionary = {}) -> Dictionary:
@@ -376,7 +376,7 @@ func try_duplicate_definition(options: Dictionary = {}) -> Dictionary:
 ### `duplicate_definition`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func duplicate_definition(options: Dictionary = {}) -> GFConfigTypeDefinition:

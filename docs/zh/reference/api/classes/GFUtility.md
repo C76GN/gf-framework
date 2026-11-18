@@ -147,7 +147,7 @@ var physics_tick_enabled: bool = false:
 ### `can_register_in_architecture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_register_in_architecture() -> bool:
@@ -162,7 +162,7 @@ func can_register_in_architecture() -> bool:
 ### `can_remove_from_active_lifecycle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_remove_from_active_lifecycle() -> bool:

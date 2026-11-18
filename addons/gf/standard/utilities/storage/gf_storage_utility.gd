@@ -329,7 +329,7 @@ var codec: GFStorageCodec = GFStorageCodec.new()
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var max_read_bytes: int = 64 * 1024 * 1024:
 	set(value):
 		if value <= 0:
@@ -929,7 +929,7 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: canonical Resource logical path。
 ## [br]
@@ -1006,7 +1006,7 @@ func load_resource_with_revision(file_name: String, type_hint: String = "") -> G
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 创建与布局校验结果。
 func create_revision_storage() -> Error:
@@ -1036,7 +1036,7 @@ func create_revision_storage() -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: canonical portable logical file path。
 ## [br]
@@ -1109,7 +1109,7 @@ func list_files(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param directory_name: 空或 portable logical directory；空表示从 root 查询。
 ## [br]
@@ -1397,7 +1397,7 @@ func reset_file_family_request_async(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 目标文件名。
 ## [br]
@@ -1840,7 +1840,7 @@ func load_data_request_async(file_name: String, options: GFStorageAsyncRequestOp
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 目标 portable logical 文件名。
 ## [br]
@@ -2118,7 +2118,7 @@ func get_registered_migrations() -> Array[Dictionary]:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 目标逻辑文件名。
 ## [br]

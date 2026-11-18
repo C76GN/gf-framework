@@ -318,7 +318,7 @@ func to_dict() -> Dictionary:
 ## [br]
 ## @layer standard/utilities/storage
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 读取结果的 FailureKind 整数；没有读取结果时返回 -1。
 func get_read_failure_kind_for_framework() -> int:

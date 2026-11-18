@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFDataBatchSnapshot
 extends RefCounted
 
@@ -67,7 +67,7 @@ var _capacity: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: schema；直接 new 的未发布对象为 null。
 func get_schema() -> GFDataBatchSchema:
@@ -78,7 +78,7 @@ func get_schema() -> GFDataBatchSchema:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 固定的生产者标识。
 func get_producer_id() -> StringName:
@@ -89,7 +89,7 @@ func get_producer_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 固定的正代次。
 func get_producer_generation() -> int:
@@ -100,7 +100,7 @@ func get_producer_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 正发布序号；不代表此快照仍是当前发布。
 func get_publication_sequence() -> int:
@@ -111,7 +111,7 @@ func get_publication_sequence() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 行身份、顺序和布局的版本。
 func get_structural_revision() -> int:
@@ -122,7 +122,7 @@ func get_structural_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 数值版本，不依赖帧或 tick。
 func get_value_revision() -> int:
@@ -133,7 +133,7 @@ func get_value_revision() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 不超过 capacity 的行数。
 func get_count() -> int:
@@ -144,7 +144,7 @@ func get_count() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 列容量。
 func get_capacity() -> int:
@@ -155,7 +155,7 @@ func get_capacity() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: capacity 乘以 schema 每行字节数。
 func get_payload_bytes() -> int:
@@ -168,7 +168,7 @@ func get_payload_bytes() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_index: 初始化时绑定的 Int32 列索引。
 ## [br]
@@ -181,7 +181,7 @@ func copy_int32_column(column_index: int) -> PackedInt32Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_index: 初始化时绑定的 Int64 列索引。
 ## [br]
@@ -194,7 +194,7 @@ func copy_int64_column(column_index: int) -> PackedInt64Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_index: 初始化时绑定的 Int32 列索引。
 ## [br]
@@ -213,7 +213,7 @@ func borrow_int32_column(column_index: int) -> PackedInt32Array:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param column_index: 初始化时绑定的 Int64 列索引。
 ## [br]

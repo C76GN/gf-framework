@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 与命名空间、记录和操作身份绑定的冻结同步请求。 revision 是不透明文本，空文本只表示预期记录不存在。operation_id 必须由调用方 唯一分配；恢复同一次提交时沿用原 ID，不得用它提交不同载荷。请求不包含账号凭证。
 
@@ -39,7 +39,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( record_namespace: String, record_key: String, operation_id: String, data: Dictionary = {}, options: Dictionary = {} ) -> GFStorageSyncRequest:
@@ -69,7 +69,7 @@ static func create( record_namespace: String, record_key: String, operation_id: 
 ### `get_limits`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_limits() -> Dictionary:
@@ -88,7 +88,7 @@ static func get_limits() -> Dictionary:
 ### `validate_input`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func validate_input( record_namespace: String, record_key: String, operation_id: String, data: Dictionary = {}, options: Dictionary = {} ) -> Dictionary:
@@ -119,7 +119,7 @@ static func validate_input( record_namespace: String, record_key: String, operat
 ### `from_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func from_record(record: Dictionary) -> GFStorageSyncRequest:
@@ -144,7 +144,7 @@ static func from_record(record: Dictionary) -> GFStorageSyncRequest:
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -159,7 +159,7 @@ func is_valid() -> bool:
 ### `get_namespace`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_namespace() -> String:
@@ -174,7 +174,7 @@ func get_namespace() -> String:
 ### `get_key`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_key() -> String:
@@ -189,7 +189,7 @@ func get_key() -> String:
 ### `get_operation_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_operation_id() -> String:
@@ -204,7 +204,7 @@ func get_operation_id() -> String:
 ### `get_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_mode() -> StringName:
@@ -219,7 +219,7 @@ func get_mode() -> StringName:
 ### `get_resolution`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_resolution() -> StringName:
@@ -234,7 +234,7 @@ func get_resolution() -> StringName:
 ### `get_expected_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_expected_revision() -> String:
@@ -249,7 +249,7 @@ func get_expected_revision() -> String:
 ### `get_local_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_local_generation() -> int:
@@ -264,7 +264,7 @@ func get_local_generation() -> int:
 ### `get_timeout_msec`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_timeout_msec() -> int:
@@ -279,7 +279,7 @@ func get_timeout_msec() -> int:
 ### `get_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_data() -> Dictionary:
@@ -298,7 +298,7 @@ func get_data() -> Dictionary:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:
@@ -317,7 +317,7 @@ func to_record() -> Dictionary:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

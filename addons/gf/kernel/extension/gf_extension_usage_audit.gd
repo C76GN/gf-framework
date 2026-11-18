@@ -406,7 +406,7 @@ static func find_references_to_root_report(root_path: String, options: Dictionar
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/extension
 ## [br]
@@ -452,7 +452,7 @@ func start(manifests: Array[GFExtensionManifest], options: Dictionary = {}) -> b
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/extension
 ## [br]
@@ -498,7 +498,7 @@ func step(max_items: int = 128, max_usec: int = 4000) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/extension
 func cancel() -> void:
@@ -519,7 +519,7 @@ func cancel() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/extension
 ## [br]
@@ -534,7 +534,7 @@ func get_progress() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @layer kernel/extension
 ## [br]

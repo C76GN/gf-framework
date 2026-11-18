@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFAssetLoadResult" path="addons/gf/standard/utilities/assets/gf_asset_load_result.gd" module="standard" extends="RefCounted" classDigest="dd27a2f947103cff6aca79448464e9c4962e47a4be376661e9f9b8edbdf3a5fc">
+<class name="GFAssetLoadResult" path="addons/gf/standard/utilities/assets/gf_asset_load_result.gd" module="standard" extends="RefCounted" classDigest="7f5f5ba7234ee98c74922883f2ab11e8505159faef644637cb1dc5ce113930c0">
 	<description>单次资源请求的终态事实；scope 关闭后成功事实保留，但句柄不再可用。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -20,7 +20,7 @@
 			<description>请求终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -33,7 +33,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -42,7 +42,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_handle">
@@ -51,7 +51,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功句柄或 null；scope 已关闭时句柄已释放。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -60,7 +60,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功为 OK，取消为 ERR_SKIP，其他错误为失败码。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

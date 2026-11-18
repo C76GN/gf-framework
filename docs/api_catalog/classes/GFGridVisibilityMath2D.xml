@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFGridVisibilityMath2D" path="addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd" module="standard" extends="RefCounted" classDigest="ea76bc3677b0670d86c2e8fcc63d1e458c0ce5a5be0e1dc0415c4dcc13a4e4fb">
+<class name="GFGridVisibilityMath2D" path="addons/gf/standard/foundation/math/gf_grid_visibility_math_2d.gd" module="standard" extends="RefCounted" classDigest="1017ff406ebfd9bea289bd95237b2f3c003cf22e9bce7cebb63b7d36b1d0ba8a">
 	<description>GFGridVisibilityMath2D: 有界二维网格的整片视野查询。
 使用迭代对称阴影扫描，只返回当前可见格，不持有场景、阵营或探索历史。
 固定允许两堵仅在角点接触的墙之间透视；不等价于 Bresenham 点对点 LOS。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@
 			<description>允许的最大整数欧氏半径。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="MAX_CELLS">
@@ -25,7 +25,7 @@
 			<description>查询窗口允许的最大格数，等于最大半径包围盒的面积。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -49,7 +49,7 @@
 				<tag name="param">max_cells: 1 至 MAX_CELLS 的裁剪包围盒格数预算。</tag>
 				<tag name="return">有界视野报告；成功的 error 为空，失败的 visible_cells 始终为空，不发布部分结果。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool、error: StringName、visible_cells: Array[Vector2i]、queried_cell_count: int（实际阻挡回调次数）、error_cell: Vector2i（查询失败格；成功或参数准入失败为 (-1, -1)）。error 为空 StringName，或 invalid_grid_size、origin_out_of_bounds、invalid_radius、invalid_budget、cell_budget_exceeded、invalid_predicate、invalid_predicate_result、origin_blocked。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

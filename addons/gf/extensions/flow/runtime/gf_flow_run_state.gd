@@ -4,7 +4,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFFlowRunState
 extends RefCounted
 
@@ -96,7 +96,7 @@ var _trace_count: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 根图数据，不包含等待、调用帧或运行位置。
 ## [br]
@@ -109,7 +109,7 @@ func create_data_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 按根至子图的顺序返回帧报告。
 ## [br]
@@ -125,7 +125,7 @@ func describe_frames() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前运行报告副本。
 ## [br]
@@ -146,7 +146,7 @@ func get_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 首次接纳取消时返回 true；结束后或已取消时返回 false。
 func cancel() -> bool:
@@ -163,7 +163,7 @@ func cancel() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param graph: 根图。
 ## [br]
@@ -206,7 +206,7 @@ func start(graph: GFFlowGraph, initial_nodes: Dictionary) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 仍有待执行节点时返回 true。
 func advance_frame() -> bool:
@@ -222,7 +222,7 @@ func advance_frame() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: advance_frame 成功后的活动图。
 func current_graph() -> GFFlowGraph:
@@ -233,7 +233,7 @@ func current_graph() -> GFFlowGraph:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 队列中下一个节点标识。
 func take_next_node() -> StringName:
@@ -250,7 +250,7 @@ func take_next_node() -> StringName:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param node_id: 当前帧的节点 ID。
 ## [br]
@@ -270,7 +270,7 @@ func begin_execution(node_id: StringName) -> GFFlowNodeExecution:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close_execution() -> void:
 	if _execution != null:
 		_execution.close()
@@ -281,7 +281,7 @@ func close_execution() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param next_ids: 当前节点在本帧中的后继。
 ## [br]
@@ -307,7 +307,7 @@ func schedule(next_ids: PackedStringArray, child: GFFlowGraph) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param run_id: 此 Runner 分配的运行序号。
 ## [br]
@@ -353,7 +353,7 @@ static func make_report(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param run_id: 此 Runner 的递增运行序号。
 ## [br]
@@ -373,7 +373,7 @@ func begin_report(run_id: int, trace_limit: int) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本轮尚可继续时返回 true。
 func should_continue() -> bool:
@@ -388,7 +388,7 @@ func should_continue() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param reason: 中止原因。
 func abort(reason: StringName) -> void:
@@ -400,7 +400,7 @@ func abort(reason: StringName) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param key: 本轮报告的计数字段。
 func increment(key: StringName) -> void:
@@ -411,7 +411,7 @@ func increment(key: StringName) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param node_id: 当前等待 Signal 的节点。
 func begin_wait(node_id: StringName) -> void:
@@ -423,7 +423,7 @@ func begin_wait(node_id: StringName) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param status: Signal 等待结果。
 func end_wait(status: StringName) -> void:
@@ -441,7 +441,7 @@ func end_wait(status: StringName) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param limit: 新的保留条数。
 func set_trace_limit(limit: int) -> void:
@@ -454,7 +454,7 @@ func set_trace_limit(limit: int) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param node_id: 当前节点。
 ## [br]
@@ -500,7 +500,7 @@ func record_node(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本轮终态报告副本。
 ## [br]

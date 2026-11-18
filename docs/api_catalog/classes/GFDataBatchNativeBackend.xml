@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataBatchNativeBackend" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd" module="extensions/data_batch" extends="GFDataBatchBackend" classDigest="115ad622df89dd328a615aa62c6bce22dced448855be405ebda18cd3195487f3">
+<class name="GFDataBatchNativeBackend" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd" module="extensions/data_batch" extends="GFDataBatchBackend" classDigest="324a5934eaffc12f3117711c38cb33015974da0a3b4a1b57cada6ed4ae6a2e84">
 	<description>GFDataBatchNativeBackend: 连接可选的原生 PackedArray gather 服务。
 仅连接项目已经安装并加载的 GDExtension，不安装二进制、不运行编译器。
 发布者默认尝试连接，当前分发 Windows x64 实现。项目也可以显式取得适配器。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已加载的协议 1 后端。其他线程、服务缺失或协议不兼容时返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_protocol_version">
@@ -28,7 +28,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已连接为 1，否则为零。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="supports_type">
@@ -38,7 +38,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">numeric_type: GFDataBatchSchema.NumericType 值。</tag>
 				<tag name="return">已连接且类型受支持时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="gather">
@@ -52,7 +52,7 @@
 				<tag name="return">精确类型的独立列；原生调用拒绝时为空。</tag>
 				<tag name="schema">columns: Array of PackedInt32Array or PackedInt64Array with source_count valid elements.</tag>
 				<tag name="schema">return: Array matching input column types, each length equal to indices.size, or empty on failure.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

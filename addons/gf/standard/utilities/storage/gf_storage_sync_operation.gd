@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageSyncOperation
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param result: 不可变终态。
 signal completed(result: GFStorageSyncResult)
@@ -27,7 +27,7 @@ signal completed(result: GFStorageSyncResult)
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 signal cancel_requested
 
 
@@ -55,7 +55,7 @@ var _cancel_requested: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已交付终态返回 true。
 func is_completed() -> bool:
@@ -66,7 +66,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 终态；等待中为空。
 func get_result() -> GFStorageSyncResult:
@@ -77,7 +77,7 @@ func get_result() -> GFStorageSyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不可变终态。
 func wait_result_async() -> GFStorageSyncResult:
@@ -90,7 +90,7 @@ func wait_result_async() -> GFStorageSyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 首次仍在等待的请求返回 true。
 func cancel_wait() -> bool:
@@ -105,7 +105,7 @@ func cancel_wait() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已请求返回 true。
 func is_cancel_requested() -> bool:
@@ -118,7 +118,7 @@ func is_cancel_requested() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param result: 已封存的有效结果。
 ## [br]

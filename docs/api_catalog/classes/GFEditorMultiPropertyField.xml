@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFEditorMultiPropertyField" path="addons/gf/kernel/editor/gf_editor_multi_property_field.gd" module="kernel" extends="VBoxContainer" classDigest="2c12920e1769f78918144f6e6236ab7ab19efab359e0b77195230b6dcc42aa4e">
+<class name="GFEditorMultiPropertyField" path="addons/gf/kernel/editor/gf_editor_multi_property_field.gd" module="kernel" extends="VBoxContainer" classDigest="84c4b508197617f74f66784cdbfc2bf2e8bb7ebc5d6afa19e0ef8478d006c50f">
 	<description>GFEditorMultiPropertyField: 编辑器中多个对象的单属性暂存输入。
 显示一致、混合、缺失与不兼容状态。标量整值编辑，Vector2/3/4 及其整数类型按分量编辑。
 输入不写对象；调用方将 prepare_changes 的结果交给 GFEditorPropertyBatchCommand。
@@ -8,7 +8,7 @@
 		<tag name="api">public</tag>
 		<tag name="category">editor_api</tag>
 		<tag name="layer">kernel/editor</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="draft_changed">
@@ -16,7 +16,7 @@
 			<description>草稿或选择状态变化后发出，不表示对象已写入。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -31,7 +31,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">targets: 要共同编辑的对象；失效目标使整组不可编辑。</tag>
 				<tag name="param">property: 直接属性名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_edit">
@@ -39,7 +39,7 @@
 			<description>取消草稿并重新读取仍然有效的选中对象，不写入任何属性。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_snapshot">
@@ -49,7 +49,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">选择摘要，不包含对象引用。</tag>
 				<tag name="schema">return: Dictionary 包含 status（empty/invalid/missing/incompatible/readonly/unsupported/uniform/mixed）、property: StringName、target_count: int、dirty: bool、components: Dictionary；各分量包含 value: Variant 标量值、mixed: bool、edited: bool。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prepare_changes">
@@ -60,7 +60,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">准备结果。返回 changes 的目标引用由调用方负责释放或移交给命令历史。</tag>
 				<tag name="schema">return: Dictionary 包含 ok: bool、error: Error、status: String、changes: Array[Dictionary]；每项包含 target: Object、new_value: Variant，及 property_name: StringName 或 property_path: NodePath。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

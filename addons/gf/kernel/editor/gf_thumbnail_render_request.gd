@@ -46,7 +46,7 @@ enum Kind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum PreviewMode {
 	## 只读取受支持节点的原生视觉属性，不复制脚本、连接或分组。
 	STATIC,
@@ -370,7 +370,7 @@ func get_kind() -> Kind:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 节点预览模式；Mesh 和 MeshLibrary 请求固定为 STATIC。
 func get_preview_mode() -> PreviewMode:

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFControlEditSession" path="addons/gf/standard/utilities/ui/gf_control_edit_session.gd" module="standard" extends="RefCounted" classDigest="f5ee85849adeb04bad5efb1bf3ab34601a3e0561e8291709f000000cb1cdb3de">
+<class name="GFControlEditSession" path="addons/gf/standard/utilities/ui/gf_control_edit_session.gd" module="standard" extends="RefCounted" classDigest="ecc0a5efed81415a540430e91e4be48c77272f5f0e3a5175e47f89aee0dce472">
 	<description>GFControlEditSession: 一个控件的运行期输入会话。
 保存编辑开始时的值和文本，保留 SpinBox 尚未提交的数字原文。
 宿主负责连接焦点/提交事件、业务转换、验证、模型写入和撤销命令。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -20,7 +20,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">control: 支持 LineEdit、TextEdit、SpinBox、Range、OptionButton、BaseButton、ColorPickerButton 和 ItemList。</tag>
 				<tag name="return">正数令牌；无效/不支持的控件、另一活动控件或恢复期间返回零。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_current">
@@ -30,7 +30,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">token: begin_edit 返回的令牌，仅在同一个会话实例内有效。</tag>
 				<tag name="return">控件仍有效且令牌属于活动会话时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_baseline">
@@ -41,7 +41,7 @@
 				<tag name="param">token: 当前会话令牌。</tag>
 				<tag name="return">独立快照；过期令牌返回空字典。</tag>
 				<tag name="schema">return: Dictionary，value 为控件值；文本控件及 SpinBox 另有 raw_text: String。没有控件或业务对象引用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="capture_draft">
@@ -52,7 +52,7 @@
 				<tag name="param">token: 当前会话令牌。</tag>
 				<tag name="return">独立快照；过期令牌返回空字典。</tag>
 				<tag name="schema">return: Dictionary，value 为控件值；文本控件及 SpinBox 另有 raw_text: String。没有控件或业务对象引用。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_ime_composition">
@@ -62,7 +62,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">token: 当前会话令牌。</tag>
 				<tag name="return">有未完成组合时返回 true；其他控件或过期令牌返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="commit_edit">
@@ -74,7 +74,7 @@
 				<tag name="param">token: 当前会话令牌。</tag>
 				<tag name="return">独立的提交快照；过期令牌或未完成输入法组合返回空字典且不结束当前会话。</tag>
 				<tag name="schema">return: Dictionary，成功时含 changed: bool、before: Dictionary、after: Dictionary；before/after 含 value 和可选 raw_text: String。失败为空字典。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_edit">
@@ -87,7 +87,7 @@ SpinBox 的原生延期格式化后再校正原文；clear、新会话或数值�
 				<tag name="api">public</tag>
 				<tag name="param">token: 当前会话令牌。</tag>
 				<tag name="return">控件值和原文均恢复且会话未失效时返回 true，包括没有净变化；恢复失败仍结束本次会话并返回 false。过期令牌或输入法组合返回 false，不开始恢复。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="clear">
@@ -96,7 +96,7 @@ SpinBox 的原生延期格式化后再校正原文；clear、新会话或数值�
 宿主在字段解绑、文档切换、退树或释放时调用。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="6d0f125b9fac7a68b22641602bc0aa65a3685cdb2cbb42f15d6eb34e0e1a082e">
+<class name="GFNumberFormatter" path="addons/gf/standard/foundation/formatting/gf_number_formatter.gd" module="standard" extends="RefCounted" classDigest="d26008d07320443ce5bc55830b815c508f68db4ba3d93e8c20fcd92a742ffe62">
 	<description>GFNumberFormatter: 由冻结政策控制的统一数字显示工具。
 int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFBigNumber 的
 尾数本身是近似值，格式化不会恢复它们已经丢失的精度。输出仅用于展示。</description>
@@ -22,7 +22,7 @@ int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFB
 				<tag name="param">policy: 冻结显示政策；null 使用默认 auto 政策。</tag>
 				<tag name="return">格式化字符串；非法输入报告错误并返回稳定fallback 0。需要区分错误与真实零时使用 try_format。</tag>
 				<tag name="schema">value: int、有限float、最多4096字符的String数值、GFBigNumber或GFFixedDecimal。文本支持严格逗号/下划线分隔和科学指数，输入及数量级范围±1000000；不接受bool或任意对象。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_format">
@@ -35,7 +35,7 @@ int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFB
 				<tag name="return">有界显示结果。</tag>
 				<tag name="schema">value: int、有限float、String数值、GFBigNumber或GFFixedDecimal；预算与format_number.value相同。</tag>
 				<tag name="schema">return: 封闭 Dictionary，ok:bool、text:String、error:String、notation_used:String、fallback_reason:String、policy_error_kind:String、path:String。成功文本最多8192字符，失败文本为空；notation_used为实际full/compact/scientific/engineering，失败为空；fallback_reason为output_budget/suffix_exhausted或空。默认科学回退，fallback_notation=error时拒绝回退。error为稳定原因标识；policy_error_kind/path由try_format_options报告政策错误，其余为空，不包含输入载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="try_format_options">
@@ -49,7 +49,7 @@ int、十进制文本和 GFFixedDecimal 使用精确文本运算。float 与 GFB
 				<tag name="schema">value: int、有限float、String数值、GFBigNumber或GFFixedDecimal；范围见format_number.value。</tag>
 				<tag name="schema">options: 封闭Dictionary，见GFNumberFormatPolicy.create.options。</tag>
 				<tag name="schema">return: 与try_format.return相同；政策错误时ok=false、error=invalid_policy、policy_error_kind/path来自GFNumberFormatPolicy.try_create，text为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

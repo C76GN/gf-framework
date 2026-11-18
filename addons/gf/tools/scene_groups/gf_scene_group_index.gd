@@ -11,7 +11,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFSceneGroupIndex
 extends RefCounted
 
@@ -228,7 +228,7 @@ var _generation: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param root_path: 规范 res:// 目录；不接受相对路径、反斜杠、空片段或点路径穿越。
 ## [br]
@@ -307,7 +307,7 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param entry_budget: 本次最多处理的工作单位，范围 1..4096。
 ## [br]
@@ -344,7 +344,7 @@ func advance(entry_budget: int = 64) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel() -> void:
 	if _status == "scanning":
 		_generation += 1
@@ -356,7 +356,7 @@ func cancel() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前扫描摘要。
 ## [br]
@@ -378,7 +378,7 @@ func get_snapshot() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: 子字符串搜索文本；空文本匹配所有记录。
 ## [br]

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFInputPulseTrigger" path="addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="dbb6fc462c8b33bf92e57f064c3a58232d84c55e827a8ca31c1a27059d244a55">
+<class name="GFInputPulseTrigger" path="addons/gf/standard/input/triggers/gf_input_pulse_trigger.gd" module="standard" extends="GFInputTrigger" classDigest="5c59abd00d402af6b81edd5bee2690fbbbebc2470363221b7733da75f5c945a7">
 	<description>GFInputPulseTrigger: 周期脉冲触发器。
 输入持续活跃时按固定间隔触发一次，可用于连发、菜单重复导航等通用场景。</description>
 	<tags>
@@ -26,7 +26,7 @@
 非有限赋值会被拒绝并保留最后有效值。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="trigger_immediately" decorators="@export">

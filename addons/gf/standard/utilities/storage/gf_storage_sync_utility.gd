@@ -62,7 +62,7 @@ var _closed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _scope: 架构关闭作用域。
 ## [br]
@@ -78,7 +78,7 @@ func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	_stop(&"disposed")
 	_transport = null
@@ -91,7 +91,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param transport: 冻结认证会话的远端适配器。
 ## [br]
@@ -128,7 +128,7 @@ func setup(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param mode: push、pull、preview 或 probe。
 ## [br]
@@ -200,7 +200,7 @@ func inspect_support(mode: StringName = &"push", resolution: StringName = &"repo
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 冻结请求；probe 模式进入 recover()。
 ## [br]
@@ -240,7 +240,7 @@ func synchronize(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param request: 原持久化请求；除观察模式外的规范记录必须一致。
 ## [br]
@@ -268,7 +268,7 @@ func recover(request: GFStorageSyncRequest) -> GFStorageSyncOperation:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param requests: 最多256个冻结请求；同记录在途竞争逐项拒绝。
 ## [br]
@@ -288,7 +288,7 @@ func synchronize_many(requests: Array[GFStorageSyncRequest]) -> Array[GFStorageS
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _delta: 架构传入的帧间隔。
 func tick(_delta: float) -> void:
@@ -303,7 +303,7 @@ func tick(_delta: float) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前观察数量和装配状态。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 可选的有界网络请求关联器。 主线程显式驱动会话、请求与回复，不拥有传输后端，不解释业务成功或自动重试。 send 回调同步接收必须原样回显的请求 ID；适配器识别回复后传入真实传输 peer。 使用独立单调时钟；调用方须定期 tick，并在退出时 dispose。
 
@@ -33,7 +33,7 @@
 ### `_init`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _init(clock: GFClock = null, max_pending: int = 64) -> void:
@@ -53,7 +53,7 @@ func _init(clock: GFClock = null, max_pending: int = 64) -> void:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -66,7 +66,7 @@ func dispose() -> void:
 ### `begin_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_session() -> Error:
@@ -81,7 +81,7 @@ func begin_session() -> Error:
 ### `end_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func end_session() -> void:
@@ -94,7 +94,7 @@ func end_session() -> void:
 ### `disconnect_peer`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func disconnect_peer(peer_id: int) -> void:
@@ -113,7 +113,7 @@ func disconnect_peer(peer_id: int) -> void:
 ### `request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func request( peer_id: int, send: Callable, timeout_msec: int = 10000 ) -> GFNetworkRequestHandle:
@@ -136,7 +136,7 @@ func request( peer_id: int, send: Callable, timeout_msec: int = 10000 ) -> GFNet
 ### `receive_reply`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func receive_reply( peer_id: int, request_id: String, response: Variant = null ) -> bool:
@@ -163,7 +163,7 @@ func receive_reply( peer_id: int, request_id: String, response: Variant = null )
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick() -> void:
@@ -176,7 +176,7 @@ func tick() -> void:
 ### `get_pending_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_pending_count() -> int:
@@ -191,7 +191,7 @@ func get_pending_count() -> int:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

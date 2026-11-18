@@ -183,7 +183,7 @@ var _error: String = ""
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param owner: 模型弱引用，用于每步核对目录和查询代次。
 ## [br]
@@ -211,7 +211,7 @@ func configure(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param max_items: 本次最多执行的数据操作数，限制在 1 到 256。
 ## [br]
@@ -288,7 +288,7 @@ func step(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel() -> void:
 	_worker_mutex.lock()
 	_worker_cancelled = true
@@ -304,7 +304,7 @@ func cancel() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 尚需回收线程时为 true。
 func has_worker() -> bool:
@@ -315,7 +315,7 @@ func has_worker() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 任务已不再拥有线程时为 true。
 func reap_worker() -> bool:
@@ -331,7 +331,7 @@ func reap_worker() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func join_worker() -> void:
 	cancel()
 	if _thread != null:
@@ -342,7 +342,7 @@ func join_worker() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 与模型 get_page 相同形状的页面数据，不再由任务保留。
 ## [br]
@@ -366,7 +366,7 @@ func take_result() -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不包含候选、资源或模型引用的进度副本。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 UTC 或固定偏移下的冻结周期政策。 只计算 daily、weekly 或 fixed 窗口，不处理地区时区、DST、闰秒、奖励或补签。 周期身份包含计划身份、版本、实际政策和窗口起点；改变政策不会复用旧身份。
 
@@ -26,7 +26,7 @@ UTC 或固定偏移下的冻结周期政策。 只计算 daily、weekly 或 fixe
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( schedule_id: StringName, version: int, options: Dictionary = {} ) -> GFPeriodSchedule:
@@ -53,7 +53,7 @@ static func create( schedule_id: StringName, version: int, options: Dictionary =
 ### `get_window`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_window(unix_msec: int) -> GFTimeWindow:
@@ -74,7 +74,7 @@ func get_window(unix_msec: int) -> GFTimeWindow:
 ### `to_record`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_record() -> Dictionary:

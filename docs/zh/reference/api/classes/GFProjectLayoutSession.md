@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 拥有一次编译与一次冻结分析的只读 Layout 会话。 会话不执行目标项目代码；结果通过深复制导出，查询复用内部 compilation 与验证索引。
 
@@ -32,7 +32,7 @@
 ### `open_profile_text`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func open_profile_text( text: String, source_path: String, options: Dictionary = {} ) -> Dictionary:
@@ -60,7 +60,7 @@ func open_profile_text( text: String, source_path: String, options: Dictionary =
 ### `open_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
@@ -88,7 +88,7 @@ func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 ### `observe`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func observe(options: Dictionary = {}) -> Dictionary:
@@ -114,7 +114,7 @@ func observe(options: Dictionary = {}) -> Dictionary:
 ### `open_snapshot_text`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func open_snapshot_text(text: String) -> Dictionary:
@@ -139,7 +139,7 @@ func open_snapshot_text(text: String) -> Dictionary:
 ### `get_analysis`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_analysis() -> Dictionary:
@@ -158,7 +158,7 @@ func get_analysis() -> Dictionary:
 ### `plan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func plan(options: Dictionary = {}) -> Dictionary:
@@ -184,7 +184,7 @@ func plan(options: Dictionary = {}) -> Dictionary:
 ### `explain`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func explain(finding_id: String) -> Dictionary:
@@ -209,7 +209,7 @@ func explain(finding_id: String) -> Dictionary:
 ### `impact`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func impact(change: Dictionary) -> Dictionary:
@@ -235,7 +235,7 @@ func impact(change: Dictionary) -> Dictionary:
 ### `close`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func close() -> void:

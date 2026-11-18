@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="2de7fbdb0b6c6c26dd65f5b48c25b8a0d6d985039e5224ab207ba48ff1d92810">
+<class name="GFStorageAsyncOperation" path="addons/gf/standard/utilities/storage/gf_storage_async_operation.gd" module="standard" extends="RefCounted" classDigest="1bbe4b2f11af2fc90c05cf89d061658372a4e40e9399a20cc5436500c87e1ba9">
 	<description>GFStorageAsyncOperation: 单次异步存储请求句柄。
 句柄同时表达单个 consumer 的 caller 终态与共享物理请求终态。既有
 `completed/is_completed/get_result` 始终表示物理终态；caller 可通过独立查询和
@@ -138,7 +138,7 @@ caller 的取消或超时不会提前完成此等待，底层工作仍由 Storag
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前物理请求的终态结果副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_caller_pending">
@@ -176,7 +176,7 @@ owner 失效、取消和期限到达都能唤醒等待者。`OUTCOME_UNKNOWN` �
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前消费者的隔离终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_observation">

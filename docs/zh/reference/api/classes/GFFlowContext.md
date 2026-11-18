@@ -244,7 +244,7 @@ func query_condition( condition_id: StringName, payload: Variant = null, default
 ### `create_data_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func create_data_snapshot(options: Dictionary = {}) -> Dictionary:

@@ -6,7 +6,7 @@
 ## [br]
 ## @category tool_api
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFProjectLayoutSession
 extends RefCounted
 
@@ -77,7 +77,7 @@ var _validation: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: 有界严格 UTF-8 Profile JSON 原文。
 ## [br]
@@ -159,7 +159,7 @@ func open_profile_text(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile: 闭合 schema v2 Profile。
 ## [br]
@@ -191,7 +191,7 @@ func open_profile(profile: Dictionary, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 有限来源捕获选项。
 ## [br]
@@ -210,7 +210,7 @@ func observe(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: 最多1MiB严格JSON对象；数字必须使用十进制整数记法，绝对值不超过2^53-1，不接受小数或指数记法。
 ## [br]
@@ -249,7 +249,7 @@ func open_snapshot_text(text: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 最近报告，未打开或 close 后为空字典。
 ## [br]
@@ -262,7 +262,7 @@ func get_analysis() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 有限规划选项。
 ## [br]
@@ -279,7 +279,7 @@ func plan(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param finding_id: 当前报告中的 finding ID。
 ## [br]
@@ -299,7 +299,7 @@ func explain(finding_id: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param change: 有限变更声明。
 ## [br]
@@ -321,7 +321,7 @@ func impact(change: Dictionary) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close() -> void:
 	_compilation = {}
 	_analysis = {}
@@ -334,7 +334,7 @@ func close() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param compilation: 已编译策略，无 Profile 时为空。
 ## [br]
@@ -353,7 +353,7 @@ func adopt_owned_analysis(compilation: Dictionary, analysis: Dictionary) -> void
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param analysis: 只读借用 report。
 ## [br]
@@ -368,7 +368,7 @@ func owns_analysis_for_framework(analysis: Dictionary) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param checkpoint: 可选 Callable，接收正整数工作量，返回是否继续。
 ## [br]
@@ -389,7 +389,7 @@ func get_owned_validation_for_framework(checkpoint: Callable = Callable()) -> Di
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 有限规划选项。
 ## [br]

@@ -140,7 +140,7 @@ const _FLOAT32_MAX: float = 3.4028234663852886e38
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 纯 Variant 值树或已就绪 GFDataSnapshot；Object 类型的容器即使为空也拒绝。
 ## [br]
@@ -163,7 +163,7 @@ static func encode_deterministic_result(value: Variant, options: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: 本类确定性编码器生成的文本；普通 JSON 与旧规范 JSON 不属于此格式。
 ## [br]
@@ -244,7 +244,7 @@ static func json_compatible_to_variant(value: Variant, options: Dictionary = {})
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 待编码值。
 ## [br]
@@ -276,7 +276,7 @@ static func variant_to_json_compatible_result(value: Variant, options: Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 已编码的值。
 ## [br]

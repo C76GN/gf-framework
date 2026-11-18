@@ -64,7 +64,7 @@ var host_node: Node
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var replacement_scope: GFTweenReplacementScope = null
 
 
@@ -453,7 +453,7 @@ func finish() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param time_seconds: 0 至总时长的有限秒数，包含全部循环。
 ## [br]
@@ -473,7 +473,7 @@ func seek(time_seconds: float) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 活跃可控会话开始播放时返回 true。
 func play_forward() -> bool:
@@ -484,7 +484,7 @@ func play_forward() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 活跃可控会话开始倒放时返回 true。
 func play_backward() -> bool:
@@ -495,7 +495,7 @@ func play_backward() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 已捕获且尚未终结的可控会话返回 true。
 func can_control_playback() -> bool:
@@ -510,7 +510,7 @@ func can_control_playback() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前秒数，终态保留最后提交时间。
 func get_time_seconds() -> float:
@@ -521,7 +521,7 @@ func get_time_seconds() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 总秒数；原生模式或未捕获时为 0。
 func get_duration_seconds() -> float:

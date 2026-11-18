@@ -210,7 +210,7 @@ func get_result() -> GFStorageAsyncResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前物理请求的终态结果副本。
 func wait_physical_result_async() -> GFStorageAsyncResult:
@@ -259,7 +259,7 @@ func get_caller_result() -> GFStorageAsyncCallerResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前消费者的隔离终态结果。
 func wait_caller_result_async() -> GFStorageAsyncCallerResult:

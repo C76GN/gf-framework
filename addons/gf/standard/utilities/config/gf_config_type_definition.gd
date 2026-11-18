@@ -9,7 +9,7 @@
 ## [br]
 ## @category resource_definition
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFConfigTypeDefinition
 extends Resource
 
@@ -20,7 +20,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Kind {
 	## 沿用字段标量转换。
 	SCALAR,
@@ -43,70 +43,70 @@ enum Kind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var kind: Kind = Kind.SCALAR
 
 ## 供生成器及多态分支使用的稳定名称；多态分支必须非空且唯一。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var type_name: StringName = &""
 
 ## 容器元素或直接类型调用是否允许 null；字段位置由 column.allow_null 决定。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var allow_null: bool = false
 
 ## SCALAR 的标量类型；不接受 ANY、ARRAY 或 DICTIONARY。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var scalar_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING
 
 ## STRUCT 自己声明的字段；继承字段在前，禁止覆盖任何基类字段。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var fields: Array[GFConfigTableColumn] = []
 
 ## STRUCT 的可选基类；只接受 STRUCT，整个定义图不允许循环。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var base_type: GFConfigTypeDefinition = null
 
 ## ARRAY 的元素类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var element_type: GFConfigTypeDefinition = null
 
 ## MAP 的键类型；只允许 STRING、STRING_NAME 和 INT，转换后重复键失败。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var map_key_type: GFConfigTableColumn.ValueType = GFConfigTableColumn.ValueType.STRING
 
 ## MAP 的值类型。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var map_value_type: GFConfigTypeDefinition = null
 
 ## ENUM 的具名整数值；符号及整数值均必须唯一。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema symbols: Dictionary，非空 String 或 StringName 符号映射到唯一 int 值。
 @export var symbols: Dictionary = {}
@@ -115,7 +115,7 @@ enum Kind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var discriminator: StringName = &"type"
 
 ## POLYMORPHIC 的可选分支；每项必须是具名 GFConfigTypeDefinition STRUCT。
@@ -124,7 +124,7 @@ enum Kind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var variants: Array[Resource] = []
 
 
@@ -134,7 +134,7 @@ enum Kind {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用期预算与诊断上下文。
 ## [br]
@@ -154,7 +154,7 @@ func validate_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用期预算与诊断上下文。
 ## [br]
@@ -180,7 +180,7 @@ func compile_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 不会被修改的输入值。
 ## [br]
@@ -215,7 +215,7 @@ func try_normalize(value: Variant, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用期预算与来源上下文。
 ## [br]
@@ -238,7 +238,7 @@ func describe(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用期预算。
 ## [br]
@@ -259,7 +259,7 @@ func try_duplicate_definition(options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用期预算。
 ## [br]

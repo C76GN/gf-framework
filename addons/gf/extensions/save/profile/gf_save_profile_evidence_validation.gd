@@ -31,7 +31,7 @@ const _MAX_EVIDENCE_STRING_LENGTH: int = 2048
 ## [br]
 ## @layer extensions/save
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param evidence: 待检查的事务、结算或对账证据。
 ## [br]

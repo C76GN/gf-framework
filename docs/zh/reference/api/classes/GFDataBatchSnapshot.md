@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 固定元数据和数值列的独立发布快照。 发布者替换或关闭后仍可读取。copy 方法提供修改隔离；borrow 方法返回共享 PackedArray，只能按合作约定读取。Godot 不提供此类数组的强制只读或 move 保证。 count 是有效前缀长度，capacity 是列数组长度，容量尾部不属于有效数据。
 
@@ -36,7 +36,7 @@
 ### `get_schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_schema() -> GFDataBatchSchema:
@@ -51,7 +51,7 @@ func get_schema() -> GFDataBatchSchema:
 ### `get_producer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_producer_id() -> StringName:
@@ -66,7 +66,7 @@ func get_producer_id() -> StringName:
 ### `get_producer_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_producer_generation() -> int:
@@ -81,7 +81,7 @@ func get_producer_generation() -> int:
 ### `get_publication_sequence`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_publication_sequence() -> int:
@@ -96,7 +96,7 @@ func get_publication_sequence() -> int:
 ### `get_structural_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_structural_revision() -> int:
@@ -111,7 +111,7 @@ func get_structural_revision() -> int:
 ### `get_value_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_value_revision() -> int:
@@ -126,7 +126,7 @@ func get_value_revision() -> int:
 ### `get_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_count() -> int:
@@ -141,7 +141,7 @@ func get_count() -> int:
 ### `get_capacity`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_capacity() -> int:
@@ -156,7 +156,7 @@ func get_capacity() -> int:
 ### `get_payload_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_payload_bytes() -> int:
@@ -171,7 +171,7 @@ func get_payload_bytes() -> int:
 ### `copy_int32_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func copy_int32_column(column_index: int) -> PackedInt32Array:
@@ -192,7 +192,7 @@ func copy_int32_column(column_index: int) -> PackedInt32Array:
 ### `copy_int64_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func copy_int64_column(column_index: int) -> PackedInt64Array:
@@ -213,7 +213,7 @@ func copy_int64_column(column_index: int) -> PackedInt64Array:
 ### `borrow_int32_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func borrow_int32_column(column_index: int) -> PackedInt32Array:
@@ -234,7 +234,7 @@ func borrow_int32_column(column_index: int) -> PackedInt32Array:
 ### `borrow_int64_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func borrow_int64_column(column_index: int) -> PackedInt64Array:

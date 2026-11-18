@@ -334,7 +334,7 @@ func is_integrity_accepted() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 不可变的 revision 结果；失败读取不提供可缓存 token。
 func get_committed_revision() -> GFStorageRevisionResult:
@@ -469,7 +469,7 @@ static func from_dict(data: Dictionary) -> GFStorageReadResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document: 与当前结果同次读取的 JSON 文档树。
 ## [br]
@@ -489,7 +489,7 @@ func capture_json_projection_for_framework(document: Variant) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 从物理文档根开始的 String/StringName 键或整数数组索引。
 ## [br]
@@ -551,7 +551,7 @@ func capture_revision_for_framework(revision: GFStorageRevisionResult) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功读取捕获的 revision；未捕获时为 null。
 func get_captured_revision_for_framework() -> GFStorageRevisionResult:

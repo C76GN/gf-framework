@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageOwnedReadTakeResult
 extends RefCounted
 
@@ -18,7 +18,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Status {
 	## 本次调用取得完整读取结果。
 	SUCCESS,
@@ -64,7 +64,7 @@ var _read_result: GFStorageReadResult = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 领取状态；手动构造的实例返回 INVALID。
 func get_status() -> Status:
@@ -75,7 +75,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 仅 SUCCESS 时返回 true，成功的空 Dictionary 同样为 true。
 func is_ok() -> bool:
@@ -89,7 +89,7 @@ func is_ok() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return SUCCESS 时返回完整结果，其他状态返回 null。
 func get_read_result() -> GFStorageReadResult:
@@ -102,7 +102,7 @@ func get_read_result() -> GFStorageReadResult:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param status: 闭合的领取状态。
 ## [br]

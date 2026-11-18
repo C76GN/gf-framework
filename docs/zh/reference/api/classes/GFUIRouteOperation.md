@@ -87,7 +87,7 @@ const OPERATION_REPLACE: StringName = &"replace"
 ### `get_navigation_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_navigation_target() -> GFUINavigationTarget:
@@ -237,7 +237,7 @@ func get_result() -> GFUIRouteResult:
 ### `wait_result_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_result_async() -> GFUIRouteResult:

@@ -266,7 +266,7 @@ func cancel() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前或最近结束的 RunState，从未接纳过运行时为 null。
 func get_run_state() -> GFFlowRunState:

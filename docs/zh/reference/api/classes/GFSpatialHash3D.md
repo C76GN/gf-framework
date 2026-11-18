@@ -122,7 +122,7 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 ### `can_query_aabb`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_query_aabb(area: AABB) -> bool:

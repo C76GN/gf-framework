@@ -293,7 +293,7 @@ func _exit_tree() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前页面是否拥有未保存的任务修改。
 func has_unsaved_workspace_changes() -> bool:
@@ -307,7 +307,7 @@ func has_unsaved_workspace_changes() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param context: 当前宿主上下文；null 撤销页面写入资格。
 func set_editor_context(context: GFEditorToolContext) -> void:

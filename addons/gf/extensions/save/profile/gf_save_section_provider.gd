@@ -78,7 +78,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var payload_policy: GFSavePayloadPolicy = null:
 	set(value):
 		if _definition_locked and value != payload_policy:
@@ -459,7 +459,7 @@ func lock_definition_for_framework() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 供 Profile 独占的政策副本。
 func copy_payload_policy_for_framework() -> GFSavePayloadPolicy:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageRevisionMigration" path="addons/gf/standard/utilities/storage/gf_storage_revision_migration.gd" module="standard" extends="RefCounted" classDigest="a7125c7660afce07029e70b42ecffa7049bfa6ee82badb8561a6acb0d3078eb2">
+<class name="GFStorageRevisionMigration" path="addons/gf/standard/utilities/storage/gf_storage_revision_migration.gd" module="standard" extends="RefCounted" classDigest="a29bb5d46170d4bc2d5126f518d1bea77f6c2638a52fc388aac4a89021c9f539">
 	<description>GFStorageRevisionMigration: 把现有 Storage schema 1 显式离线升级为 schema 2。
 调用前必须停止该 root 的全部其他 Utility、进程与外部文件写入者。
 迁移 intent 存在期间普通运行时拒绝 I/O；失败后应在同一离线条件下重试。
@@ -8,7 +8,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">tool_api</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -22,7 +22,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">save_dir_name: 与 GFStorageUtility.save_dir_name 相同的合法存储目录配置。</tag>
 				<tag name="return">完整 schema 2 验收成功返回 OK；失败保留恢复证据，不创建缺失的存储 root。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

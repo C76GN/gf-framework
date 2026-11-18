@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 隔离纯数据后发布的只读快照。 捕获期间源数据必须稳定。共享子容器按值展开，循环、对象和对象类型容器被拒绝。 读取返回独立副本，后台任务可保留快照直到物理执行结束。 分帧捕获结果还持有源租约；源线程须保留最后引用，直到后台结束后在源线程释放。
 
@@ -28,7 +28,7 @@
 ### `capture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func capture(value: Variant, limits: Dictionary = {}) -> Dictionary:
@@ -56,7 +56,7 @@ static func capture(value: Variant, limits: Dictionary = {}) -> Dictionary:
 ### `is_ready`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_ready() -> bool:
@@ -71,7 +71,7 @@ func is_ready() -> bool:
 ### `get_statistics`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_statistics() -> Dictionary:
@@ -90,7 +90,7 @@ func get_statistics() -> Dictionary:
 ### `copy_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func copy_value(limits: Dictionary = {}) -> Dictionary:
@@ -116,7 +116,7 @@ func copy_value(limits: Dictionary = {}) -> Dictionary:
 ### `get_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_value(path: Array = []) -> Variant:

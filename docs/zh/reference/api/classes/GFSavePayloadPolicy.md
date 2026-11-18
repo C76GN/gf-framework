@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：资源定义 (`resource_definition`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 已知载荷结构与显式保留范围。 schema 只解释项目声明的运行数据；未声明字段及内容条目默认拒绝。 保留内容由 Profile 的持久化基线承载，不进入 Provider 的运行投影。
 
@@ -36,7 +36,7 @@
 ### `schema`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -50,7 +50,7 @@ var schema: GFSchemaField = null
 ### `retained_fields`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -68,7 +68,7 @@ var retained_fields: Dictionary = {}
 ### `collections`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -86,7 +86,7 @@ var collections: Dictionary = {}
 ### `max_depth`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(1, 64, 1)
@@ -100,7 +100,7 @@ var max_depth: int = 32
 ### `max_nodes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(1, 100000, 1)
@@ -114,7 +114,7 @@ var max_nodes: int = 10000
 ### `max_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export_range(1, 67108864, 1)
@@ -130,7 +130,7 @@ var max_bytes: int = 16777216
 ### `validate_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func validate_policy() -> Dictionary:
@@ -149,7 +149,7 @@ func validate_policy() -> Dictionary:
 ### `get_limits`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_limits() -> Dictionary:
@@ -168,7 +168,7 @@ func get_limits() -> Dictionary:
 ### `measure_payload`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func measure_payload(payload: Variant) -> Dictionary:
@@ -194,7 +194,7 @@ func measure_payload(payload: Variant) -> Dictionary:
 ### `duplicate_policy`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func duplicate_policy() -> GFSavePayloadPolicy:
@@ -209,7 +209,7 @@ func duplicate_policy() -> GFSavePayloadPolicy:
 ### `project`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func project(payload: Variant) -> Dictionary:
@@ -235,7 +235,7 @@ func project(payload: Variant) -> Dictionary:
 ### `merge`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func merge( projection: Variant, baseline: Variant, deletions: Dictionary = {} ) -> Dictionary:
@@ -265,7 +265,7 @@ func merge( projection: Variant, baseline: Variant, deletions: Dictionary = {} )
 ### `item_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func item_path(collection_path: String, item_id: Variant) -> String:

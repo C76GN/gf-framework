@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSavePayloadPolicy" path="addons/gf/extensions/save/document/gf_save_payload_policy.gd" module="extensions/save" extends="Resource" classDigest="15ab22ad3c1a3eca6dc1846547f2b59d2560e1c48fe38f7b8b539b050df9037b">
+<class name="GFSavePayloadPolicy" path="addons/gf/extensions/save/document/gf_save_payload_policy.gd" module="extensions/save" extends="Resource" classDigest="032c1bfcdc715eb81b6486e65c0f0e8a86e0c320bd591931dbd5b198d6f3008a">
 	<description>GFSavePayloadPolicy: 已知载荷结构与显式保留范围。
 schema 只解释项目声明的运行数据；未声明字段及内容条目默认拒绝。
 保留内容由 Profile 的持久化基线承载，不进入 Provider 的运行投影。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">resource_definition</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -17,7 +17,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<description>根值声明；field_name 必须非空，根可以是标量、数组或字典。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="retained_fields" decorators="@export">
@@ -28,7 +28,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">retained_fields: Dictionary[String, PackedStringArray]，键为 schema 节点路径，值为允许保留的字段名。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="collections" decorators="@export">
@@ -37,7 +37,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="schema">collections: Dictionary，键为数组 schema 路径，值含 id_field: StringName/String，可选 active_ids: Array[int/String/StringName] 和 preserve_unknown: bool（默认 false）；省略 active_ids 表示所有身份均已知。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_depth" decorators="@export_range(1, 64, 1)">
@@ -45,7 +45,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<description>载荷及持久化基线的最大嵌套深度。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_nodes" decorators="@export_range(1, 100000, 1)">
@@ -53,7 +53,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<description>单个完整载荷或基线允许的最大节点数。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="max_bytes" decorators="@export_range(1, 67108864, 1)">
@@ -61,7 +61,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<description>规范编码的字节上限；覆盖保留内容，不等于磁盘压缩后的大小。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</properties>
@@ -73,7 +73,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 				<tag name="api">public</tag>
 				<tag name="return">结构化准入结果。</tag>
 				<tag name="schema">return: Dictionary，含 ok: bool、error_kind: StringName、path: String。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_limits">
@@ -83,7 +83,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 				<tag name="api">public</tag>
 				<tag name="return">独立预算记录。</tag>
 				<tag name="schema">return: Dictionary with max_depth:int,max_nodes:int,max_bytes:int.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="measure_payload">
@@ -96,7 +96,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 				<tag name="return">预算诊断；失败计量可能仅为已遍历部分。</tag>
 				<tag name="schema">payload: 与 project() 相同的 Save 原生持久化值。</tag>
 				<tag name="schema">return: Dictionary with ok:bool,error_kind:StringName,path:String,layer:StringName,limits:Dictionary,observed:Dictionary; observed contains native and optional canonical validation reports.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_policy">
@@ -105,7 +105,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">政策副本，不与作者资源共享可变 schema 集合。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="project">
@@ -118,7 +118,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 				<tag name="return">完整成功结果或不含部分投影的失败。</tag>
 				<tag name="schema">payload: Variant，属于 Save 的可持久化值。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、path；成功另含 projection: Variant、baseline: Variant。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="merge">
@@ -136,7 +136,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 				<tag name="schema">baseline: Variant，由 project() 返回的独立基线。</tag>
 				<tag name="schema">deletions: Dictionary[String, Array]，键为具体字典/集合路径；字典值列出要删除的保留字段名，集合值列出要删除的稳定 ID。数组元素路径使用 item_path()，不用下标。</tag>
 				<tag name="schema">return: Dictionary，含 ok、error_kind、path；成功另含 payload: Variant、projection: Variant、baseline: Variant。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="item_path">
@@ -148,7 +148,7 @@ schema 只解释项目声明的运行数据；未声明字段及内容条目默�
 				<tag name="param">item_id: 整数或非空字符串身份。</tag>
 				<tag name="return">具体元素路径；身份无效时为空。</tag>
 				<tag name="schema">item_id: int、String 或 StringName；String 与 StringName 表示同一文本身份。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

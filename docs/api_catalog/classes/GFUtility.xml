@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="7c773464f76e39c83f567de76e9b6a2b0aa7da37e2192aa3aecef0753fc7b76c">
+<class name="GFUtility" path="addons/gf/kernel/base/gf_utility.gd" module="kernel" extends="Object" classDigest="07124a655b433fc77ed7941f85e5f49093fdf60617c6e22da96d9d75dc181291">
 	<description>GFUtility: 工具组件抽象基类。
 提供可复用的工具能力；需要其它架构组件时必须通过类型化 Hook 显式声明依赖。
 子类可以实现 'init'、'async_init'、'ready'、'begin_activation'、
@@ -91,7 +91,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">默认 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="can_remove_from_active_lifecycle">
@@ -102,7 +102,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">允许独立移除时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_required_models">

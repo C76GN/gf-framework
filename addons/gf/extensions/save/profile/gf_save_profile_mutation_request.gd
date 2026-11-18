@@ -92,7 +92,7 @@ var _sync_document: GFSaveDocument = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param mutations: 待接管的完整候选 sections；输入顺序不定义应用顺序。
 ## [br]
@@ -177,7 +177,7 @@ func get_section_ids() -> PackedStringArray:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param mutations: 可选完整分区替换，仍使用一次性所有权。
 ## [br]
@@ -220,7 +220,7 @@ static func create_sync_for_framework(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document: 已由项目投影为完整本地候选的文档，不含框架元数据。
 ## [br]

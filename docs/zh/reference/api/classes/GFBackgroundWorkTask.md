@@ -287,7 +287,7 @@ var finished_msec: int = 0
 ### `get_input_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_input_snapshot() -> GFDataSnapshot:

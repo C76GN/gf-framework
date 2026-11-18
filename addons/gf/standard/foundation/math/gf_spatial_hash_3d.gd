@@ -166,7 +166,7 @@ func get_cell_for_position(position: Vector3) -> Vector3i:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param area: 查询 AABB，负尺寸会先归一化。
 ## [br]

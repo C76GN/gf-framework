@@ -302,7 +302,7 @@ func bind( owner: Node, scroll_container: ScrollContainer, content_root: Control
 ### `bind_with_reuse_keys`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func bind_with_reuse_keys( owner: Node, scroll_container: ScrollContainer, content_root: Control, layout_model: GFVirtualListModel, item_factory: Callable, bind_callback: Callable, unbind_callback: Callable, identity_callback: Callable, reuse_key_callback: Callable, focus_model: GFVirtualListFocusModel = null, measure_callback: Callable = Callable(), focus_target_callback: Callable = Callable() ) -> bool:

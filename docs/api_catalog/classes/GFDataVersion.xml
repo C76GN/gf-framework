@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataVersion" path="addons/gf/standard/foundation/variant/gf_data_version.gd" module="standard" extends="GFDataSnapshotSource" classDigest="494fce40854cbba8cbef2baf39438dace4786f32cbe15224a67ea5966d84c31e">
+<class name="GFDataVersion" path="addons/gf/standard/foundation/variant/gf_data_version.gd" module="standard" extends="GFDataSnapshotSource" classDigest="7769371217329253e27d23a52ecf85d909885a61406f88b0cb4ef9f792f18296">
 	<description>GFDataVersion: 框架记录序列的固定版本读取句柄。
 公开读取返回独立记录快照；释放只退还本句柄，其他版本和读者继续有效。
 记录位置属于本版本，不是业务实体 ID。直接 new 的句柄不可读取。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">固定记录数；未配置为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_get_revision">
@@ -28,7 +28,7 @@
 			<tags>
 				<tag name="api">protected</tag>
 				<tag name="return">固定版本号；未配置为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_read_record">
@@ -38,7 +38,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">index: 已通过范围检查的位置。</tag>
 				<tag name="return">独立就绪记录；复制失败为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_release">
@@ -46,7 +46,7 @@
 			<description>退还本句柄的根和输出预留；节点随后由存储显式回收。</description>
 			<tags>
 				<tag name="api">protected</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

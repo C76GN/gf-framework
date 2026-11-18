@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 独占异步读取的一次性领取句柄。 只能由 `GFStorageUtility.load_data_owned_request_async()` 取得有效句柄；手动 构造的实例不可领取。共享句柄即共享领取权，同一结果仅允许一次成功领取。 caller 成功后，结果由句柄持有，直到领取、显式释放或句柄的最后一个引用释放。 owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领取的结果。
 
@@ -37,7 +37,7 @@
 ### `completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal completed(receipt: GFStorageOwnedReadReceipt)
@@ -58,7 +58,7 @@ caller 首次完成时发出不包含载荷的诊断；可在回调内立即调�
 ### `State`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum State {
@@ -86,7 +86,7 @@ enum State {
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -101,7 +101,7 @@ func is_valid() -> bool:
 ### `get_request_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_request_id() -> int:
@@ -116,7 +116,7 @@ func get_request_id() -> int:
 ### `get_consumer_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_consumer_id() -> int:
@@ -131,7 +131,7 @@ func get_consumer_id() -> int:
 ### `get_file_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_file_name() -> String:
@@ -146,7 +146,7 @@ func get_file_name() -> String:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_state() -> State:
@@ -161,7 +161,7 @@ func get_state() -> State:
 ### `is_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_pending() -> bool:
@@ -176,7 +176,7 @@ func is_pending() -> bool:
 ### `is_completed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_completed() -> bool:
@@ -191,7 +191,7 @@ func is_completed() -> bool:
 ### `get_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_result() -> GFStorageOwnedReadReceipt:
@@ -206,7 +206,7 @@ func get_result() -> GFStorageOwnedReadReceipt:
 ### `wait_result_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_result_async() -> GFStorageOwnedReadReceipt:
@@ -221,7 +221,7 @@ func wait_result_async() -> GFStorageOwnedReadReceipt:
 ### `cancel_observation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_observation(reason: StringName = &"cancelled") -> bool:
@@ -242,7 +242,7 @@ func cancel_observation(reason: StringName = &"cancelled") -> bool:
 ### `take`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func take() -> GFStorageOwnedReadTakeResult:
@@ -257,7 +257,7 @@ func take() -> GFStorageOwnedReadTakeResult:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func release() -> bool:

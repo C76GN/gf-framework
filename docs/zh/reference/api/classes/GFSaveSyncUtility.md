@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 将通用版本同步组合到受管 Profile 事务。 prepare_profile() 必须早于目标 Profile 的加载或保存；同步使用最近已确认的完整 文档。业务修改须通过 Profile 保存或事务持久化，不从未登记的内存改动猜测代际。 账号会话冻结到一个 Profile、namespace、key 和 Transport；不自动合并游客数据。 Journal 与下载应用复用既有 Coordinator，网络等待期间不占用业务事务。
 
@@ -34,7 +34,7 @@
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -47,7 +47,7 @@ func dispose() -> void:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -68,7 +68,7 @@ func begin_quiesce(_scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `setup`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func setup( profiles: GFSaveProfileUtility, coordinator: GFSaveProfileTransactionCoordinator, projection: GFSaveSyncProjection, clock: GFClock = null ) -> bool:
@@ -92,7 +92,7 @@ func setup( profiles: GFSaveProfileUtility, coordinator: GFSaveProfileTransactio
 ### `prepare_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func prepare_profile(profile_id: StringName) -> bool:
@@ -113,7 +113,7 @@ func prepare_profile(profile_id: StringName) -> bool:
 ### `open_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func open_session( profile_id: StringName, record_namespace: String, record_key: String, transport: GFStorageSyncTransport ) -> bool:
@@ -137,7 +137,7 @@ func open_session( profile_id: StringName, record_namespace: String, record_key:
 ### `close_session`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func close_session() -> void:
@@ -150,7 +150,7 @@ func close_session() -> void:
 ### `synchronize`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func synchronize(operation_id: String, options: Dictionary = {}) -> GFAsyncCompletion:
@@ -177,7 +177,7 @@ func synchronize(operation_id: String, options: Dictionary = {}) -> GFAsyncCompl
 ### `recover_pending`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func recover_pending() -> GFAsyncCompletion:
@@ -196,7 +196,7 @@ func recover_pending() -> GFAsyncCompletion:
 ### `cancel_wait`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_wait() -> bool:
@@ -211,7 +211,7 @@ func cancel_wait() -> bool:
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(delta: float) -> void:
@@ -230,7 +230,7 @@ func tick(delta: float) -> void:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSaveSyncProjection" path="addons/gf/extensions/save/sync/gf_save_sync_projection.gd" module="extensions/save" extends="RefCounted" classDigest="537b18326de960a60845a5d44eea265f282b495a53e33f2ec6f9ba56ae906254">
+<class name="GFSaveSyncProjection" path="addons/gf/extensions/save/sync/gf_save_sync_projection.gd" module="extensions/save" extends="RefCounted" classDigest="0f3b382acd9c89d6c79087818a4c0dadd9dfdeb4a46978423e2634c4636343eb">
 	<description>GFSaveSyncProjection: 项目显式声明上传字段和下载合并边界的协议。
 输入不包含框架 checkpoint。项目负责排除本地专用、凭证及服务端权威字段，
 并将下载数据与本地专用状态合成为完整候选。默认实现拒绝，避免默认上传整份文档。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">protocol</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -21,7 +21,7 @@
 				<tag name="api">public</tag>
 				<tag name="param">document: 不含框架 checkpoint 的隔离本地文档。</tag>
 				<tag name="return">项目投影候选；拒绝时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="prepare_download">
@@ -32,7 +32,7 @@
 				<tag name="param">remote: 已验证封套的远端投影，不含框架 checkpoint。</tag>
 				<tag name="param">current: 当前已确认本地文档，不含框架 checkpoint。</tag>
 				<tag name="return">可由 Profile 验证和事务应用的完整文档；拒绝时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_project_upload">
@@ -42,7 +42,7 @@
 				<tag name="api">protected</tag>
 				<tag name="param">_document: 独立本地文档。</tag>
 				<tag name="return">明确的上传投影或 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="_prepare_download">
@@ -53,7 +53,7 @@
 				<tag name="param">_remote: 独立远端投影。</tag>
 				<tag name="param">_current: 独立当前本地文档。</tag>
 				<tag name="return">完整本地候选或 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

@@ -8,7 +8,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFConfigSnapshot
 extends RefCounted
 
@@ -55,7 +55,7 @@ var _digest_report: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param database: 本次候选的作者数据。
 ## [br]
@@ -283,7 +283,7 @@ static func capture(database: GFConfigDatabaseResource, options: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 可发布时为 true。
 func is_ready() -> bool:
@@ -294,7 +294,7 @@ func is_ready() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 捕获时的 database_id。
 func get_database_id() -> StringName:
@@ -305,7 +305,7 @@ func get_database_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 捕获时的版本字符串。
 func get_version() -> String:
@@ -320,7 +320,7 @@ func get_version() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 独立摘要报告。
 ## [br]
@@ -333,7 +333,7 @@ func get_digest_report() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已准备表名列表。
 func get_table_ids() -> PackedStringArray:
@@ -348,7 +348,7 @@ func get_table_ids() -> PackedStringArray:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -361,7 +361,7 @@ func has_table(table_name: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -375,7 +375,7 @@ func get_table_resource(table_name: StringName) -> GFConfigTableResource:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -389,7 +389,7 @@ func get_schema(table_name: StringName) -> GFConfigTableSchema:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -403,7 +403,7 @@ func has_schema(table_name: StringName) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -429,7 +429,7 @@ func get_record(table_name: StringName, record_id: Variant) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -447,7 +447,7 @@ func get_table(table_name: StringName) -> Variant:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -471,7 +471,7 @@ func make_index_key(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -501,7 +501,7 @@ func get_index_records(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]
@@ -526,7 +526,7 @@ func has_index_key(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param table_name: 表名。
 ## [br]

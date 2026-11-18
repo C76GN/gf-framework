@@ -6,7 +6,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFResourceSnapshotBroker
 extends GFResourceBroker
 
@@ -31,7 +31,7 @@ var _configured: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param resources: 1–4096 项逻辑路径与非空 Resource。
 ## [br]
@@ -77,7 +77,7 @@ func configure(resources: Dictionary) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 配置成功时为 true。
 func is_configured() -> bool:
@@ -90,7 +90,7 @@ func is_configured() -> bool:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 规范化逻辑路径。
 ## [br]
@@ -112,7 +112,7 @@ func _request_threaded_resource(path: String, type_hint: String) -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 已准入路径。
 ## [br]

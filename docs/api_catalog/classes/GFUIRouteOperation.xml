@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="2a05338eaacb6e1c9caa3d75352df44c1809b32c7f2836bb14e184cd99e47f61">
+<class name="GFUIRouteOperation" path="addons/gf/standard/utilities/ui/gf_ui_route_operation.gd" module="standard" extends="RefCounted" classDigest="51d9526ee98de3691b19e4a76bc035768bd1cc830df95876e2effa3177d29e05">
 	<description>GFUIRouteOperation: 单次异步路由打开的可观察句柄。
 句柄由 GFUIRouterUtility 分配请求身份并只接受一个终态。相同 pending 路由
 会返回同一句柄，调用方无需自行按路径合并请求。</description>
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">冻结目标；普通页面打开返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_id">
@@ -137,7 +137,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前导航的终态结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_debug_snapshot">

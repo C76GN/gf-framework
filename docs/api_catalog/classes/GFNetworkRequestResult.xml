@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkRequestResult" path="addons/gf/extensions/network/runtime/gf_network_request_result.gd" module="extensions/network" extends="RefCounted" classDigest="199709490eef70b92000e01f82283fca427c0996dd6883b7ceb48564b79e508c">
+<class name="GFNetworkRequestResult" path="addons/gf/extensions/network/runtime/gf_network_request_result.gd" module="extensions/network" extends="RefCounted" classDigest="28d6f8fa426c7f9a0e2a9a4c1a0e21b3b9016e33a8e4ce392b750746f4f1dbdf">
 	<description>GFNetworkRequestResult: 网络请求关联的一次性只读终态。
 received 只表示收到匹配请求身份与 peer 的回复，不表示业务操作成功。
 回复由关联器先完成有界传输值校验；结果保留隔离副本，读取时再次复制集合。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -16,7 +16,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>已收到匹配的回复；不解释回复中的业务结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SEND_FAILED">
@@ -24,7 +24,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>发送入口返回错误，且请求尚未进入其他终态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_TIMED_OUT">
@@ -32,7 +32,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>已达到本地单调截止时间。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_CANCELLED">
@@ -40,7 +40,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>调用方已取消本地等待；不代表服务器操作被撤销。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_SESSION_CLOSED">
@@ -48,7 +48,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>所属会话已关闭或被替换。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_PEER_DISCONNECTED">
@@ -56,7 +56,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>目标 peer 的连接已失效。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_DISPOSED">
@@ -64,7 +64,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>所属关联器已释放或不再存在。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_REJECTED">
@@ -72,7 +72,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>请求未通过参数、会话或容量准入检查。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="const" name="STATUS_INVALID_RESPONSE">
@@ -80,7 +80,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<description>匹配身份的回复未通过有界传输值校验。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -92,7 +92,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求 ID；尚未配置时为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_peer_id">
@@ -101,7 +101,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">请求的目标 peer；尚未配置时为 -1。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -110,7 +110,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">STATUS_* 常量之一；尚未配置时为 STATUS_REJECTED。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_successful">
@@ -119,7 +119,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且状态为 received 时返回 true；不判断业务成功。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_response">
@@ -129,7 +129,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 				<tag name="api">public</tag>
 				<tag name="return">回复副本；非 received 终态或尚未配置时为 null。</tag>
 				<tag name="schema">return: Variant，由关联器校验的有界纯传输值；不含 Object、Callable、Signal、RID、循环容器或非有限数，集合深拷贝。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_send_error">
@@ -138,7 +138,7 @@ received 只表示收到匹配请求身份与 peer 的回复，不表示业务�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">关联器记录的发送或准入错误码；请求未发送也可能携带拒绝原因，无错误时为 OK。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

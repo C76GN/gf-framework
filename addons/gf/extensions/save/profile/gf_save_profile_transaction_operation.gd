@@ -235,7 +235,7 @@ func get_result() -> GFSaveProfileTransactionResult:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前事务的终态结果副本。
 func wait_result_async() -> GFSaveProfileTransactionResult:

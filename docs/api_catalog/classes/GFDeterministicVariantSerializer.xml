@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="a94febb3a40af96bbd148c734df20d07ad11b441bac51d51f3485e5d99ae22d5">
+<class name="GFDeterministicVariantSerializer" path="addons/gf/standard/foundation/deterministic/gf_deterministic_variant_serializer.gd" module="standard" extends="RefCounted" classDigest="1789145ceee8eb47b6ceae01d19ec3bc64d93f9b6032cccb3a88b4c10464267f">
 	<description>GFDeterministicVariantSerializer: 有界纯数据的 canonical v2 二进制编码。
 哈希、计量和字节导出使用同一遍历；成功报告计数精确，失败不发布部分摘要或字节。
 输入可为调用期间稳定的纯 Variant 或 GFDataSnapshot。别名按值展开，循环和对象被拒绝。
@@ -17,7 +17,7 @@
 			<description>与哈希一同持久化的编码版本；v2 与旧 JSON 摘要不相同。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</constants>
@@ -34,7 +34,7 @@
 				<tag name="schema">value: Scalar, math, String, StringName, NodePath, Array, Dictionary, packed arrays, or GFDataSnapshot. Objects, executable values, RID and cycles are rejected.</tag>
 				<tag name="schema">options: Dictionary with allow_floats: bool (false), positive max_depth (64, at most 256), max_items (100000), max_string_length (1048576 characters), max_output_bytes (16777216 canonical bytes), max_sort_bytes (16777216 logical sorting workspace bytes), max_elapsed_msec (30000), and optional cancel_token: GFCancellationToken.</tag>
 				<tag name="schema">return: Dictionary with ok, canonical_version, hash, bytes, counts_complete, items, packed_items, output_bytes, maximum_depth, peak_sort_bytes, error, error_kind, error_path, failure_kind, limit_kind, limit, observed and observed_is_lower_bound. Failure counters describe processed input only. bytes is empty in hash and measurement modes.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="encode_result">
@@ -48,7 +48,7 @@
 				<tag name="schema">value: Same input domain as hash_result.</tag>
 				<tag name="schema">options: Same options as hash_result.</tag>
 				<tag name="schema">return: Same result fields as hash_result, with bytes: PackedByteArray.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="measure_canonical">
@@ -62,7 +62,7 @@
 				<tag name="schema">value: Same input domain as hash_result.</tag>
 				<tag name="schema">options: Same options as hash_result.</tag>
 				<tag name="schema">return: Same result fields as hash_result, with empty hash and bytes.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sha256">

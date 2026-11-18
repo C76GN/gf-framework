@@ -4,7 +4,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFFlowNodeExecution
 extends RefCounted
 
@@ -49,7 +49,7 @@ func _init(node_state: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 可写时返回 true。
 func is_active() -> bool:
@@ -60,7 +60,7 @@ func is_active() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param key: 节点进度键。
 ## [br]
@@ -80,7 +80,7 @@ func set_runtime_value(key: StringName, value: Variant) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param key: 节点进度键。
 ## [br]
@@ -101,7 +101,7 @@ func get_runtime_value(key: StringName, default_value: Variant = null) -> Varian
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 执行仍有效时返回 true。
 func clear_runtime_state() -> bool:
@@ -115,7 +115,7 @@ func clear_runtime_state() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param node_ids: 本次执行选择的后继标识。
 ## [br]
@@ -132,7 +132,7 @@ func set_next_nodes(node_ids: PackedStringArray) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param graph: 要进入的新子图帧。
 ## [br]
@@ -154,7 +154,7 @@ func call_subgraph(graph: GFFlowGraph) -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 节点已覆盖后继时返回 true。
 func has_next_nodes_override() -> bool:
@@ -165,7 +165,7 @@ func has_next_nodes_override() -> bool:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 本节点覆盖的后继 ID。
 func get_next_node_ids() -> PackedStringArray:
@@ -176,7 +176,7 @@ func get_next_node_ids() -> PackedStringArray:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 请求调用的图，未请求时为 null。
 func take_child_graph() -> GFFlowGraph:
@@ -189,7 +189,7 @@ func take_child_graph() -> GFFlowGraph:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func close() -> void:
 	_active = false
 	_state = {}

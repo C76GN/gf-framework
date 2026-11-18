@@ -354,7 +354,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source: 提供业务 Architecture 的上下文。
 ## [br]

@@ -175,7 +175,7 @@ func is_completed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 可查询终态和当前面板的原请求句柄。
 func wait_result_async() -> GFUIPanelAsyncOperation:

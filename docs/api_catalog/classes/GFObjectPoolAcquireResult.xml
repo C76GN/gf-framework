@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFObjectPoolAcquireResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd" module="standard" extends="RefCounted" classDigest="21c3c183902ae5d898a9046dc4865638e75f7d15dad0e60c0f12722c63f6ef55">
+<class name="GFObjectPoolAcquireResult" path="addons/gf/standard/utilities/nodes/gf_object_pool_acquire_result.gd" module="standard" extends="RefCounted" classDigest="85250a66f58cde39488454c6fe9eca82fb8f289a7a978acd3c12d53aeb394681">
 	<description>GFObjectPoolAcquireResult: 单次节点借用的结果。
 结果记录完成时的事实；成功结果中的 Lease 仍有自己的后续生命周期。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -23,7 +23,7 @@
 			<description>借用请求的最终结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -36,7 +36,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">status 为 SUCCEEDED 时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_status">
@@ -45,7 +45,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">本次请求的 Status。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_stage">
@@ -54,7 +54,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">validation、allocation、prepare、attach 或 complete。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_reason">
@@ -63,7 +63,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">acquired、invalid_scene、invalid_parent、invalid_owner、main_thread_required、pool_disposed、parent_lost、owner_lost、scene_instantiation_failed、prepare_failed、invalid_prepare_result 或 candidate_invalidated；未配置结果为 unconfigured。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_lease">
@@ -72,7 +72,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">仅成功时非 null；是否仍可使用节点应查询 Lease。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

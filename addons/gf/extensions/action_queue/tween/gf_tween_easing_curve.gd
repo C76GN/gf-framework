@@ -35,7 +35,7 @@ const _MAX_SAMPLE_MAGNITUDE: float = 16.0
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source: 无脚本的原生 Curve；null 表示继续使用 Tween 预设。
 ## [br]
@@ -88,7 +88,7 @@ static func capture(source: Curve) -> Dictionary:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param data: capture 成功返回的非空 data；不得修改其中的已校验数据。
 ## [br]
@@ -110,7 +110,7 @@ static func create_curve(data: Dictionary) -> Curve:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param data: capture 成功返回的 data；空数据表示没有自定义曲线。
 ## [br]
@@ -133,7 +133,7 @@ static func create_interpolator(data: Dictionary) -> Callable:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source: 待复制的原生 Curve。
 ## [br]
@@ -153,7 +153,7 @@ static func duplicate_curve(source: Curve) -> Curve:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param data: capture 成功返回的 data。
 ## [br]
@@ -174,7 +174,7 @@ static func get_sample_count(data: Dictionary) -> int:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param data: capture 成功返回的 data。
 ## [br]

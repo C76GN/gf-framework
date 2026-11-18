@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 节点上下文一次关闭尝试的不可变结果。 closed 表示绑定和自有架构均已关闭，drained 表示全部子上下文和架构正常完成静默工作。 关闭结果不持有 Node；子结果数组在读取边界复制。
 
@@ -29,7 +29,7 @@
 ### `is_closed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_closed() -> bool:
@@ -44,7 +44,7 @@ func is_closed() -> bool:
 ### `is_drained`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_drained() -> bool:
@@ -59,7 +59,7 @@ func is_drained() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -74,7 +74,7 @@ func get_error_code() -> Error:
 ### `get_error`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error() -> String:
@@ -89,7 +89,7 @@ func get_error() -> String:
 ### `get_architecture_result`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_architecture_result() -> GFArchitectureShutdownResult:
@@ -104,7 +104,7 @@ func get_architecture_result() -> GFArchitectureShutdownResult:
 ### `get_child_results`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_child_results() -> Array[GFContextCloseResult]:

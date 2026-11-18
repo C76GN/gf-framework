@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFUINavigationResolver
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param panel: 已入栈页面，异步代码不能假定其一直有效。
 ## [br]
@@ -44,7 +44,7 @@ func prepare_content(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param panel: 已入栈且完成内容准备的页面。
 ## [br]
@@ -71,7 +71,7 @@ func resolve_target(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _panel: 已提交页面。
 ## [br]
@@ -94,7 +94,7 @@ func _prepare_content(
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _panel: 当前可用页面。
 ## [br]

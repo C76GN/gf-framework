@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 单次 Storage logical catalog 查询的不可变结果。 完整性只相对于发起查询时的 directory、extension、recursive 与 logical depth 范围。 成功但不完整表示 max_file_count 实际截断结果；失败不携带部分文件。 文件存在不代表 payload 已通过解码或完整性校验，也不提供跨 writer 快照。
 
@@ -30,7 +30,7 @@
 ### `FailureKind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum FailureKind {
@@ -60,7 +60,7 @@ enum FailureKind {
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -75,7 +75,7 @@ func is_successful() -> bool:
 ### `get_error_code`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_error_code() -> Error:
@@ -90,7 +90,7 @@ func get_error_code() -> Error:
 ### `get_failure_kind`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_failure_kind() -> FailureKind:
@@ -105,7 +105,7 @@ func get_failure_kind() -> FailureKind:
 ### `is_complete`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_complete() -> bool:
@@ -120,7 +120,7 @@ func is_complete() -> bool:
 ### `get_files`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_files() -> PackedStringArray:
@@ -135,7 +135,7 @@ func get_files() -> PackedStringArray:
 ### `to_dict`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func to_dict() -> Dictionary:

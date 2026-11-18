@@ -242,7 +242,7 @@ func query_condition(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 可提供 json_compatible、include_condition_handler_ids 和 metadata。
 ## [br]

@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：协议与扩展点 (`protocol`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 受信任的编辑器数值样机绘制协议。 适配器只获得新建样机与冻结数值，不获得来源配置、真实目标或业务上下文。 GDScript 不是沙箱；实现者负责不访问来源、全局业务、持久化、标记或导航。
 
@@ -25,7 +25,7 @@
 ### `_create_sample`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _create_sample() -> Control:
@@ -40,7 +40,7 @@ func _create_sample() -> Control:
 ### `_apply_sample`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _apply_sample(_sample: Control, _values: Dictionary) -> void:

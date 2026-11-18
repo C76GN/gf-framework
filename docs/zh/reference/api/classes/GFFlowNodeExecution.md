@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次节点执行的写入资格。节点完成、流程取消或同一节点再次执行时，旧回调无法写入后续执行。
 
@@ -29,7 +29,7 @@
 ### `is_active`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_active() -> bool:
@@ -44,7 +44,7 @@ func is_active() -> bool:
 ### `set_runtime_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_runtime_value(key: StringName, value: Variant) -> bool:
@@ -70,7 +70,7 @@ func set_runtime_value(key: StringName, value: Variant) -> bool:
 ### `get_runtime_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_runtime_value(key: StringName, default_value: Variant = null) -> Variant:
@@ -97,7 +97,7 @@ func get_runtime_value(key: StringName, default_value: Variant = null) -> Varian
 ### `clear_runtime_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func clear_runtime_state() -> bool:
@@ -112,7 +112,7 @@ func clear_runtime_state() -> bool:
 ### `set_next_nodes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_next_nodes(node_ids: PackedStringArray) -> bool:
@@ -133,7 +133,7 @@ func set_next_nodes(node_ids: PackedStringArray) -> bool:
 ### `call_subgraph`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func call_subgraph(graph: GFFlowGraph) -> bool:

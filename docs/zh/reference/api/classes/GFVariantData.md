@@ -90,7 +90,7 @@ static func duplicate_variant(value: Variant, limits: Dictionary = {}) -> Varian
 ### `copy_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:
@@ -118,7 +118,7 @@ static func copy_value(value: Variant, limits: Dictionary = {}) -> Dictionary:
 ### `duplicate_graph`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func duplicate_graph( value: Variant, deep: bool = true, duplicate_resources: bool = false ) -> Variant:

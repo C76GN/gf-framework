@@ -7,7 +7,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFUINavigationTarget
 extends RefCounted
 
@@ -31,7 +31,7 @@ var _parameters: Dictionary = {}
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param route_id: 非空路由 ID，最多 256 字符。
 ## [br]
@@ -54,7 +54,7 @@ static func create(route_id: StringName, parameters: Dictionary = {}) -> GFUINav
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param route_id: 与 create 相同的路由身份，仍允许既有首尾空白规范化。
 ## [br]
@@ -73,7 +73,7 @@ static func validate_create(route_id: StringName, parameters: Dictionary = {}) -
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 冻结的路由 ID；未经 create 的对象为空。
 func get_route_id() -> StringName:
@@ -84,7 +84,7 @@ func get_route_id() -> StringName:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 创建时验证的纯数据。
 ## [br]
@@ -97,7 +97,7 @@ func get_parameters() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 非空参数需要在内容就绪后执行定位。
 func has_semantic_target() -> bool:
@@ -108,7 +108,7 @@ func has_semantic_target() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param other: 待比较目标。
 ## [br]

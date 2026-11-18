@@ -25,42 +25,42 @@ const STATUS_OPENED: StringName = &"opened"
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_CONTENT_READY: StringName = &"content_ready"
 
 ## 页面、内容与语义目标均已可用。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_TARGET_READY: StringName = &"target_ready"
 
 ## 导航目标、resolver 或超时政策无效，未提交页面。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_INVALID_NAVIGATION: StringName = &"invalid_navigation"
 
 ## 页面已提交，但内容准备失败；页面不被自动回滚。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_CONTENT_FAILED: StringName = &"content_failed"
 
 ## 内容已就绪，但项目无法定位请求目标；保留可用页面。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_TARGET_UNAVAILABLE: StringName = &"target_unavailable"
 
 ## 页面提交后的内容准备或定位超过本次等待预算。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const STATUS_READINESS_TIMEOUT: StringName = &"readiness_timeout"
 
 ## 路由不存在。
@@ -320,7 +320,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 内容失败、超时或提交后取消也可以为 true。
 func was_panel_committed() -> bool:
@@ -331,7 +331,7 @@ func was_panel_committed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 普通页面打开没有准备协议时为 false。
 func was_content_ready() -> bool:
@@ -342,7 +342,7 @@ func was_content_ready() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 只有语义定位成功时为 true。
 func was_target_resolved() -> bool:

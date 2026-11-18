@@ -8,7 +8,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFScenePlacementPlugin
 extends EditorPlugin
 
@@ -175,7 +175,7 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 活动面板或 null。
 func get_panel() -> GFScenePlacementPanel:
@@ -186,7 +186,7 @@ func get_panel() -> GFScenePlacementPanel:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param camera: 当前 3D 编辑器视口相机。
 ## [br]
@@ -232,7 +232,7 @@ func process_pointer(camera: Camera3D, event: InputEvent) -> int:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func cancel_placement() -> void:
 	var operation: GFScenePlacementOperation = _operation
 	_operation = null
@@ -254,7 +254,7 @@ func cancel_placement() -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 工具当前状态。
 ## [br]

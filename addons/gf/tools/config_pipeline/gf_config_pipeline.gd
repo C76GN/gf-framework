@@ -283,7 +283,7 @@ func build_table_from_text(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param sources: 单表来源声明列表。
 ## [br]
@@ -308,7 +308,7 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile: 导表 Profile 资源。
 ## [br]
@@ -329,7 +329,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile: 导表 Profile 资源。
 ## [br]

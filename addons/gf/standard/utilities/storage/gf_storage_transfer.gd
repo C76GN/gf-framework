@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFStorageTransfer
 extends GFUtility
 
@@ -19,7 +19,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param report: 冲突报告。
 signal transfer_conflict_detected(report: GFStorageConflictReport)
@@ -28,7 +28,7 @@ signal transfer_conflict_detected(report: GFStorageConflictReport)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -41,7 +41,7 @@ signal transfer_conflict_unresolved(file_name: String, result: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -54,7 +54,7 @@ signal transfer_completed(file_name: String, result: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -70,7 +70,7 @@ signal transfer_failed(file_name: String, result: Dictionary)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum ConflictStrategy {
 	## 按后端元数据中的有限 revision/timestamp 选择更新的一侧；缺失或非有限值无法判断时保留冲突。
 	USE_NEWEST,
@@ -89,7 +89,7 @@ enum ConflictStrategy {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum TransferStatus {
 	## 已选择候选但没有写入任何后端。
 	PREVIEW,
@@ -123,14 +123,14 @@ const _COMPARISON_UNORDERED: int = 2
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var default_conflict_strategy: ConflictStrategy = ConflictStrategy.MANUAL
 
 ## 默认是否把解析出的结果写回后端。关闭后可用于 dry-run。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var write_resolved_by_default: bool = true
 
 
@@ -161,7 +161,7 @@ var _failed_count: int = 0
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_name: 逻辑文件名。
 ## [br]
@@ -264,7 +264,7 @@ func transfer_data(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param file_names: 最多256个逻辑文件名；超限不开始任何传输。
 ## [br]
@@ -324,7 +324,7 @@ func transfer_many(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 调试快照字典。
 ## [br]

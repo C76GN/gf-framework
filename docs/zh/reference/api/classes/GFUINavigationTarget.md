@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 冻结的路由与语义定位参数。 不保存场景节点路径或节点引用。空参数表示只等待内容就绪；非空参数由项目 resolver 解释为页签、条目 ID 等业务定位信息。普通路由打开不需要创建此对象。
 
@@ -29,7 +29,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create(route_id: StringName, parameters: Dictionary = {}) -> GFUINavigationTarget:
@@ -55,7 +55,7 @@ static func create(route_id: StringName, parameters: Dictionary = {}) -> GFUINav
 ### `validate_create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func validate_create(route_id: StringName, parameters: Dictionary = {}) -> Dictionary:
@@ -82,7 +82,7 @@ static func validate_create(route_id: StringName, parameters: Dictionary = {}) -
 ### `get_route_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_route_id() -> StringName:
@@ -97,7 +97,7 @@ func get_route_id() -> StringName:
 ### `get_parameters`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_parameters() -> Dictionary:
@@ -116,7 +116,7 @@ func get_parameters() -> Dictionary:
 ### `has_semantic_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func has_semantic_target() -> bool:
@@ -131,7 +131,7 @@ func has_semantic_target() -> bool:
 ### `is_equivalent_to`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_equivalent_to(other: GFUINavigationTarget) -> bool:

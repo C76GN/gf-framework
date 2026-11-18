@@ -8,7 +8,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenPlaybackPlan
 extends RefCounted
 
@@ -207,7 +207,7 @@ static func capture(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param data: 已捕获的步骤；时间尚未缩放。
 ## [br]
@@ -378,7 +378,7 @@ func sample(time_seconds: float) -> Dictionary:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param property_name: 直接数值根属性名，不支持组件。
 ## [br]

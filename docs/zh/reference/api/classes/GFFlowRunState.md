@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一轮 Flow 的调度和节点进度。不同 Runner 各自持有独立状态，即使它们共用业务 Context。
 
@@ -27,7 +27,7 @@
 ### `create_data_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func create_data_snapshot() -> Dictionary:
@@ -46,7 +46,7 @@ func create_data_snapshot() -> Dictionary:
 ### `describe_frames`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func describe_frames() -> Array[Dictionary]:
@@ -65,7 +65,7 @@ func describe_frames() -> Array[Dictionary]:
 ### `get_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_report() -> Dictionary:
@@ -84,7 +84,7 @@ func get_report() -> Dictionary:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel() -> bool:

@@ -9,7 +9,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenNumericTimeline
 extends RefCounted
 
@@ -53,7 +53,7 @@ var _records: Array[Dictionary] = []
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param definition: 闭合时间轴数据，不读取来源配置。
 ## [br]
@@ -201,7 +201,7 @@ static func capture(definition: Dictionary, properties: Array[Dictionary]) -> GF
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 拒绝说明。
 func get_error() -> String:
@@ -212,7 +212,7 @@ func get_error() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 成功时为正有限秒数，失败为零。
 func get_duration_seconds() -> float:
@@ -223,7 +223,7 @@ func get_duration_seconds() -> float:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 初值；拒绝时间轴返回空字典。
 ## [br]
@@ -241,7 +241,7 @@ func get_initial_values() -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param time_seconds: 有限采样秒数。
 ## [br]

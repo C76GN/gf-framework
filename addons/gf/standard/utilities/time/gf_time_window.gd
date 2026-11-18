@@ -6,7 +6,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTimeWindow
 extends RefCounted
 
@@ -35,7 +35,7 @@ var _period_id: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param start_msec: Unix 毫秒起点，范围 ±8×10^15。
 ## [br]
@@ -68,7 +68,7 @@ static func create(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return Unix 毫秒起点。
 func get_start_msec() -> int:
@@ -79,7 +79,7 @@ func get_start_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return Unix 毫秒终点。
 func get_end_msec() -> int:
@@ -90,7 +90,7 @@ func get_end_msec() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 创建时冻结的身份；未经工厂创建时为空。
 func get_period_id() -> String:
@@ -101,7 +101,7 @@ func get_period_id() -> String:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param unix_msec: 待检查的 Unix 毫秒时间戳。
 ## [br]
@@ -118,7 +118,7 @@ func contains(unix_msec: int) -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 窗口副本。
 ## [br]

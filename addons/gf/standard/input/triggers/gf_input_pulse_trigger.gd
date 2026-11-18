@@ -30,7 +30,7 @@ extends GFInputTrigger
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var initial_delay_seconds: float = -1.0:
 	set(value):
 		if not is_finite(value):

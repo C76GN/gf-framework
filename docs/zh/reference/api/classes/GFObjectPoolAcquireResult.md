@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 单次节点借用的结果。 结果记录完成时的事实；成功结果中的 Lease 仍有自己的后续生命周期。
 
@@ -29,7 +29,7 @@
 ### `Status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Status {
@@ -53,7 +53,7 @@ enum Status {
 ### `is_successful`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_successful() -> bool:
@@ -68,7 +68,7 @@ func is_successful() -> bool:
 ### `get_status`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_status() -> Status:
@@ -83,7 +83,7 @@ func get_status() -> Status:
 ### `get_stage`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_stage() -> StringName:
@@ -98,7 +98,7 @@ func get_stage() -> StringName:
 ### `get_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_reason() -> StringName:
@@ -113,7 +113,7 @@ func get_reason() -> StringName:
 ### `get_lease`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_lease() -> GFObjectPoolLease:

@@ -6,7 +6,7 @@
 ## [br]
 ## @category runtime_service
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFResourceServiceDomain
 extends GFUtility
 
@@ -17,7 +17,7 @@ extends GFUtility
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param previous_generation: 原入口代次。
 ## [br]
@@ -31,7 +31,7 @@ signal generation_changed(previous_generation: int, current_generation: int)
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Mode {
 	## 稳定绑定：生命周期内固定 Broker。
 	STABLE,
@@ -48,7 +48,7 @@ enum Mode {
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 const MAX_GENERATION_REFERENCES: int = 8192
 
 ## 原生后端身份；可切换域拒绝改写所有权协议的未知子类。
@@ -131,7 +131,7 @@ var _retirement_guard: WeakRef = null
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func init() -> void:
 	ignore_pause = true
 	tick_enabled = true
@@ -141,7 +141,7 @@ func init() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _delta: 不用于期限计算。
 func tick(_delta: float = 0.0) -> void:
@@ -153,7 +153,7 @@ func tick(_delta: float = 0.0) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param scope: 调用方的关闭期限与取消作用域。
 ## [br]
@@ -177,7 +177,7 @@ func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	var _completion: GFAsyncCompletion = begin_quiesce(null)
 	if not _generations.is_empty():
@@ -191,7 +191,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param broker: 已初始化、未被固定消费者使用且尚未注册进架构的实例。
 ## [br]
@@ -225,7 +225,7 @@ func configure(broker: GFResourceBroker, mode: Mode = Mode.STABLE) -> Error:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 初始化选择的模式。
 func get_mode() -> Mode:
@@ -236,7 +236,7 @@ func get_mode() -> Mode:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 未配置时为 0。
 func get_current_generation() -> int:
@@ -247,7 +247,7 @@ func get_current_generation() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 已配置且未暂停、未关闭时为 true。
 func is_accepting_requests() -> bool:
@@ -263,7 +263,7 @@ func is_accepting_requests() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param path: 逻辑资源路径。
 ## [br]
@@ -296,7 +296,7 @@ func request(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param broker: 全新且满足当前模式能力的已初始化实例。
 ## [br]
@@ -345,7 +345,7 @@ func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -> GFAsyn
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func pump() -> void:
 	if _pumping or not Thread.is_main_thread():
 		return
@@ -392,7 +392,7 @@ func pump() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 始终 false；架构整体关闭仍允许。
 func can_remove_from_active_lifecycle() -> bool:
@@ -403,7 +403,7 @@ func can_remove_from_active_lifecycle() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 当前入口与收尾状态。
 ## [br]

@@ -476,7 +476,7 @@ func end(interrupted: bool) -> void:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 仍然有效的占用对象副本。
 func get_requirement_snapshot() -> Array[Object]:

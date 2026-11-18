@@ -132,7 +132,7 @@ func build_table_from_text( source: GFConfigPipelineTableSource, text: String, o
 ### `build_database`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
@@ -160,7 +160,7 @@ func build_database(sources: Array, options: Dictionary = {}) -> Dictionary:
 ### `build_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:
@@ -188,7 +188,7 @@ func build_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -
 ### `export_profile`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func export_profile(profile: GFConfigPipelineProfile, options: Dictionary = {}) -> Dictionary:

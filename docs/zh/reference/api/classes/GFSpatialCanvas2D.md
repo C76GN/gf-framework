@@ -1008,7 +1008,7 @@ func get_selection() -> PackedStringArray:
 ### `set_selected_item_outlines_visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_selected_item_outlines_visible(outlines_visible: bool) -> void:
@@ -1027,7 +1027,7 @@ func set_selected_item_outlines_visible(outlines_visible: bool) -> void:
 ### `are_selected_item_outlines_visible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func are_selected_item_outlines_visible() -> bool:

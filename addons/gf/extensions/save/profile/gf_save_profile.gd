@@ -78,7 +78,7 @@ extends Resource
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var preserved_sections: PackedStringArray = PackedStringArray()
 
 

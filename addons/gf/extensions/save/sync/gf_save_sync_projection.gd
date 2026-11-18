@@ -8,7 +8,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFSaveSyncProjection
 extends RefCounted
 
@@ -19,7 +19,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param document: 不含框架 checkpoint 的隔离本地文档。
 ## [br]
@@ -32,7 +32,7 @@ func project_upload(document: GFSaveDocument) -> GFSaveDocument:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param remote: 已验证封套的远端投影，不含框架 checkpoint。
 ## [br]
@@ -54,7 +54,7 @@ func prepare_download(remote: GFSaveDocument, current: GFSaveDocument) -> GFSave
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _document: 独立本地文档。
 ## [br]
@@ -67,7 +67,7 @@ func _project_upload(_document: GFSaveDocument) -> GFSaveDocument:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _remote: 独立远端投影。
 ## [br]

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUILoadingLease" path="addons/gf/standard/utilities/ui/gf_ui_loading_lease.gd" module="standard" extends="RefCounted" classDigest="039b2036a0a839087cd505dc7a5b961cb24a1880bde313901558fd6dff560193">
+<class name="GFUILoadingLease" path="addons/gf/standard/utilities/ui/gf_ui_loading_lease.gd" module="standard" extends="RefCounted" classDigest="190a5df5570acaccd1640bb61b5e1cded88f0503ca730791bcfc0e5c1e46b6f5">
 	<description>GFUILoadingLease: 单次等待请求的幂等释放句柄。
 由 GFUILoadingUtility 持有至释放；owner 与 scope 使用弱引用，不能延长业务生命周期。
 进度达到 1 不自动释放，调用方仍需在业务结束时 release。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums />
@@ -19,7 +19,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">正数身份；未配置为 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_active">
@@ -28,7 +28,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">服务仍存在且尚未释放时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_progress">
@@ -37,7 +37,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">无进度时为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -46,7 +46,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首次释放活动请求时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

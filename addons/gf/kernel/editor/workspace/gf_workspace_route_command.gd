@@ -34,7 +34,7 @@ var _paths: PackedStringArray = PackedStringArray()
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 宿主失效时为 ERR_UNAVAILABLE；宿主返回整数错误码时原样返回，否则为 ERR_INVALID_DATA。
 func _do_it() -> Error:

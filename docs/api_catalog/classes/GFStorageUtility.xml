@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="47e20331380c2b8e1b8faab63783e3f4f114b8c4cd7f86fad854efca6e1fd41a">
+<class name="GFStorageUtility" path="addons/gf/standard/utilities/storage/gf_storage_utility.gd" module="standard" extends="GFUtility" classDigest="67a59fa96b8f984fb416a04cee1e251cf81dd3f09f8ddb2327880fda3e22325c">
 	<description>GFStorageUtility: 基于 `user://` 的轻量存档系统。
 支持槽位存档、元数据分离读取、`Resource` 存取，
 以及可配置 codec、完整性校验、版本迁移和简单混淆，适合通用本地持久化场景。
@@ -117,7 +117,7 @@
 只能设置正数，无效赋值保留原值。异步请求在入队时捕获该值；不限制 ResourceLoader 或内部 ownership/事务记录。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="property" name="file_format">
@@ -332,7 +332,7 @@ token 仅描述顶层存储文件，不覆盖 Resource 外部依赖或返回后�
 				<tag name="param">file_name: canonical Resource logical path。</tag>
 				<tag name="param">type_hint: 允许的 Godot Resource 类型提示。</tag>
 				<tag name="return">成功 Resource/token 配对，或不带载荷的失败结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="create_revision_storage">
@@ -345,7 +345,7 @@ token 仅描述顶层存储文件，不覆盖 Resource 外部依赖或返回后�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">创建与布局校验结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="query_committed_revision">
@@ -358,7 +358,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 				<tag name="api">public</tag>
 				<tag name="param">file_name: canonical portable logical file path。</tag>
 				<tag name="return">明确的 available、missing、unsupported 或失败结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="list_files">
@@ -390,7 +390,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 				<tag name="param">options: 只接受非负 int 的 max_scan_depth 和 max_file_count；未知键或类型错误被拒绝。</tag>
 				<tag name="return">不可变结果；失败文件集合为空且不完整，调用方应保留对应 selector 解释完整性。</tag>
 				<tag name="schema">options: Dictionary，仅允许 max_scan_depth: int = DEFAULT_MAX_LIST_DEPTH 和 max_file_count: int = DEFAULT_MAX_LISTED_FILES；0 表示不限，前者限制逻辑范围深度，后者限制返回数量，两者都不限制全 catalog 扫描成本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="has_file">
@@ -476,7 +476,7 @@ token 不检测框架之外的写入，不提供跨 provider 排序，也不表�
 				<tag name="param">data: 要保存的字典。</tag>
 				<tag name="return">Godot 的 `Error` 结果码；完整明文或最终存档字节超过当前预算时返回 ERR_OUT_OF_MEMORY，且不开始本次新保存事务。</tag>
 				<tag name="schema">data: Dictionary，要序列化并保存的数据载荷。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="save_data_group">
@@ -587,7 +587,7 @@ owner、token 和 deadline 仅约束等待阶段；成功结果由句柄持有�
 				<tag name="param">file_name: 目标 portable logical 文件名。</tag>
 				<tag name="param">options: 可选等待阶段生命周期约束；null 表示无约束。</tag>
 				<tag name="return">已绑定的独占句柄；即时失败可通过 get_result 查询。非主线程返回无效句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_late_settlement_diagnostics">

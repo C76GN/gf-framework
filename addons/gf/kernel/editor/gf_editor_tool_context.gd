@@ -126,7 +126,7 @@ func get_selected_nodes() -> Array[Node]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 任务记录副本。
 ## [br]
@@ -139,7 +139,7 @@ func get_workspace_tasks() -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source_id: 任务的稳定来源标识。
 ## [br]
@@ -159,7 +159,7 @@ func request_workspace_task(source_id: String) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param paths: 当前资源路径快照。
 ## [br]
@@ -179,7 +179,7 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param action_id: 查询返回的稳定动作标识。
 ## [br]

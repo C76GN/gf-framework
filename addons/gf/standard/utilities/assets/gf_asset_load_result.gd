@@ -4,7 +4,7 @@
 ## [br]
 ## @category value_object
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFAssetLoadResult
 extends RefCounted
 
@@ -15,7 +15,7 @@ extends RefCounted
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 enum Status {
 	## 资源已成功交付到请求 scope；之后释放句柄不改变此终态。
 	SUCCEEDED,
@@ -71,7 +71,7 @@ func _init(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功时为 true。
 func is_successful() -> bool:
@@ -82,7 +82,7 @@ func is_successful() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 请求终态。
 func get_status() -> Status:
@@ -93,7 +93,7 @@ func get_status() -> Status:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功句柄或 null；scope 已关闭时句柄已释放。
 func get_handle() -> GFAssetHandle:
@@ -104,7 +104,7 @@ func get_handle() -> GFAssetHandle:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 成功为 OK，取消为 ERR_SKIP，其他错误为失败码。
 func get_error_code() -> Error:

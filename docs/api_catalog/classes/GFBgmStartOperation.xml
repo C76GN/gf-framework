@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBgmStartOperation" path="addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd" module="standard" extends="RefCounted" classDigest="fce39ecb1967ee2991a3828ee66f56853b040207ef8836ace5df8c8e482e9b8a">
+<class name="GFBgmStartOperation" path="addons/gf/standard/utilities/audio/gf_bgm_start_operation.gd" module="standard" extends="RefCounted" classDigest="000d65b79757a7b87754b9b0a6dd56801155f1e61455ce7161531365dd7a74e7">
 	<description>GFBgmStartOperation: 单次 BGM start request 的类型化 caller Operation。
 Operation 只表达“是否已经提交播放会话”的短生命周期终态。成功返回的
 `GFBgmSessionHandle` 独立表达后续播放会话生命周期；会话结束不会改写 start 结果。</description>
@@ -69,7 +69,7 @@ Operation 只表达“是否已经提交播放会话”的短生命周期终态�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前启动请求的隔离结果。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel">

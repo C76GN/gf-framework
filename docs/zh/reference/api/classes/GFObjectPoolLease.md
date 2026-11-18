@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次节点借用的使用权。 归还后立即停止提供节点；物理离树和最终通知由对象池在安全点执行。 每次借用使用新的 Lease，旧 Lease 永远不能归还同一节点的新借用。
 
@@ -31,7 +31,7 @@
 ### `settled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal settled(reason: StringName)
@@ -52,7 +52,7 @@ signal settled(reason: StringName)
 ### `State`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum State {
@@ -74,7 +74,7 @@ enum State {
 ### `get_node`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_node() -> Node:
@@ -89,7 +89,7 @@ func get_node() -> Node:
 ### `release`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func release() -> bool:
@@ -104,7 +104,7 @@ func release() -> bool:
 ### `get_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_state() -> State:
@@ -119,7 +119,7 @@ func get_state() -> State:
 ### `is_settled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_settled() -> bool:
@@ -134,7 +134,7 @@ func is_settled() -> bool:
 ### `wait_settled`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func wait_settled() -> StringName:
@@ -149,7 +149,7 @@ func wait_settled() -> StringName:
 ### `get_settlement_reason`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_settlement_reason() -> StringName:

@@ -252,7 +252,7 @@ var codec: GFStorageCodec = GFStorageCodec.new()
 ### `max_read_bytes`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 var max_read_bytes: int = 64 * 1024 * 1024:
@@ -613,7 +613,7 @@ func load_resource(file_name: String, type_hint: String = "") -> Resource:
 ### `load_resource_with_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func load_resource_with_revision(file_name: String, type_hint: String = "") -> GFStorageResourceReadResult:
@@ -635,7 +635,7 @@ func load_resource_with_revision(file_name: String, type_hint: String = "") -> G
 ### `create_revision_storage`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func create_revision_storage() -> Error:
@@ -650,7 +650,7 @@ func create_revision_storage() -> Error:
 ### `query_committed_revision`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func query_committed_revision(file_name: String) -> GFStorageRevisionResult:
@@ -699,7 +699,7 @@ func list_files( directory_name: String = "", extension_filter: String = "", rec
 ### `query_catalog`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func query_catalog( directory_name: String = "", extension_filter: String = "", recursive: bool = false, options: Dictionary = {} ) -> GFStorageCatalogResult:
@@ -858,7 +858,7 @@ func reset_file_family_request_async( file_name: String, authorization: GFStorag
 ### `save_data`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func save_data(file_name: String, data: Dictionary) -> Error:
@@ -1070,7 +1070,7 @@ func load_data_request_async(file_name: String, options: GFStorageAsyncRequestOp
 ### `load_data_owned_request_async`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func load_data_owned_request_async(file_name: String, options: GFStorageAsyncRequestOptions = null) -> GFStorageOwnedRead:

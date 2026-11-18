@@ -26,7 +26,7 @@ uncertain 写入对账的一次性请求句柄。 请求只携带调用方纯数
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create(context: Dictionary = {}, result_metadata: Dictionary = {}) -> GFSaveProfileReconcileRequest:

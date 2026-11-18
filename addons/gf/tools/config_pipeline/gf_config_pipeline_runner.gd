@@ -137,7 +137,7 @@ func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_path: Profile 资源路径，通常为 .tres 或 .res。
 ## [br]
@@ -174,7 +174,7 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_path: Profile 的 res:// 或 user:// 资源路径。
 ## [br]
@@ -222,7 +222,7 @@ func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_path: Profile 资源路径，通常为 .tres 或 .res。
 ## [br]
@@ -363,7 +363,7 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param profile_path: 当前 Profile 资源路径。
 ## [br]

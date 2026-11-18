@@ -7,7 +7,7 @@
 - 继承：`VBoxContainer`
 - API：`public`
 - 类别：编辑器 API (`editor_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 编辑器期已保存场景 Group 声明查询页面。 用户主动刷新后分批读取磁盘场景，按组名、场景路径或节点路径搜索并定位声明节点。 只读查询不包含未保存编辑或运行时添加的组；定位通过编辑器打开源场景。
 
@@ -26,7 +26,7 @@
 ### `refresh`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func refresh(root_path: String = "res://") -> Error:
@@ -47,7 +47,7 @@ func refresh(root_path: String = "res://") -> Error:
 ### `cancel_scan`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_scan() -> void:
@@ -60,7 +60,7 @@ func cancel_scan() -> void:
 ### `get_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_snapshot() -> Dictionary:

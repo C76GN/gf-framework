@@ -279,7 +279,7 @@ const STATUS_FAILED: StringName = &"failed"
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(_delta: float) -> void:
@@ -298,7 +298,7 @@ func tick(_delta: float) -> void:
 ### `define_quest`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func define_quest(definition: GFQuestDefinition) -> bool:
@@ -319,7 +319,7 @@ func define_quest(definition: GFQuestDefinition) -> bool:
 ### `accept_quest`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func accept_quest(quest_id: StringName, acceptance_data: Dictionary = {}) -> bool:
@@ -345,7 +345,7 @@ func accept_quest(quest_id: StringName, acceptance_data: Dictionary = {}) -> boo
 ### `complete_quest`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func complete_quest(quest_id: StringName) -> bool:
@@ -564,7 +564,7 @@ func get_quest_tree_report(root_quest_id: StringName) -> Dictionary:
 ### `emit_quest_event`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func emit_quest_event(event_id: StringName, amount: int) -> void:
@@ -664,7 +664,7 @@ func get_quests_by_status(status: StringName) -> PackedStringArray:
 ### `get_quest_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_quest_report(quest_id: StringName) -> Dictionary:
@@ -707,7 +707,7 @@ func get_debug_snapshot() -> Dictionary:
 ### `register_metric_query`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func register_metric_query(metric_id: StringName, query: Callable) -> bool:
@@ -729,7 +729,7 @@ func register_metric_query(metric_id: StringName, query: Callable) -> bool:
 ### `clear_metric_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func clear_metric_source(metric_id: StringName) -> void:
@@ -748,7 +748,7 @@ func clear_metric_source(metric_id: StringName) -> void:
 ### `set_metric_value`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_metric_value(metric_id: StringName, value: int) -> bool:
@@ -770,7 +770,7 @@ func set_metric_value(metric_id: StringName, value: int) -> bool:
 ### `refresh_metric`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func refresh_metric(metric_id: StringName) -> bool:
@@ -791,7 +791,7 @@ func refresh_metric(metric_id: StringName) -> bool:
 ### `is_quest_eligible`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_quest_eligible(quest_id: StringName) -> bool:
@@ -812,7 +812,7 @@ func is_quest_eligible(quest_id: StringName) -> bool:
 ### `get_quest_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_quest_state(quest_id: StringName) -> GFQuestState:
@@ -833,7 +833,7 @@ func get_quest_state(quest_id: StringName) -> GFQuestState:
 ### `export_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func export_snapshot() -> Dictionary:
@@ -852,7 +852,7 @@ func export_snapshot() -> Dictionary:
 ### `restore_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func restore_snapshot(snapshot: Dictionary) -> bool:
@@ -877,7 +877,7 @@ func restore_snapshot(snapshot: Dictionary) -> bool:
 ### `validate_restore_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func validate_restore_snapshot(snapshot: Dictionary) -> Dictionary:

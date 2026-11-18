@@ -55,7 +55,7 @@ func load_profile(profile_path: String, options: Dictionary = {}) -> Dictionary:
 ### `build_profile_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
@@ -82,7 +82,7 @@ func build_profile_path(profile_path: String, options: Dictionary = {}) -> Dicti
 ### `inspect_profile_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
@@ -109,7 +109,7 @@ func inspect_profile_path(profile_path: String, options: Dictionary = {}) -> Dic
 ### `export_profile_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:
@@ -136,7 +136,7 @@ func export_profile_path(profile_path: String, options: Dictionary = {}) -> Dict
 ### `diff_profile_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func diff_profile_path(profile_path: String, options: Dictionary = {}) -> Dictionary:

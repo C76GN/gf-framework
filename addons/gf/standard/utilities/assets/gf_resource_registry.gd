@@ -763,7 +763,7 @@ func load_entry(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param asset_utility: 资源加载服务。
 ## [br]

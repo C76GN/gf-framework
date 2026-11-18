@@ -8,7 +8,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenPreviewRegistration
 extends RefCounted
 
@@ -64,7 +64,7 @@ func _notification(what: int) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func release() -> void:
 	var registry: GFTweenPreviewRegistry = _registry
 	var adapter_id: StringName = _id
@@ -85,7 +85,7 @@ func release() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 有效时为 true。
 func is_active() -> bool:

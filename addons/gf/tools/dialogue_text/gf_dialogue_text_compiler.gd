@@ -186,7 +186,7 @@ const _RESPONSE_FIELDS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: strict JSON 文本；整数限 int64，非零浮点规范化十进制指数限 -307..308。
 ## [br]
@@ -212,7 +212,7 @@ func compile_structure_text(text: String, options: Dictionary = {}) -> Dictionar
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source_key: 注册 key 或加载器根目录内相对路径。
 ## [br]
@@ -245,7 +245,7 @@ func compile_structure_source(
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param text: strict JSON 文本；整数限 int64，非零浮点规范化十进制指数限 -307..308。
 ## [br]
@@ -271,7 +271,7 @@ func build_runner_text(text: String, options: Dictionary = {}) -> Dictionary:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param source_key: 注册 key 或加载器根目录内相对路径。
 ## [br]

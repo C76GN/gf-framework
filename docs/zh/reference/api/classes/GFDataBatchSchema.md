@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：值对象 (`value_object`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 一次构造后固定的数值列布局。 字段含义和版本迁移属于项目；列索引在此 schema 的整个生命周期内不变。
 
@@ -34,7 +34,7 @@
 ### `NumericType`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum NumericType {
@@ -56,7 +56,7 @@ enum NumericType {
 ### `MAX_COLUMNS`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const MAX_COLUMNS: int = 256
@@ -71,7 +71,7 @@ const MAX_COLUMNS: int = 256
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( schema_id: StringName, version: int, column_names: Array[StringName], column_types: PackedInt32Array ) -> GFDataBatchSchema:
@@ -95,7 +95,7 @@ static func create( schema_id: StringName, version: int, column_names: Array[Str
 ### `is_valid`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_valid() -> bool:
@@ -110,7 +110,7 @@ func is_valid() -> bool:
 ### `get_schema_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_schema_id() -> StringName:
@@ -125,7 +125,7 @@ func get_schema_id() -> StringName:
 ### `get_version`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_version() -> int:
@@ -140,7 +140,7 @@ func get_version() -> int:
 ### `get_column_count`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_column_count() -> int:
@@ -155,7 +155,7 @@ func get_column_count() -> int:
 ### `find_column`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func find_column(column_name: StringName) -> int:
@@ -176,7 +176,7 @@ func find_column(column_name: StringName) -> int:
 ### `get_column_name`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_column_name(column_index: int) -> StringName:
@@ -197,7 +197,7 @@ func get_column_name(column_index: int) -> StringName:
 ### `get_column_type`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_column_type(column_index: int) -> NumericType:
@@ -218,7 +218,7 @@ func get_column_type(column_index: int) -> NumericType:
 ### `get_bytes_per_row`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_bytes_per_row() -> int:

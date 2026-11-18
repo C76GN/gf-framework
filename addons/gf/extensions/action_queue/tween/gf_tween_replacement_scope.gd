@@ -9,7 +9,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenReplacementScope
 extends RefCounted
 
@@ -40,7 +40,7 @@ var _disposed: bool = false
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func dispose() -> void:
 	if _disposed:
 		return
@@ -54,7 +54,7 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: dispose() 调用后返回 true。
 func is_disposed() -> bool:
@@ -65,7 +65,7 @@ func is_disposed() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 当前登记的动作数量，不是属性或步骤数量。
 func get_active_count() -> int:
@@ -102,7 +102,7 @@ func find_lease(action: Object) -> int:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param action: 符合替换协议的动作；同一动作只保留一个租约。
 ## [br]
@@ -161,7 +161,7 @@ func claim(
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param action: 申请租约的动作。
 ## [br]
@@ -188,7 +188,7 @@ func owns(action: Object, lease: int) -> bool:
 ## [br]
 ## @layer extensions/action_queue
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param action: 申请租约的动作。
 ## [br]

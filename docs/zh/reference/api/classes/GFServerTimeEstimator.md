@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 服务器样本与单调时钟组合的本地时间估计器。 请求票据只属于当前实例和进程；响应记录时测量整个往返，不读取系统墙上时钟。 估计并非可信服务器权威，网络不对称和服务器误差通过不确定度表达。新样本可以校正 时间向前或向后，项目必须自行持久化周期结算身份，不能凭时间变化重复发奖。
 
@@ -29,7 +29,7 @@
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create(clock: GFClock = null, options: Dictionary = {}) -> GFServerTimeEstimator:
@@ -55,7 +55,7 @@ static func create(clock: GFClock = null, options: Dictionary = {}) -> GFServerT
 ### `begin_sample`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_sample() -> int:
@@ -70,7 +70,7 @@ func begin_sample() -> int:
 ### `accept_sample`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func accept_sample( ticket: int, server_unix_msec: int, server_uncertainty_msec: int = 0 ) -> bool:
@@ -93,7 +93,7 @@ func accept_sample( ticket: int, server_unix_msec: int, server_uncertainty_msec:
 ### `cancel_sample`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel_sample(ticket: int) -> bool:
@@ -114,7 +114,7 @@ func cancel_sample(ticket: int) -> bool:
 ### `mark_resumed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func mark_resumed() -> void:
@@ -127,7 +127,7 @@ func mark_resumed() -> void:
 ### `get_estimate`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_estimate() -> Dictionary:

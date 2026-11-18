@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageOwnedRead" path="addons/gf/standard/utilities/storage/gf_storage_owned_read.gd" module="standard" extends="RefCounted" classDigest="56adf975820c5353cdf09307fa11e783bb1b40b1a04b5a6883faa9d5f2f854be">
+<class name="GFStorageOwnedRead" path="addons/gf/standard/utilities/storage/gf_storage_owned_read.gd" module="standard" extends="RefCounted" classDigest="8971204c81ac88230d1a71af1c23d4c4b7df0455e20ee4c17ea7a2fe40f0ebe0">
 	<description>GFStorageOwnedRead: 独占异步读取的一次性领取句柄。
 只能由 `GFStorageUtility.load_data_owned_request_async()` 取得有效句柄；手动
 构造的实例不可领取。共享句柄即共享领取权，同一结果仅允许一次成功领取。
@@ -8,7 +8,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_handle</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals>
 		<member kind="signal" name="completed">
@@ -19,7 +19,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">receipt: 不含载荷或领取权限的不可变 caller 终态。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -42,7 +42,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<description>独占读取句柄的领取权状态。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -55,7 +55,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已绑定的句柄返回 true，包括失败、已领取或已释放的句柄。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_request_id">
@@ -64,7 +64,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">合法请求的大于零 ID；无效句柄返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_consumer_id">
@@ -73,7 +73,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">合法 consumer 的大于零 ID；无效句柄返回 0。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_file_name">
@@ -82,7 +82,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已验证的逻辑文件名；文件名校验前失败时可能为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_state">
@@ -91,7 +91,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">当前 State 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_pending">
@@ -101,7 +101,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">合法请求尚未取得 caller 终态时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_completed">
@@ -110,7 +110,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已取得成功、失败或取消诊断时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_result">
@@ -119,7 +119,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已完成时返回同一不可变诊断，等待中或无效句柄返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="wait_result_async">
@@ -128,7 +128,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已冻结的终态诊断；手动构造的无效句柄返回 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="cancel_observation">
@@ -140,7 +140,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 				<tag name="api">public</tag>
 				<tag name="param">reason: 由共享生命周期规范化的稳定取消原因。</tag>
 				<tag name="return">本次调用首次结束 caller 观察时返回 true；非主线程返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="take">
@@ -151,7 +151,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">包含闭合状态的领取结果，只有 SUCCESS 持有完整 GFStorageReadResult。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="release">
@@ -162,7 +162,7 @@ owner、取消令牌和超时只约束等待阶段，不撤销已经就绪或领
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">首次从 WAITING 或 READY 释放时返回 true；其他状态或非主线程返回 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

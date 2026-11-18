@@ -4,7 +4,7 @@
 ## [br]
 ## @category internal_helper
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenPropertyBinding
 extends RefCounted
 

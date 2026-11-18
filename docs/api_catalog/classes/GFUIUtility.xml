@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="4a9e520befaca0f21b15a5eca9d305577d1fd757e7fa50e88e49c89f96cb5511">
+<class name="GFUIUtility" path="addons/gf/standard/utilities/ui/gf_ui_utility.gd" module="standard" extends="GFUtility" classDigest="7a1825797403cc6dcd6487092e0da0454ba326a7c11d88baef341a9a13fabc9e">
 	<description>GFUIUtility: 栈式 UI 管理器。
 负责可扩展逻辑层中的入栈、出栈、层内可见性策略与异步加载，
 适合 HUD、并行窗口、弹窗和顶层遮罩等需要分层管理的 UI 场景。
@@ -153,7 +153,7 @@
 				<tag name="param">source: 提供业务 Architecture 的上下文。</tag>
 				<tag name="param">mount_parent: 已在树中且未排队删除的显示父节点，空值表示 source；可指定其他 Viewport 下的节点。</tag>
 				<tag name="return">初始化前且参数有效时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="configure">

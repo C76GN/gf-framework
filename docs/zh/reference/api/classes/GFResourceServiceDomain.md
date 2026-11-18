@@ -7,7 +7,7 @@
 - 继承：`GFUtility`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 GFResourceServiceDomain：一个 Broker 及其消费者的稳定资源服务入口。 模式在 configure 时固定；主线程上请求、切换与 pump 串行执行。 受控切换暂停时明确拒绝新请求；在途热切换最多保留两代且不会重放已接纳工作。
 
@@ -39,7 +39,7 @@ GFResourceServiceDomain：一个 Broker 及其消费者的稳定资源服务入�
 ### `generation_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal generation_changed(previous_generation: int, current_generation: int)
@@ -61,7 +61,7 @@ signal generation_changed(previous_generation: int, current_generation: int)
 ### `Mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 enum Mode {
@@ -83,7 +83,7 @@ enum Mode {
 ### `MAX_GENERATION_REFERENCES`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 const MAX_GENERATION_REFERENCES: int = 8192
@@ -98,7 +98,7 @@ const MAX_GENERATION_REFERENCES: int = 8192
 ### `init`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func init() -> void:
@@ -111,7 +111,7 @@ func init() -> void:
 ### `tick`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func tick(_delta: float = 0.0) -> void:
@@ -130,7 +130,7 @@ func tick(_delta: float = 0.0) -> void:
 ### `begin_quiesce`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
@@ -151,7 +151,7 @@ func begin_quiesce(scope: GFAsyncScope) -> GFAsyncCompletion:
 ### `dispose`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func dispose() -> void:
@@ -164,7 +164,7 @@ func dispose() -> void:
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func configure(broker: GFResourceBroker, mode: Mode = Mode.STABLE) -> Error:
@@ -186,7 +186,7 @@ func configure(broker: GFResourceBroker, mode: Mode = Mode.STABLE) -> Error:
 ### `get_mode`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_mode() -> Mode:
@@ -201,7 +201,7 @@ func get_mode() -> Mode:
 ### `get_current_generation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_current_generation() -> int:
@@ -216,7 +216,7 @@ func get_current_generation() -> int:
 ### `is_accepting_requests`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_accepting_requests() -> bool:
@@ -231,7 +231,7 @@ func is_accepting_requests() -> bool:
 ### `request`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func request( path: String, type_hint: String = "", options: Dictionary = {} ) -> GFResourceLease:
@@ -258,7 +258,7 @@ func request( path: String, type_hint: String = "", options: Dictionary = {} ) -
 ### `begin_switch`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -> GFAsyncCompletion:
@@ -280,7 +280,7 @@ func begin_switch(broker: GFResourceBroker, timeout_msec: int = 30000) -> GFAsyn
 ### `pump`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func pump() -> void:
@@ -293,7 +293,7 @@ func pump() -> void:
 ### `can_remove_from_active_lifecycle`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func can_remove_from_active_lifecycle() -> bool:
@@ -308,7 +308,7 @@ func can_remove_from_active_lifecycle() -> bool:
 ### `get_debug_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_debug_snapshot() -> Dictionary:

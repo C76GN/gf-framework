@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageCatalogResult" path="addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd" module="standard" extends="RefCounted" classDigest="fa8fa6bbe6152de31916507bc25e58b4a19be676f29976d2ac06c7f9c62a0f10">
+<class name="GFStorageCatalogResult" path="addons/gf/standard/utilities/storage/gf_storage_catalog_result.gd" module="standard" extends="RefCounted" classDigest="f2fa83763e5b4729a02490d6d1fc8a6b5966b842b9f25fc63e3613d068a17bf5">
 	<description>GFStorageCatalogResult: 单次 Storage logical catalog 查询的不可变结果。
 完整性只相对于发起查询时的 directory、extension、recursive 与 logical depth 范围。
 成功但不完整表示 max_file_count 实际截断结果；失败不携带部分文件。
@@ -7,7 +7,7 @@
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>
-		<tag name="since">unreleased</tag>
+		<tag name="since">12.0.0</tag>
 	</tags>
 	<signals />
 	<enums>
@@ -31,7 +31,7 @@
 			<description>查询失败的阶段分类；具体底层原因由 Error 码补充。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -44,7 +44,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已配置且 Error 为 OK 时返回 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_error_code">
@@ -53,7 +53,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功为 OK；未配置实例为 FAILED。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_failure_kind">
@@ -62,7 +62,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功为 FailureKind.NONE。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_complete">
@@ -73,7 +73,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">成功且未截断时为 true；失败或未配置时为 false。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_files">
@@ -82,7 +82,7 @@
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">无重复 logical identity 的隔离数组；失败为空。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -92,7 +92,7 @@
 				<tag name="api">public</tag>
 				<tag name="return">不包含物理路径、payload 或 revision 的查询结果。</tag>
 				<tag name="schema">return: Dictionary，精确包含 ok: bool、error_code: int (Error)、failure_kind: int (FailureKind)、complete: bool 和 files: PackedStringArray；files 是隔离副本，完整性相对于原查询 selector。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

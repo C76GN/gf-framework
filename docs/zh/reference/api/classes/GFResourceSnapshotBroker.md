@@ -7,7 +7,7 @@
 - 继承：`GFResourceBroker`
 - API：`public`
 - 类别：运行时服务 (`runtime_service`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 GFResourceSnapshotBroker：以预加载 Resource 映射提供独立实例的异步资源服务。 映射初始化后冻结；不调用全局 ResourceLoader，不修改或销毁资源内容。 Resource 自身由引用计数持有，项目仍须按自己的资源数据契约控制修改。
 
@@ -27,7 +27,7 @@ GFResourceSnapshotBroker：以预加载 Resource 映射提供独立实例的异�
 ### `configure`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func configure(resources: Dictionary) -> Error:
@@ -52,7 +52,7 @@ func configure(resources: Dictionary) -> Error:
 ### `is_configured`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func is_configured() -> bool:
@@ -67,7 +67,7 @@ func is_configured() -> bool:
 ### `_request_threaded_resource`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _request_threaded_resource(path: String, type_hint: String) -> Error:
@@ -89,7 +89,7 @@ func _request_threaded_resource(path: String, type_hint: String) -> Error:
 ### `_poll_threaded_resource`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _poll_threaded_resource(path: String, _previous_progress: float) -> Dictionary:

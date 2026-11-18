@@ -162,7 +162,7 @@ func get_selected_nodes() -> Array[Node]:
 ### `get_workspace_tasks`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_workspace_tasks() -> Array[Dictionary]:
@@ -181,7 +181,7 @@ func get_workspace_tasks() -> Array[Dictionary]:
 ### `request_workspace_task`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func request_workspace_task(source_id: String) -> Dictionary:
@@ -206,7 +206,7 @@ func request_workspace_task(source_id: String) -> Dictionary:
 ### `get_resource_actions`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
@@ -231,7 +231,7 @@ func get_resource_actions(paths: PackedStringArray) -> Array[Dictionary]:
 ### `request_resource_action`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func request_resource_action(action_id: String, paths: PackedStringArray) -> Dictionary:

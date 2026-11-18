@@ -28,7 +28,7 @@ FlowGraph 图形化编辑与结构检查工作区页面。 为资源化流程图
 ### `set_editor_context`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func set_editor_context(context: GFEditorToolContext) -> void:

@@ -369,7 +369,7 @@ func _reset_transport_metrics() -> void:
 ### `_reset_transport_connection`
 
 - API：`protected`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func _reset_transport_connection() -> void:

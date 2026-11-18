@@ -129,7 +129,7 @@ func configure(system_registry: Dictionary, utility_registry: Dictionary) -> GFA
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param instance: 模块实例。
 ## [br]
@@ -155,7 +155,7 @@ func set_tick_permission(
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 func clear_tick_permissions() -> void:
 	_runtime_tick_permissions.clear()
 	_lifecycle_tick_permissions.clear()

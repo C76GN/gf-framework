@@ -25,7 +25,7 @@ Save Profile 保存请求的一次性所有权句柄。 `create()` 在大小预�
 ### `create`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func create( document_metadata: Dictionary, context: Dictionary, result_metadata: Dictionary ) -> GFSaveProfileRequest:

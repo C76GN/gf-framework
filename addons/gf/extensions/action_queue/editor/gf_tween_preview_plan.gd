@@ -108,7 +108,7 @@ var restore_on_finish: bool = false
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 var duration_seconds: float = 0.0
 
 ## 本会话是否需要运行时受控采样。
@@ -144,7 +144,7 @@ static func capture(config: Resource, target_kind: int) -> GFTweenPreviewPlan:
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param config: 精确原生配置。
 ## [br]
@@ -174,7 +174,7 @@ static func capture_numeric(config: Resource, records: Array[Dictionary]) -> GFT
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param captured_steps: 已通过预览捕获的有界纯值步骤。
 ## [br]
@@ -234,7 +234,7 @@ static func build_controlled_baseline(captured_steps: Array[Dictionary], initial
 ## [br]
 ## @api framework_internal
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 独立定义；拒绝计划为空。
 ## [br]

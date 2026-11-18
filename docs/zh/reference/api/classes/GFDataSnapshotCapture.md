@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：运行时句柄 (`runtime_handle`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 从固定版本记录源按共享帧预算构造完整快照。 一个 step 是一条有界记录，不是一个任意大小的对象图。帧额度耗尽仅暂停， 累计数据、工作时间和生命期超限失败。失败输出逐条清理，完成前不交付快照。 创建时接管 source；调用方不得再读取或释放它。会话只在调用线程串行推进。
 
@@ -28,7 +28,7 @@
 ### `begin`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func begin( source: GFDataSnapshotSource, limits: Dictionary = {}, clock: GFClock = null ) -> GFDataSnapshotCapture:
@@ -55,7 +55,7 @@ static func begin( source: GFDataSnapshotSource, limits: Dictionary = {}, clock:
 ### `advance`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func advance(budget: GFExecutionBudget) -> String:
@@ -76,7 +76,7 @@ func advance(budget: GFExecutionBudget) -> String:
 ### `cancel`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func cancel() -> void:
@@ -89,7 +89,7 @@ func cancel() -> void:
 ### `get_snapshot`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_snapshot() -> GFDataSnapshot:
@@ -104,7 +104,7 @@ func get_snapshot() -> GFDataSnapshot:
 ### `get_report`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_report() -> Dictionary:

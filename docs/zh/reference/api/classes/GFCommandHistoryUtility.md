@@ -48,7 +48,7 @@
 ### `history_changed`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 signal history_changed(snapshot: Dictionary)
@@ -136,7 +136,7 @@ var is_processing_async: bool:
 ### `is_processing_operation`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 var is_processing_operation: bool:
@@ -289,7 +289,7 @@ func clear() -> void:
 ### `get_history_state`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func get_history_state() -> Dictionary:

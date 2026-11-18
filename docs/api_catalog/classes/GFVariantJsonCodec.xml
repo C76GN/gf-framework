@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFVariantJsonCodec" path="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" module="standard" extends="RefCounted" classDigest="ac87c474f8213dd1251a4b3ad354b20ca33fccd9f07edb0e4acbadb5a9495f10">
+<class name="GFVariantJsonCodec" path="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" module="standard" extends="RefCounted" classDigest="65ec91ec5bfe066c2eab0e246e6ee048710e4deddde362e70fd19be31cd9eef7">
 	<description>GFVariantJsonCodec: Godot Variant 的 JSON 兼容转换与确定性文本编解码。
 负责在 JSON.stringify() 可编码的数据和常见 Godot Variant 类型之间往返转换。
 encode_deterministic_result()/decode_deterministic_result() 使用独立版本化格式，保留纯数据类型并提供有界失败报告。
@@ -30,7 +30,7 @@ int64 以十进制字符串保存；有限非零 float 使用十进制展示加�
 				<tag name="schema">value: Nil, bool, int, float, String, StringName, NodePath, built-in math values, supported Packed arrays, recursively pure Array/Dictionary, or ready GFDataSnapshot; no Object, Resource, Callable, Signal, RID, cycles or U+0000.</tag>
 				<tag name="schema">options: max_items:int=100000 (Variant nodes plus Packed elements), max_depth:int=64 (root=0, at most 256), max_key_depth:int=64 (nested containers from outermost key root, at most 64), max_string_length:int=1048576 (characters), max_output_bytes:int=16777216 (UTF-8), max_sort_bytes:int=16777216 (live logical sorting cost), max_elapsed_msec:int=30000, cancel_token:GFCancellationToken=null. Keys must be String or StringName; max_input_bytes is not accepted.</tag>
 				<tag name="schema">return: ok:bool, text:String, format_id:String="gf.variant-json-deterministic", format_version:int=1, counts_complete:bool, items:int, packed_items:int, input_bytes:int=0, output_bytes:int, maximum_depth:int, peak_sort_bytes:int, error_kind:String, error_path:String, limit_kind:String, limit:int, observed:int. Success has empty error fields; limit_exceeded includes a possibly saturated observed lower bound. Other failures include invalid_options, unsupported_type, invalid_unicode, cycle, ambiguous_dictionary_key, snapshot_unavailable and cancelled.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="decode_deterministic_result">
@@ -45,7 +45,7 @@ int64 以十进制字符串保存；有限非零 float 使用十进制展示加�
 				<tag name="return">成功时完整恢复值；失败时 value 为 null、counts_complete 为 false。合法 null 也返回 null，必须检查 ok。</tag>
 				<tag name="schema">options: max_items:int=100000, max_depth:int=64 (root=0, at most 256), max_key_depth:int=64 (at most 64), max_string_length:int=1048576, max_input_bytes:int=16777216 (UTF-8), max_sort_bytes:int=16777216, max_elapsed_msec:int=30000, cancel_token:GFCancellationToken=null. Counting and cooperative execution match encode_deterministic_result; max_output_bytes is not accepted.</tag>
 				<tag name="schema">return: ok:bool, value:Variant, format_id:String="gf.variant-json-deterministic", format_version:int=1, counts_complete:bool, items:int, packed_items:int, input_bytes:int, output_bytes:int=0, maximum_depth:int, peak_sort_bytes:int, error_kind:String, error_path:String, limit_kind:String, limit:int, observed:int. Failure kinds include invalid_options, unsupported_format, unsupported_version, invalid_envelope, invalid_json, invalid_payload, invalid_unicode, invalid_number, invalid_node_path, unsupported_type, type_mismatch, number_out_of_range, precision_loss, duplicate_dictionary_key, limit_exceeded and cancelled; error_path never embeds user key text.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="variant_to_json_compatible">
@@ -87,7 +87,7 @@ int64 以十进制字符串保存；有限非零 float 使用十进制展示加�
 				<tag name="schema">value: 任意待编码 Variant。</tag>
 				<tag name="schema">options: 包含 encode_dictionary_keys、encode_unsafe_ints、max_depth、max_nodes 和 max_collection_items 的 Dictionary。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool、value: Variant、error: String；失败时 value 为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="json_compatible_to_variant_result">
@@ -103,7 +103,7 @@ PackedArray 元素总数仍受 max_collection_items 限制。</description>
 				<tag name="schema">value: GF JSON 兼容数据和类型标记。</tag>
 				<tag name="schema">options: 包含 decode_typed_markers、max_depth、max_nodes 和 max_collection_items 的 Dictionary。</tag>
 				<tag name="schema">return: Dictionary，包含 ok: bool、value: Variant、error: String；失败时 value 为 null。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="stringify_json_compatible">

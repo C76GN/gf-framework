@@ -9,7 +9,7 @@
 ## [br]
 ## @category protocol
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFTweenPreviewAdapter
 extends RefCounted
 
@@ -21,7 +21,7 @@ extends RefCounted
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 独立样机；null 表示拒绝。
 func _create_sample() -> Control:
@@ -32,7 +32,7 @@ func _create_sample() -> Control:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param _sample: 本适配器新建、GF 持有的有效样机。
 ## [br]

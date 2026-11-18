@@ -7,7 +7,7 @@
 ## [br]
 ## @category runtime_handle
 ## [br]
-## @since unreleased
+## @since 12.0.0
 class_name GFConfigWorkBudget
 extends RefCounted
 
@@ -70,7 +70,7 @@ var _context: String = ""
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param limits: 覆盖默认容量的字段。
 ## [br]
@@ -117,7 +117,7 @@ func _init(limits: Dictionary = {}) -> void:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 失败句柄返回 0；正常句柄返回尚未消费的工作单元。
 func get_remaining_work_units() -> int:
@@ -134,7 +134,7 @@ func get_remaining_work_units() -> int:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 调用入口选项，其他业务选项不参与预算解析。
 ## [br]
@@ -175,7 +175,7 @@ static func from_options(options: Dictionary = {}) -> GFConfigWorkBudget:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param amount: 本次准备读取的非负字节数。
 ## [br]
@@ -195,7 +195,7 @@ func check_input_bytes(amount: int, context: String = "") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param amount: 本次新增的非负字节数。
 ## [br]
@@ -215,7 +215,7 @@ func consume_input_bytes(amount: int, context: String = "") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param amount: 本次新增的非负字节数。
 ## [br]
@@ -235,7 +235,7 @@ func consume_output_bytes(amount: int, context: String = "") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param amount: 本次执行的非负工作单元数。
 ## [br]
@@ -265,7 +265,7 @@ func consume_work(amount: int = 1, context: String = "") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param depth: 当前非负深度。
 ## [br]
@@ -304,7 +304,7 @@ func check_depth(depth: int, context: String = "") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param value: 要准入的配置值。
 ## [br]
@@ -327,7 +327,7 @@ func admit_value(value: Variant, context: String = "") -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 首次失败前为 true。
 func is_ok() -> bool:
@@ -342,7 +342,7 @@ func is_ok() -> bool:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return 预算状态及计数。
 ## [br]

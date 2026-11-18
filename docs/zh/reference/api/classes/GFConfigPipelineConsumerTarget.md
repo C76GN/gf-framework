@@ -7,7 +7,7 @@
 - 继承：`Resource`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 项目声明的配置消费目标。 根表与每表可见顶层字段均显式列出。字段是完整值单元，包含其结构化类型； 不按行内容推测依赖，不通过引用自动授权其他字段。未声明表或字段默认不可见。
 
@@ -30,7 +30,7 @@
 ### `target_id`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -44,7 +44,7 @@ var target_id: StringName = &""
 ### `root_tables`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -58,7 +58,7 @@ var root_tables: PackedStringArray = []
 ### `visible_fields`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -76,7 +76,7 @@ var visible_fields: Dictionary = {}
 ### `output_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -90,7 +90,7 @@ var output_path: String = ""
 ### `access_output_path`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 @export
@@ -106,7 +106,7 @@ var access_output_path: String = ""
 ### `capture`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func capture() -> Dictionary:
@@ -125,7 +125,7 @@ func capture() -> Dictionary:
 ### `duplicate_target`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func duplicate_target() -> GFConfigPipelineConsumerTarget:

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFStorageConflictReport" path="addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd" module="standard" extends="RefCounted" classDigest="0d5892d13e6b8c19b81344875ba55ba52cdfbc07572dfc3eb47dc0e329074ec7">
+<class name="GFStorageConflictReport" path="addons/gf/standard/utilities/storage/gf_storage_conflict_report.gd" module="standard" extends="RefCounted" classDigest="e05fcc6b4ac56bd8aaee1bc7aa5ab34dc3744a15d0895b1dbe8f3ffc03119fe0">
 	<description>GFStorageConflictReport: 冻结的记录冲突与显式解决候选。
 载荷只能通过显式 getter 读取；to_dict() 不包含身份、revision 或业务数据。
 revision 只能比较相等。报告不执行写入，也不证明解决候选已提交。</description>
@@ -26,7 +26,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<description>候选的解决方式，不代表持久化结果。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</enums>
@@ -47,7 +47,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 				<tag name="schema">local_data: Dictionary of finite native data; no objects or cycles.</tag>
 				<tag name="schema">remote_data: Same native contract; empty when remote_exists=false.</tag>
 				<tag name="schema">options: Closed Dictionary with expected_revision:String (default empty), actual_revision:String (default empty), remote_exists:bool (default true). Empty revisions are allowed for plain Backend transfers.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="with_resolution">
@@ -59,7 +59,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 				<tag name="param">data: 解决候选；未解决或跳过时必须为空。</tag>
 				<tag name="return">隔离的新报告或 null。</tag>
 				<tag name="schema">data: Dictionary of admitted finite native data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="duplicate_report">
@@ -68,7 +68,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">独立报告副本。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_namespace">
@@ -77,7 +77,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定命名空间。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_key">
@@ -86,7 +86,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">稳定记录键。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_expected_revision">
@@ -95,7 +95,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不透明 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_actual_revision">
@@ -104,7 +104,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">不透明 revision。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_local_data">
@@ -114,7 +114,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 				<tag name="api">public</tag>
 				<tag name="return">完整候选副本。</tag>
 				<tag name="schema">return: Dictionary of admitted native data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_remote_data">
@@ -124,7 +124,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 				<tag name="api">public</tag>
 				<tag name="return">完整候选副本。</tag>
 				<tag name="schema">return: Dictionary of admitted native data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resolved_data">
@@ -134,7 +134,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 				<tag name="api">public</tag>
 				<tag name="return">尚未持久化的候选副本。</tag>
 				<tag name="schema">return: Dictionary of admitted native data.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="remote_exists">
@@ -143,7 +143,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已观察远端存在时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_resolution">
@@ -152,7 +152,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">Resolution 枚举值。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="is_resolved">
@@ -161,7 +161,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="return">已选择或跳过时为 true。</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="to_dict">
@@ -171,7 +171,7 @@ revision 只能比较相等。报告不执行写入，也不证明解决候选�
 				<tag name="api">public</tag>
 				<tag name="return">诊断摘要。</tag>
 				<tag name="schema">return: Dictionary with valid:bool,resolution:int,remote_exists:bool,revision_matches:bool.</tag>
-				<tag name="since">unreleased</tag>
+				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
 	</methods>

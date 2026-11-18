@@ -19,7 +19,7 @@ var _catalog: GFAssetCatalog = null
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 原样返回父类属性事务错误码；失败时不额外触发本覆写的索引失效或 changed 通知。
 func _do_it() -> Error:
@@ -35,7 +35,7 @@ func _do_it() -> Error:
 ## [br]
 ## @api protected
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: 原样返回父类撤销或恢复的错误码，保留其忙碌、快照及待恢复状态的拒绝语义。
 func _undo_it() -> Error:

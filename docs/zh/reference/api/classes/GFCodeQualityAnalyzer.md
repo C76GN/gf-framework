@@ -7,7 +7,7 @@
 - 继承：`RefCounted`
 - API：`public`
 - 类别：工具 API (`tool_api`)
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 项目代码规范的只读检查入口，供编辑器、制作工具与 CI 使用。 输入只作为文本分析；检查不会执行目标脚本、写入源码或自动启用项目规范。
 
@@ -27,7 +27,7 @@
 ### `get_rule_ids`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func get_rule_ids() -> PackedStringArray:
@@ -42,7 +42,7 @@ static func get_rule_ids() -> PackedStringArray:
 ### `load_project_config`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 static func load_project_config(root: String) -> Dictionary:
@@ -67,7 +67,7 @@ static func load_project_config(root: String) -> Dictionary:
 ### `analyze_source`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func analyze_source( path: String, source: String, config: Dictionary ) -> Dictionary:
@@ -95,7 +95,7 @@ func analyze_source( path: String, source: String, config: Dictionary ) -> Dicti
 ### `analyze_project`
 
 - API：`public`
-- 首次版本：`unreleased`
+- 首次版本：`12.0.0`
 
 ```gdscript
 func analyze_project( root: String, config: Dictionary = {}, cancel_probe: Callable = Callable(), selected_files: PackedStringArray = PackedStringArray(), progress_observer: Callable = Callable() ) -> Dictionary:

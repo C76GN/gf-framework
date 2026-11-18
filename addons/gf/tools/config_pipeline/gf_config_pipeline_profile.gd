@@ -135,7 +135,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema consumer_targets: Array[GFConfigPipelineConsumerTarget]，最多64项，ID唯一；每个目标需要独立的非空输出路径。
 @export var consumer_targets: Array[GFConfigPipelineConsumerTarget] = []
@@ -144,21 +144,21 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var default_consumer_target: StringName = &""
 
 ## 可选项目所有的稳定 ID 登记簿 JSON URI；空值时不启用登记。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 @export var stable_id_registry_path: String = ""
 
 ## 明确选择需要数字 ID 稳定性检查的作者表；其他表的 ID 类型不受影响。
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema stable_id_bindings: Dictionary[String,Dictionary]，每表仅包含 symbol_field:String、id_field:String；来源记录必须提供非空精确符号及1至2147483647的int ID。最多4096表、总计65536条记录；完整作者表参与登记，不受消费目标裁剪影响。
 @export var stable_id_bindings: Dictionary = {}
@@ -167,7 +167,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema stable_id_scope_tables: Array[String]，最多4096个唯一精确表名；非空时必须与stable_id_bindings的表集合相同，范围外历史表保持不变。范围内需要整表退役时，绑定一张有schema但没有记录的作者表。
 @export var stable_id_scope_tables: Array[String] = []
@@ -176,7 +176,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @schema stable_id_restorations: Dictionary[String,Dictionary[String,String]]，table到symbol到原ID的规范十进制文本，例如{"items":{"potion":"1"}}。作者表ID仍必须为int；表和符号必须同时存在于本次对账映射及历史登记中。已活动的同一声明幂等；声明随Profile进入预览摘要并通过register-ids事务提交。
 @export var stable_id_restorations: Dictionary = {}
@@ -188,7 +188,7 @@ const _BUILD_OPTION_KEYS: PackedStringArray = [
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @param options: 本次选项；target 选择目标，显式输出路径覆盖目标默认路径。
 ## [br]
@@ -469,7 +469,7 @@ func duplicate_profile() -> GFConfigPipelineProfile:
 ## [br]
 ## @api public
 ## [br]
-## @since unreleased
+## @since 12.0.0
 ## [br]
 ## @return: Profile 摘要字典。
 ## [br]
