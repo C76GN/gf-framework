@@ -31,11 +31,15 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 
 ## 安装
 
-请从 Godot Asset Store / Asset Library 官方页面，或 GitHub Release 中的 `gf-framework-<version>.zip` 安装 GF。它包含完整的 `addons/gf` 插件目录：kernel、standard、编辑器工具和随包发布的可选内置扩展。可选扩展默认关闭，只有项目显式启用后才参与装配。
+在 [GitHub Releases](https://github.com/C76GN/gf-framework/releases) 选择与项目匹配的版本。将所选 ZIP 解压到 `project.godot` 所在目录，然后在 `Project > Project Settings > Plugins` 启用 `GF Framework`。
 
-GF Release 提供完整框架 ZIP、可选的独立 AI Developer Kit ZIP 和发布产物清单。GF 11 不再提供 Package Manager、包管理命令行或逐模块下载包。
+| 使用场景 | 选择的安装包 |
+| --- | --- |
+| Windows x64 项目，想直接使用原生加速 | `gf-framework-windows-x86_64-<version>.zip`，内含完整 GF 和预编译 DLL |
+| 目标包含其他平台，或只需要脚本 | `gf-framework-<version>.zip`，也可使用 Godot Asset Store / Asset Library 官方包 |
+| 已有同版本 GF，要给 Windows x64 项目加速 | `gf-native-windows-x86_64-<version>.zip`，只添加 `addons/gf_native` |
 
-将包里的 `addons/gf` 复制到 Godot 项目中，然后在 `Project > Project Settings > Plugins` 启用 `GF Framework`。
+要按行筛选整型数据，在 `GF Workspace > GF Extensions` 启用 Data Batch。现有 GDScript 调用会自动选择可用后端。开发者和玩家都无需安装 Rust。若使用原生包，升级时同步替换同版本的 `addons/gf` 和 `addons/gf_native`。
 
 Godot 不会在文件复制到 `addons` 后自动启用编辑器插件，这是正常行为。插件启用状态属于目标项目的 `project.godot`，需要用户明确启用后，编辑器插件代码才会运行。
 

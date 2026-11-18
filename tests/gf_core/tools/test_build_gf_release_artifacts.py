@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import struct
 import sys
 import tempfile
 import unittest
@@ -400,7 +401,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 						actual_version = ""
 				self.assertEqual(actual_version, expected_version)
 
-	def test_build_publishes_only_two_archives_and_manifest(self) -> None:
+	def test_build_publishes_only_four_archives_and_manifest(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"
 			output_dir = build_root / "release"
@@ -425,6 +426,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 
 			with (
 				mock.patch.object(release_builder, "BUILD_ROOT", build_root),
+				mock.patch.object(release_builder.gf_native_acceptance, "qualify", side_effect=_qualify_test_archives),
 				mock.patch.object(
 					release_builder.build_asset_store_package,
 					"read_plugin_version",
@@ -476,12 +478,20 @@ class ReleaseArtifactTests(unittest.TestCase):
 					output_dir,
 					source_revision=REVISION,
 				)
+				published = {path.name: release_builder.sha256_file(path) for path in output_dir.iterdir()}
+				with mock.patch.object(release_builder.gf_native_acceptance, "qualify",
+						side_effect=RuntimeError("native export failed")):
+					failed = release_builder.build_release_artifacts(VERSION, output_dir, source_revision=REVISION)
+				self.assertFalse(failed["ok"])
+				self.assertEqual(published, {path.name: release_builder.sha256_file(path) for path in output_dir.iterdir()})
 			self.assertTrue(result["ok"], result["issues"])
 			self.assertEqual(
 				{path.name for path in output_dir.iterdir()},
 				{
 					f"gf-framework-{VERSION}.zip",
 					f"gf-ai-developer-kit-{VERSION}.zip",
+					f"gf-framework-windows-x86_64-{VERSION}.zip",
+					f"gf-native-windows-x86_64-{VERSION}.zip",
 					f"gf-release-artifacts-{VERSION}.json",
 				},
 			)
@@ -490,11 +500,11 @@ class ReleaseArtifactTests(unittest.TestCase):
 					encoding="utf-8"
 				)
 			)
-			self.assertEqual(manifest["schema_version"], 3)
-			self.assertEqual(manifest["artifact_count"], 2)
+			self.assertEqual(manifest["schema_version"], 4)
+			self.assertEqual(manifest["artifact_count"], 4)
 			self.assertEqual(
 				{entry["role"] for entry in manifest["artifacts"]},
-				{"framework", "ai_developer_kit"},
+				{"framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64"},
 			)
 			self.assertEqual(manifest["source_revision"], REVISION)
 			self.assertEqual(
@@ -516,7 +526,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 				"size_bytes": 0,
 				"sha256": "0" * 64,
 			})
-			data["artifact_count"] = 3
+			data["artifact_count"] = len(data["artifacts"])
 			manifest_path.write_text(json.dumps(data), encoding="utf-8")
 			result = release_builder.audit_release_artifact_manifest(
 				manifest_path,
@@ -538,7 +548,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					REVISION,
 				)
 			self.assertFalse(result["ok"])
-			self.assertTrue(any("only the two archives" in issue for issue in result["issues"]))
+			self.assertTrue(any("only the four archives" in issue for issue in result["issues"]))
 
 	def test_audit_rejects_extra_release_directory(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -552,7 +562,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					REVISION,
 				)
 			self.assertFalse(result["ok"])
-			self.assertTrue(any("only the two archives" in issue for issue in result["issues"]))
+			self.assertTrue(any("only the four archives" in issue for issue in result["issues"]))
 
 	def test_audit_rejects_boolean_integer_fields(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -609,6 +619,24 @@ class ReleaseArtifactTests(unittest.TestCase):
 			self.assertFalse(result["ok"])
 			self.assertTrue(any("mismatch" in issue.lower() for issue in result["issues"]))
 
+	def test_native_archives_must_match_the_verified_version_and_portable_payload(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory)
+			_write_valid_release_fixture(root)
+			names = release_builder.archive_names(VERSION)
+			portable = root / names["framework"]
+			supplement = root / names["native_windows_x86_64"]
+			bundle = root / names["framework_windows_x86_64"]
+			verify = release_builder.gf_native_distribution.verify
+			with self.assertRaisesRegex(ValueError, "version"):
+				verify(portable, supplement, bundle, "other-version", REVISION)
+			with self.assertRaisesRegex(ValueError, "source"):
+				verify(portable, supplement, bundle, VERSION, "b" * 40)
+			with zipfile.ZipFile(bundle, "a") as archive:
+				archive.writestr("unqualified-addon.gd", "unexpected")
+			with self.assertRaisesRegex(ValueError, "exactly"):
+				verify(portable, supplement, bundle, VERSION, REVISION)
+
 	def test_validate_output_dir_rejects_build_root_itself(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"
@@ -658,15 +686,32 @@ def _write_zip(path: Path, name: str, payload: bytes) -> None:
 		archive.writestr(name, payload)
 
 
+def _qualify_test_archives(
+		portable: Path, supplement: Path, bundle: Path, version: str, revision: str, *, export: bool,
+) -> dict[str, object]:
+	# Minimal structural PE fixture. Executable behavior is covered by the real Windows release builder.
+	if not export:
+		raise AssertionError("Release candidates must qualify both exports.")
+	library = bytearray(128)
+	library[:2] = b"MZ"
+	struct.pack_into("<I", library, 60, 64)
+	library[64:68] = b"PE\0\0"
+	struct.pack_into("<H", library, 68, 0x8664)
+	struct.pack_into("<HH", library, 86, 0x2000, 0x20B)
+	release_builder.gf_native_distribution.assemble(portable, supplement, bundle, bytes(library),
+		b"fixture toolchain copyright", version, revision)
+	return {"archives_sha256": {p.name: release_builder.sha256_file(p) for p in (portable, supplement, bundle)}}
+
+
 def _write_valid_release_fixture(root: Path) -> Path:
 	framework = root / f"gf-framework-{VERSION}.zip"
 	ai_kit = root / f"gf-ai-developer-kit-{VERSION}.zip"
 	_write_framework_archive(framework)
 	_write_ai_archive(ai_kit, VERSION)
-	artifacts = [
-		release_builder.artifact_record(framework, "framework"),
-		release_builder.artifact_record(ai_kit, "ai_developer_kit"),
-	]
+	archives = {role: root / name for role, name in release_builder.archive_names(VERSION).items()}
+	_qualify_test_archives(framework, archives["native_windows_x86_64"], archives["framework_windows_x86_64"],
+		VERSION, REVISION, export=True)
+	artifacts = [release_builder.artifact_record(path, role) for role, path in archives.items()]
 	manifest_path = root / f"gf-release-artifacts-{VERSION}.json"
 	release_builder.write_json(manifest_path, {
 		"schema_version": release_builder.MANIFEST_SCHEMA_VERSION,

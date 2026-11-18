@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="a741db3fdbfbe9783997c0e6f8d54d5bafa89710cfc4d1f10fbb6d0f47da130e" classCount="934" methodCount="8340" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="d4711d1cf290619dce74b91859f1e47c5bad1c90fd159408ef159a3e72f36312" classCount="940" methodCount="8373" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="79" methodCount="842" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -82,7 +82,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="512" methodCount="5079" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="516" methodCount="5104" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -202,6 +202,9 @@
 		<class name="GFCurve3DMath" path="classes/GFCurve3DMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_curve_3d_math.gd" extends="RefCounted" />
 		<class name="GFDataProjection" path="classes/GFDataProjection.xml" sourcePath="addons/gf/standard/foundation/variant/gf_data_projection.gd" extends="RefCounted" />
 		<class name="GFDataSnapshot" path="classes/GFDataSnapshot.xml" sourcePath="addons/gf/standard/foundation/variant/gf_data_snapshot.gd" extends="RefCounted" />
+		<class name="GFDataSnapshotCapture" path="classes/GFDataSnapshotCapture.xml" sourcePath="addons/gf/standard/foundation/variant/gf_data_snapshot_capture.gd" extends="RefCounted" />
+		<class name="GFDataSnapshotSource" path="classes/GFDataSnapshotSource.xml" sourcePath="addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd" extends="RefCounted" />
+		<class name="GFDataVersion" path="classes/GFDataVersion.xml" sourcePath="addons/gf/standard/foundation/variant/gf_data_version.gd" extends="GFDataSnapshotSource" />
 		<class name="GFDebugDrawUtility" path="classes/GFDebugDrawUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd" extends="GFUtility" />
 		<class name="GFDebugOverlayUtility" path="classes/GFDebugOverlayUtility.xml" sourcePath="addons/gf/standard/utilities/debug/gf_debug_overlay_utility.gd" extends="GFUtility" />
 		<class name="GFDeferredMutationQueue" path="classes/GFDeferredMutationQueue.xml" sourcePath="addons/gf/standard/common/gf_deferred_mutation_queue.gd" extends="GFUtility" />
@@ -580,6 +583,7 @@
 		<class name="GFVariantJsonCodec" path="classes/GFVariantJsonCodec.xml" sourcePath="addons/gf/standard/foundation/variant/gf_variant_json_codec.gd" extends="RefCounted" />
 		<class name="GFVariantKeyCodec" path="classes/GFVariantKeyCodec.xml" sourcePath="addons/gf/standard/foundation/variant/gf_variant_key_codec.gd" extends="RefCounted" />
 		<class name="GFVariantReferenceCodec" path="classes/GFVariantReferenceCodec.xml" sourcePath="addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd" extends="RefCounted" />
+		<class name="GFVersionedDataStore" path="classes/GFVersionedDataStore.xml" sourcePath="addons/gf/standard/foundation/variant/gf_versioned_data_store.gd" extends="RefCounted" />
 		<class name="GFViewportSurfaceInputBridge" path="classes/GFViewportSurfaceInputBridge.xml" sourcePath="addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd" extends="RefCounted" />
 		<class name="GFViewportSurfaceInputCapture" path="classes/GFViewportSurfaceInputCapture.xml" sourcePath="addons/gf/standard/input/runtime/gf_viewport_surface_input_capture.gd" extends="RefCounted" />
 		<class name="GFViewportUtility" path="classes/GFViewportUtility.xml" sourcePath="addons/gf/standard/utilities/display/gf_viewport_utility.gd" extends="GFUtility" />
@@ -755,7 +759,9 @@
 		<class name="GFContentPackageQueryResult" path="classes/GFContentPackageQueryResult.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_query_result.gd" extends="RefCounted" />
 		<class name="GFContentPackageUtility" path="classes/GFContentPackageUtility.xml" sourcePath="addons/gf/extensions/content_package/runtime/gf_content_package_utility.gd" extends="GFUtility" />
 	</module>
-	<module id="extensions/data_batch" label="Data Batch" classCount="3" methodCount="31" autoloadCount="0" autoloadMethodCount="0">
+	<module id="extensions/data_batch" label="Data Batch" classCount="5" methodCount="39" autoloadCount="0" autoloadMethodCount="0">
+		<class name="GFDataBatchBackend" path="classes/GFDataBatchBackend.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd" extends="RefCounted" />
+		<class name="GFDataBatchNativeBackend" path="classes/GFDataBatchNativeBackend.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd" extends="GFDataBatchBackend" />
 		<class name="GFDataBatchPublication" path="classes/GFDataBatchPublication.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd" extends="RefCounted" />
 		<class name="GFDataBatchSchema" path="classes/GFDataBatchSchema.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd" extends="RefCounted" />
 		<class name="GFDataBatchSnapshot" path="classes/GFDataBatchSnapshot.xml" sourcePath="addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd" extends="RefCounted" />

@@ -31,11 +31,15 @@ The legacy GitHub Wiki keeps only entry links. Read the Docs is the single offic
 
 ## Installation
 
-Install GF from the official Godot Asset Store/Asset Library package or the GitHub Release asset named `gf-framework-<version>.zip`. It contains the complete `addons/gf` addon: kernel, standard library, editor tooling, and bundled optional extensions. Optional extensions remain disabled until the project explicitly enables them.
+Choose a version from [GitHub Releases](https://github.com/C76GN/gf-framework/releases). Extract the selected ZIP beside `project.godot`, then enable `GF Framework` in `Project > Project Settings > Plugins`.
 
-GF releases provide the complete framework ZIP, the optional standalone AI Developer Kit ZIP, and the release artifact manifest. GF 11 no longer provides a Package Manager, a package CLI, or per-module download archives.
+| Project | Package |
+| --- | --- |
+| Windows x64 with native acceleration | `gf-framework-windows-x86_64-<version>.zip` includes the complete framework and prebuilt DLL |
+| Multiple targets or script only | `gf-framework-<version>.zip` or the official Godot Asset Store/Asset Library package |
+| Same GF version already installed in a Windows x64 project | `gf-native-windows-x86_64-<version>.zip` adds only `addons/gf_native` |
 
-Copy `addons/gf` from the package into your Godot project, then enable `GF Framework` from `Project > Project Settings > Plugins`.
+For integer row selection, enable Data Batch in `GF Workspace > GF Extensions`. Existing GDScript calls select the available backend automatically. Both game developers and players can use the prebuilt library without installing Rust. When upgrading a native installation, replace both `addons/gf` and `addons/gf_native` with matching versions.
 
 Godot does not automatically enable editor plugins after files are copied into `addons`. This is expected: plugin enablement belongs to the target project's `project.godot`, and the user must opt in before editor plugin code runs.
 

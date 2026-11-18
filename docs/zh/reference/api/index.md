@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`934`
+- 公开类：`940`
 - 公开 AutoLoad：`1`
-- 公开成员：`13232`
-- 公开方法：`8340`
+- 公开成员：`13265`
+- 公开方法：`8373`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -16,7 +16,7 @@
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
 | Kernel | 79 | 1 | 1224 | 907 | [kernel.md](kernel.md) |
-| Standard | 512 | 0 | 7880 | 5079 | [standard.md](standard.md) |
+| Standard | 516 | 0 | 7905 | 5104 | [standard.md](standard.md) |
 | Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
@@ -24,7 +24,7 @@
 | Capability | 11 | 0 | 148 | 103 | [extensions-capability.md](extensions-capability.md) |
 | Combat | 71 | 0 | 708 | 370 | [extensions-combat.md](extensions-combat.md) |
 | Extensions / Content Package | 7 | 0 | 109 | 71 | [extensions-content-package.md](extensions-content-package.md) |
-| Data Batch | 3 | 0 | 34 | 31 | [extensions-data-batch.md](extensions-data-batch.md) |
+| Data Batch | 5 | 0 | 42 | 39 | [extensions-data-batch.md](extensions-data-batch.md) |
 | Decision | 8 | 0 | 111 | 62 | [extensions-decision.md](extensions-decision.md) |
 | Dialogue | 5 | 0 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
 | Domain | 23 | 0 | 367 | 242 | [extensions-domain.md](extensions-domain.md) |

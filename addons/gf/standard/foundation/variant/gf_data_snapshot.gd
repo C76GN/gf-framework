@@ -2,6 +2,7 @@
 ##
 ## 捕获期间源数据必须稳定。共享子容器按值展开，循环、对象和对象类型容器被拒绝。
 ## 读取返回独立副本，后台任务可保留快照直到物理执行结束。
+## 分帧捕获结果还持有源租约；源线程须保留最后引用，直到后台结束后在源线程释放。
 ## [br]
 ## @api public
 ## [br]
@@ -41,6 +42,29 @@ var _limits: Dictionary = {}
 ## [br]
 ## @api private
 var _ready: bool = false
+
+## 分帧捕获借用记录时保留固定源，直到输出树已实际释放。
+## [br]
+## @api private
+var _source_lease: GFDataSnapshotSource = null
+
+## 适配器返回的记录可能自带租约，必须保留所有者而不只保留其借用树。
+## [br]
+## @api private
+var _record_owners: Array[GFDataSnapshot] = []
+
+
+# --- Godot 生命周期方法 ---
+
+## 先释放输出引用，再退还版本；避免仍被输出引用的数据提前退出保留计费。
+## [br]
+## @api private
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE and _source_lease != null:
+		_value = null
+		_record_owners.clear()
+		_source_lease.release()
+		_source_lease = null
 
 
 # --- 公共方法 ---
@@ -173,6 +197,58 @@ func get_value(path: Array = []) -> Variant:
 
 
 # --- 框架内部方法 ---
+
+## 接收已验证记录组成的完整序列与独占租约，不再次复制所有记录。
+## [br]
+## @api framework_internal
+## [br]
+## @param records: 全部就绪记录的只读借用树，交付后构造者不得再修改数组。
+## [br]
+## @schema records: Array of validated immutable pure-data record roots.
+## [br]
+## @param statistics: 已完成的累计捕获计量。
+## [br]
+## @schema statistics: Dictionary with complete capture counters and status, without snapshot or value.
+## [br]
+## @param source: 捕获会话独占的固定版本租约，随本快照释放。
+## [br]
+## @param record_owners: 适配器记录的所有者，随输出树一起持有；框架固定根已保留记录时可为空。
+## [br]
+## @schema record_owners: Array[GFDataSnapshot] retaining every borrowed adapter record until the result is released.
+## [br]
+## @param copy_limits: 后续公开导出使用的同步捕获限制。
+## [br]
+## @schema copy_limits: Dictionary of numeric GFDataSnapshot.capture limits; no cancellation token or frame budget.
+## [br]
+## @return: 可以提交给只读消费者的完整快照。
+static func from_records_for_framework(
+	records: Array,
+	statistics: Dictionary,
+	source: GFDataSnapshotSource,
+	record_owners: Array[GFDataSnapshot],
+	copy_limits: Dictionary
+) -> GFDataSnapshot:
+	var snapshot: GFDataSnapshot = GFDataSnapshot.new()
+	snapshot._value = records
+	snapshot._statistics = statistics.duplicate()
+	snapshot._source_lease = source
+	snapshot._record_owners = record_owners
+	snapshot._limits = copy_limits.duplicate()
+	snapshot._ready = true
+	return snapshot
+
+
+## 单次复制独立记录，并沿用原捕获的可配置限制。
+## [br]
+## @api framework_internal
+## [br]
+## @return: 已隔离的新快照；未就绪或复制失败时为 null。
+func duplicate_for_framework() -> GFDataSnapshot:
+	if not _ready:
+		return null
+	var report: Dictionary = capture(_value, _limits)
+	return report["snapshot"]
+
 
 ## 向只读框架编码器借出内部树。调用方不得修改、发布或保留可变子容器。
 ## [br]

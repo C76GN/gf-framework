@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDataVersion" path="addons/gf/standard/foundation/variant/gf_data_version.gd" module="standard" extends="GFDataSnapshotSource" classDigest="494fce40854cbba8cbef2baf39438dace4786f32cbe15224a67ea5966d84c31e">
+	<description>GFDataVersion: 框架记录序列的固定版本读取句柄。
+公开读取返回独立记录快照；释放只退还本句柄，其他版本和读者继续有效。
+记录位置属于本版本，不是业务实体 ID。直接 new 的句柄不可读取。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_handle</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="_get_record_count">
+			<signature>func _get_record_count() -&gt; int:</signature>
+			<description>返回已固定数量，不遍历版本树。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">固定记录数；未配置为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_revision">
+			<signature>func _get_revision() -&gt; int:</signature>
+			<description>返回已固定版本，存储后续提交不修改它。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">固定版本号；未配置为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_read_record">
+			<signature>func _read_record(index: int) -&gt; GFDataSnapshot:</signature>
+			<description>导出独立记录，避免外部持有绕过 arena 的历史计费。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">index: 已通过范围检查的位置。</tag>
+				<tag name="return">独立就绪记录；复制失败为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_release">
+			<signature>func _release() -&gt; void:</signature>
+			<description>退还本句柄的根和输出预留；节点随后由存储显式回收。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

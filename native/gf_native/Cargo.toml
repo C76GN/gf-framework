@@ -1,0 +1,19 @@
+[package]
+name = "gf_native"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+publish = false
+license = "Apache-2.0"
+description = "Optional native capabilities for GF Framework"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+godot = { version = "=0.5.5", default-features = false, features = ["api-4-6"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

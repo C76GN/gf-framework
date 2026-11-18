@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFDataSnapshotSource" path="addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd" module="standard" extends="RefCounted" classDigest="1a073ffdb33664a160d5dd1bf01bdaeb9cedb789539c7c8f6ebc2aafc6418815">
+	<description>GFDataSnapshotSource: 一个已经固定版本的记录序列读取租约。
+每个实例独占一次读取租约；交给捕获会话后由会话或成功快照释放。
+项目适配器负责保持版本稳定，逐条返回已就绪的 GFDataSnapshot。
+单条读取必须有界；本协议不提供线程同步，也不验证项目底层存储的不可变性。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="is_available">
+			<signature>func is_available() -&gt; bool:</signature>
+			<description>返回租约是否仍可读取。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已释放时为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_record_count">
+			<signature>func get_record_count() -&gt; int:</signature>
+			<description>返回固定版本的记录数量；不允许遍历或复制整个源。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负数量；不可用或未实现时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_revision">
+			<signature>func get_revision() -&gt; int:</signature>
+			<description>返回本租约固定的版本号，不是跨存储的一致性凭证。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">非负版本号；不可用或未实现时为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="read_record">
+			<signature>func read_record(index: int) -&gt; GFDataSnapshot:</signature>
+			<description>取得一条独立只读快照。返回后源释放不能使该快照失效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">index: 零起始记录位置，必须小于固定记录数。</tag>
+				<tag name="return">已就绪记录快照；失败为 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="release">
+			<signature>func release() -&gt; void:</signature>
+			<description>幂等释放此租约，不得撤销其他读者的版本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_record_count">
+			<signature>func _get_record_count() -&gt; int:</signature>
+			<description>以常数元信息查询返回稳定记录数，不得读取可变 live 数据。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">非负记录数；默认未实现为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_get_revision">
+			<signature>func _get_revision() -&gt; int:</signature>
+			<description>返回租约创建时固定的版本号，读取期间不得改变。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="return">非负版本号；默认未实现为 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_read_record">
+			<signature>func _read_record(_index: int) -&gt; GFDataSnapshot:</signature>
+			<description>在有界成本内读取固定版本记录；不得产生业务写入或重入捕获。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="param">_index: 已由公共入口检查的非负位置。</tag>
+				<tag name="return">独立就绪快照；失败返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="_release">
+			<signature>func _release() -&gt; void:</signature>
+			<description>结算项目版本持有；不得使已经返回的独立记录快照失效。</description>
+			<tags>
+				<tag name="api">protected</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

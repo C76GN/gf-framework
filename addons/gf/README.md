@@ -12,6 +12,8 @@ The plugin also opens the standalone `GF Workspace`. New projects start with onl
 
 The official Godot Asset Store/Asset Library download and the GitHub Release asset named `gf-framework-<version>.zip` both contain the complete addon. Bundled optional extensions are present but remain disabled until the project enables them locally.
 
+For Windows x64, extract `gf-framework-windows-x86_64-<version>.zip` beside `project.godot` to install GF with its prebuilt native capabilities. An existing installation can add the same-version `gf-native-windows-x86_64-<version>.zip`. Keep both addon directories at the same version. Enable Data Batch to use native integer gather from ordinary GDScript.
+
 The optional GF AI Developer Kit provides project intent, version-bound API discovery, managed agent instructions, and approval-gated GF feedback tooling without affecting the Godot runtime or exported game. See the [AI Developer Kit guide](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md).
 
 ## Installation And Upgrades
@@ -33,6 +35,8 @@ Bundled GF extensions are atomic and disabled by default: they depend only on th
 本目录是 GF Framework 的 Godot 插件分发目录。将 `addons/gf` 复制到 Godot 4 项目后，在 `Project > Project Settings > Plugins` 启用 `GF Framework`，插件会自动注册 `Gf` AutoLoad，并默认打开独立的 `GF Workspace`；其中的 `GF Extensions` 页面用于查看、启用、禁用和导出管理 GF 扩展。
 
 Godot Asset Store / Asset Library 官方页面和 GitHub Release 中的 `gf-framework-<version>.zip` 都提供完整插件。可选内置扩展随包存在，但只有项目在本地显式启用后才会参与装配。
+
+Windows x64 项目可将 `gf-framework-windows-x86_64-<version>.zip` 解压到 `project.godot` 旁，同时安装 GF 和预编译原生库。已有 GF 的项目可添加同版本 `gf-native-windows-x86_64-<version>.zip`。启用 Data Batch 后，普通 GDScript 就能调用原生整型行筛选。升级时同步替换两份插件目录。
 
 可选 GF AI Developer Kit 提供项目意图、版本化 API 查询、Agent 规则和审批式 GF 反馈工具，不影响 Godot 运行时或导出游戏。完整说明见 [AI Developer Kit 指南](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md)。
 

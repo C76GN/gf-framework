@@ -19,7 +19,7 @@ AI Developer Kit 是可选的制作期工具。它让项目侧 AI 先读取项�
 
 ## 安装边界
 
-完整 `gf-framework-<version>.zip` 已包含套件源码。GitHub Release 还提供与 GF 版本相同的 `gf-ai-developer-kit-<version>.zip`，作为经过校验的独立 Codex 插件产物；它是框架完整 ZIP 之外唯一单独发布的可选工具 ZIP。
+完整 `gf-framework-<version>.zip` 已包含套件源码。GitHub Release 还提供与 GF 版本相同的 `gf-ai-developer-kit-<version>.zip`，供支持的 Agent 宿主独立安装。
 
 项目侧命令只使用 Python 标准库。只有运行这套可选工具时才需要 Python 3.10 或更高版本；Godot 插件、GF 运行时和导出的游戏不需要 Python。
 

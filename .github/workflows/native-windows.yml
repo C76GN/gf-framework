@@ -1,0 +1,56 @@
+name: Windows native addon
+
+on:
+  pull_request:
+    paths:
+      - "native/gf_native/**"
+      - "addons/gf/extensions/data_batch/**"
+      - "tests/native/**"
+      - "tools/gf_native_*.py"
+      - "tools/build_gf_release_artifacts.py"
+      - ".github/scripts/setup_gf_native_windows.py"
+      - ".github/workflows/native-windows.yml"
+      - ".github/workflows/release.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-windows-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  native-exports:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up Windows native build and export
+        run: python .github/scripts/setup_gf_native_windows.py
+      - name: Verify native installation and exported games
+        run: python tools/build_gf_release_artifacts.py --output-dir build/native-preview
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-native-preview
+          path: build/native-preview
+          if-no-files-found: error
+          retention-days: 3
+
+  verify-transferred-archives:
+    needs: native-exports
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v8
+        with:
+          name: gf-native-preview
+          path: build/native-preview
+      - name: Validate the Windows artifacts on Linux
+        run: python tools/build_gf_release_artifacts.py --output-dir build/native-preview --validate-only

@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "12.0.0-dev.0",
-  "source_digest": "83e7c8124f44abd533cf74403bbed2dc0f2811aaef7685578e925567e30c010e",
-  "class_count": 909,
+  "source_digest": "aa111411955d11543d2126d47671a14c5bda04236a9a09e1d8ff91ca59273695",
+  "class_count": 915,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -80,7 +80,7 @@
       "id": "gf.extension.data_batch",
       "kind": "extension",
       "dependencies": [],
-      "representative_path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd"
+      "representative_path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd"
     },
     {
       "id": "gf.extension.decision",
@@ -25081,6 +25081,88 @@
         }
       ]
     },
+    "GFDataBatchBackend": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/data_batch",
+      "package_id": "gf.extension.data_batch",
+      "path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd",
+      "summary": "GFDataBatchBackend: 可选同步 PackedArray gather 协议。 后端只计算列，不拥有 GF 的 schema、版本或发布权。输入在调用期间只读且不得保留； 输出必须独立拥有，类型、顺序和整数值精确保持。返回空数组表示失败，不允许部分结果。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "get_protocol_version",
+          "signature": "func get_protocol_version() -> int",
+          "summary": "返回协议版本；发布者只接受版本 1，构造后不再切换后端。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "supports_type",
+          "signature": "func supports_type(_numeric_type: int) -> bool",
+          "summary": "判断固定数值类型是否支持，禁止隐式数值转换。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_scratch_bytes",
+          "signature": "func get_scratch_bytes(_output_bytes: int) -> int",
+          "summary": "提供额外临时 payload 的保守上界，GF 在调用前计入峰值预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "gather",
+          "signature": "func gather( _columns: Array, _indices: PackedInt32Array, _source_count: int ) -> Array",
+          "summary": "批量选择记录，禁止更改输入、回调项目或重入发布；失败不得返回部分列。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDataBatchNativeBackend": {
+      "owner_kind": "class",
+      "extends": "GFDataBatchBackend",
+      "module": "extensions/data_batch",
+      "package_id": "gf.extension.data_batch",
+      "path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd",
+      "summary": "GFDataBatchNativeBackend: 连接可选的原生 PackedArray gather 服务。 仅连接项目已经安装并加载的 GDExtension，不安装二进制、不运行编译器。 发布者默认尝试连接，当前分发 Windows x64 实现。项目也可以显式取得适配器。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create() -> GFDataBatchNativeBackend",
+          "summary": "在主线程连接已加载的参考后端。每次调用创建独立适配器，计算服务由引擎管理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_protocol_version",
+          "signature": "func get_protocol_version() -> int",
+          "summary": "返回参考后端的固定协议身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "supports_type",
+          "signature": "func supports_type(numeric_type: int) -> bool",
+          "summary": "参考后端只支持精确 Int32 和 Int64 gather。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "gather",
+          "signature": "func gather( columns: Array, indices: PackedInt32Array, source_count: int ) -> Array",
+          "summary": "同步跨原生边界一次，返回完整输出或失败空数组。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFDataBatchPublication": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -25095,14 +25177,14 @@
         {
           "kind": "enum",
           "name": "Failure",
-          "signature": "enum Failure {\n\t## 发布成功，或尚未尝试发布。\n\tNONE,\n\t## 发布者已关闭或未通过 create 构造。\n\tCLOSED,\n\t## count/capacity 非法。\n\tINVALID_SHAPE,\n\t## 列集合、PackedArray 类型或长度不符合 schema。\n\tINVALID_COLUMN,\n\t## 行索引不属于本次调用提供的源有效前缀。\n\tINVALID_SELECTION,\n\t## 版本为负、倒退、未推进，或形状改变却未推进结构版本。\n\tINVALID_REVISION,\n\t## 源容量或输出行数超过配置的有限行预算。\n\tROW_BUDGET,\n\t## 当前与待构造 payload 之和超过字节预算。\n\tBYTE_BUDGET,\n\t## 只读字典无法通过清空内容完成合作移交。\n\tREAD_ONLY_TRANSFER,\n\t## 已通过预算验证，但引擎未能构造完整长度的列。\n\tALLOCATION_FAILED,\n}",
+          "signature": "enum Failure {\n\t## 发布成功，或尚未尝试发布。\n\tNONE,\n\t## 发布者已关闭或未通过 create 构造。\n\tCLOSED,\n\t## count/capacity 非法。\n\tINVALID_SHAPE,\n\t## 列集合、PackedArray 类型或长度不符合 schema。\n\tINVALID_COLUMN,\n\t## 行索引不属于本次调用提供的源有效前缀。\n\tINVALID_SELECTION,\n\t## 版本为负、倒退、未推进，或形状改变却未推进结构版本。\n\tINVALID_REVISION,\n\t## 源容量或输出行数超过配置的有限行预算。\n\tROW_BUDGET,\n\t## 当前与待构造 payload 之和超过字节预算。\n\tBYTE_BUDGET,\n\t## 只读字典无法通过清空内容完成合作移交。\n\tREAD_ONLY_TRANSFER,\n\t## 已通过预算验证，但引擎未能构造完整长度的列。\n\tALLOCATION_FAILED,\n\t## 同步后端正在执行，本发布者拒绝嵌套发布。\n\tBUSY,\n\t## 后端拒绝或返回不符合类型、列数、长度契约的结果。\n\tBACKEND_FAILED,\n\t## 原生后端当前只允许主线程调用。\n\tWRONG_THREAD,\n}",
           "summary": "最近一次发布的结构化拒绝原因；无需解析自然语言日志。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "create",
-          "signature": "static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int ) -> GFDataBatchPublication",
+          "signature": "static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int, backend: GFDataBatchBackend = GFDataBatchNativeBackend.create(), require_backend: bool = false ) -> GFDataBatchPublication",
           "summary": "构造固定生产者和预算的发布边界。配置无效或布局缓存分配失败返回 null。",
           "visibility": "public"
         },
@@ -25444,6 +25526,171 @@
           "signature": "func get_value(path: Array = []) -> Variant",
           "summary": "读取指定字典键或数组索引路径，结果与快照隔离。",
           "visibility": "public"
+        }
+      ]
+    },
+    "GFDataSnapshotCapture": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/variant/gf_data_snapshot_capture.gd",
+      "summary": "GFDataSnapshotCapture: 从固定版本记录源按共享帧预算构造完整快照。 一个 step 是一条有界记录，不是一个任意大小的对象图。帧额度耗尽仅暂停， 累计数据、工作时间和生命期超限失败。失败输出逐条清理，完成前不交付快照。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "begin",
+          "signature": "static func begin( source: GFDataSnapshotSource, limits: Dictionary = {}, clock: GFClock = null ) -> GFDataSnapshotCapture",
+          "summary": "接管一个已经固定版本的源；不读取全部记录，不隐藏初始化复制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "advance",
+          "signature": "func advance(budget: GFExecutionBudget) -> String",
+          "summary": "消费调用方共享的本帧预算，或分步清理失败输出。不会重置预算。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> void",
+          "summary": "请求取消；若适配器正在读取，只在它返回后停止并释放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_snapshot",
+          "signature": "func get_snapshot() -> GFDataSnapshot",
+          "summary": "取得完整成功快照，不允许获取部分输出。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_report",
+          "signature": "func get_report() -> Dictionary",
+          "summary": "报告逻辑结果与物理结算状态，调用不会推进操作。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDataSnapshotSource": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd",
+      "summary": "GFDataSnapshotSource: 一个已经固定版本的记录序列读取租约。 每个实例独占一次读取租约；交给捕获会话后由会话或成功快照释放。 项目适配器负责保持版本稳定，逐条返回已就绪的 GFDataSnapshot。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "is_available",
+          "signature": "func is_available() -> bool",
+          "summary": "返回租约是否仍可读取。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_record_count",
+          "signature": "func get_record_count() -> int",
+          "summary": "返回固定版本的记录数量；不允许遍历或复制整个源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_revision",
+          "signature": "func get_revision() -> int",
+          "summary": "返回本租约固定的版本号，不是跨存储的一致性凭证。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "read_record",
+          "signature": "func read_record(index: int) -> GFDataSnapshot",
+          "summary": "取得一条独立只读快照。返回后源释放不能使该快照失效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "release",
+          "signature": "func release() -> void",
+          "summary": "幂等释放此租约，不得撤销其他读者的版本。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "_get_record_count",
+          "signature": "func _get_record_count() -> int",
+          "summary": "以常数元信息查询返回稳定记录数，不得读取可变 live 数据。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_get_revision",
+          "signature": "func _get_revision() -> int",
+          "summary": "返回租约创建时固定的版本号，读取期间不得改变。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_read_record",
+          "signature": "func _read_record(_index: int) -> GFDataSnapshot",
+          "summary": "在有界成本内读取固定版本记录；不得产生业务写入或重入捕获。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_release",
+          "signature": "func _release() -> void",
+          "summary": "结算项目版本持有；不得使已经返回的独立记录快照失效。",
+          "visibility": "protected"
+        }
+      ]
+    },
+    "GFDataVersion": {
+      "owner_kind": "class",
+      "extends": "GFDataSnapshotSource",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/variant/gf_data_version.gd",
+      "summary": "GFDataVersion: 框架记录序列的固定版本读取句柄。 公开读取返回独立记录快照；释放只退还本句柄，其他版本和读者继续有效。 记录位置属于本版本，不是业务实体 ID。直接 new 的句柄不可读取。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "_get_record_count",
+          "signature": "func _get_record_count() -> int",
+          "summary": "返回已固定数量，不遍历版本树。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_get_revision",
+          "signature": "func _get_revision() -> int",
+          "summary": "返回已固定版本，存储后续提交不修改它。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_read_record",
+          "signature": "func _read_record(index: int) -> GFDataSnapshot",
+          "summary": "导出独立记录，避免外部持有绕过 arena 的历史计费。",
+          "visibility": "protected"
+        },
+        {
+          "kind": "func",
+          "name": "_release",
+          "signature": "func _release() -> void",
+          "summary": "退还本句柄的根和输出预留；节点随后由存储显式回收。",
+          "visibility": "protected"
         }
       ]
     },
@@ -101334,6 +101581,68 @@
           "name": "decode_reference",
           "signature": "static func decode_reference(value: Variant, options: Dictionary = {}) -> Dictionary",
           "summary": "解码引用标记。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFVersionedDataStore": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.base",
+      "path": "addons/gf/standard/foundation/variant/gf_versioned_data_store.gd",
+      "summary": "GFVersionedDataStore: 受控写入、原子提交的分页纯数据记录序列。 只有交给此容器的记录参与版本管理。嵌套容器按值隔离，共享引用不保留业务身份。 支持替换、追加与清空；不提供任意位置插删或通用对象图。固定版本不遍历记录。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create(limits: Dictionary = {}) -> GFVersionedDataStore",
+          "summary": "创建空序列；原始输入通过显式 commit 导入，构造没有隐藏全量复制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "commit",
+          "signature": "func commit( replacements: Dictionary, appended: Array = [], expected_revision: int = -1 ) -> Dictionary",
+          "summary": "原子替换已有记录并追加新记录；输入仅需在本次同步调用期间稳定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "clear",
+          "signature": "func clear() -> Dictionary",
+          "summary": "原子清空当前序列；已固定的历史版本保持原内容。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "acquire_snapshot",
+          "signature": "func acquire_snapshot() -> GFDataVersion",
+          "summary": "固定当前完整版本，只处理根与元信息，不复制或扫描记录。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "close",
+          "signature": "func close() -> void",
+          "summary": "停止写入与新租约，退还当前根；现有租约继续有效。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "collect_garbage",
+          "signature": "func collect_garbage(max_nodes: int = 64) -> int",
+          "summary": "有界推进失去全部引用的页和记录回收，关闭后仍可调用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_statistics",
+          "signature": "func get_statistics() -> Dictionary",
+          "summary": "返回当前版本与全部仍占用预算的存储计量。",
           "visibility": "public"
         }
       ]

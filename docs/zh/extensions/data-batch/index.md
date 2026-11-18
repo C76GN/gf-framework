@@ -2,7 +2,7 @@
 
 Data Batch 用固定布局的数值列在生产者与消费者之间发布一批数据。它适合已经按列组织数据、需要集中验证与稳定读取边界的场景，例如把模拟结果交给绘制或分析代码。每列使用 `PackedInt32Array` 或 `PackedInt64Array`，逐行读取使用预先绑定的列索引。
 
-完整 GF Framework 已包含 `gf.data_batch`，扩展默认关闭。使用前在 `GF Workspace` 的 `GF Extensions` 页面本地启用。它由三个 `RefCounted` 类构成，没有 Installer 或自动注册的服务；项目自行持有发布者。它不依赖其他扩展，也不创建 ECS 或全局 World。
+完整 GF Framework 已包含 `gf.data_batch`，扩展默认关闭。使用前在 `GF Workspace` 的 `GF Extensions` 页面本地启用。项目自行持有这些 `RefCounted` 对象，没有 Installer 或自动注册的服务；它不依赖其他扩展，也不创建 ECS 或全局 World。
 
 ## 布局、发布者和快照
 
@@ -97,6 +97,28 @@ func sum_offsets(publication: GFDataBatchPublication) -> int:
 此预算不代表进程总内存限制。它不包含对象与容器头、调用者保留的源数组、已经退出当前位置的历史快照，以及消费者创建的副本。项目仍须限制这些外部引用的数量。采集复制按选中行数计算候选载荷，源数据由调用方持有。
 
 `get_debug_snapshot()` 返回独立的小型诊断字典，包含当前载荷，以及最近成功发布的峰值、复制和转交字节。`last_required_payload_bytes` 记录最近进入字节预算检查的尝试所需载荷；形状、索引或版本等更早阶段的拒绝会保留前值，不能将它与本次拒绝原因直接配对。诊断不追踪外部历史引用，不能用这些数值替代进程内存测量。
+
+## 可选原生 gather
+
+用 Windows x64 完整包安装 GF 后，在主线程按常规方式创建发布者即可。框架会让可用的原生库执行整型行筛选；使用通用包时，同一行 GDScript 会选择脚本实现。安装包选择见[安装与 AutoLoad](../../overview/quickstart/install-autoload.md)。
+
+```gdscript
+var publication: GFDataBatchPublication = GFDataBatchPublication.create(
+	schema, &"simulation", 1, 100000, 8 * 1024 * 1024
+)
+if publication == null:
+	return
+```
+
+需要固定实现时，第六个参数接受自定义 `GFDataBatchBackend`，显式传 `null` 则固定使用脚本。若原生能力是硬要求，传入 `GFDataBatchNativeBackend.create(), true`；服务缺失或协议不匹配时构造返回 `null`。工作线程创建发布者时也会跳过后端连接，严格模式返回 `null`；普通模式使用脚本。每个发布者在创建时连接一次，`get_debug_snapshot().backend_selected` 为 `true` 表示已选到后端。普通发布者在工作线程上直接用脚本筛选，仍需由调用方保证串行访问。要求后端的发布者在工作线程返回 `WRONG_THREAD`。已开始的后端调用一旦失败，错误会直接返回给调用者。
+
+后端协议版本 1 只执行同步的 Int32 / Int64 批量 gather。GF 仍验证 schema、完整列形状、有效前缀选择、版本、生产者身份和预算，检查返回列的数量、类型及长度后一次性发布。整数极值、选择顺序和重复项必须精确保持。返回输出独立于输入，后端不得保留可写输出别名或修改输入。普通 copy 已调用引擎复制，不会因为安装后端就自动改走另一条路径。
+
+`GFDataBatchBackend` 允许项目实现同一可信协议；`get_scratch_bytes(output_bytes)` 声明额外临时载荷上界，GF 在调用前将其加入当前加候选峰值。即使临时载荷超预算，`last_required_payload_bytes` 也包含该声明；总量溢出 int64 时饱和到其最大值并拒绝执行。该预算仍不代表进程总内存。GF 不会为验证结果值再完整复制或逐元素比较一次；实现方必须通过差分测试证明值与错误语义。原生代码与项目适配器都是同进程可信代码，形状校验不是原生内存安全沙箱。
+
+首版后端在主线程串行调用，不启动工作线程。嵌套发布返回 `BUSY`；后端执行期间关闭发布者会撤销外层提交资格。错误结果返回 `BACKEND_FAILED` 并保留原发布。后端计算能力不改变现有 `borrow_*` 的合作只读约定，借用列也不能直接当作强不可变版本的凭证。
+
+同一进程的多个发布者共享无状态原生服务，各自保有独立的版本和预算。少量行的调用开销可能超过节省的计算时间，性能敏感的项目可以用相同输入和显式脚本路径比较。
 
 ## API Reference
 

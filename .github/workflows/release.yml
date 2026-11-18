@@ -15,8 +15,8 @@ concurrency:
 jobs:
   build-release-artifacts:
     name: Build GF release artifacts once
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    runs-on: windows-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout tag
@@ -30,17 +30,20 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Windows native build and export
+        run: python .github/scripts/setup_gf_native_windows.py
+
       - name: Build release artifact set
         run: >
           python tools/build_gf_release_artifacts.py
-          --version "${GITHUB_REF_NAME}"
+          --version "$env:GITHUB_REF_NAME"
           --output-dir build/release
 
       - name: Verify release metadata against built artifacts
         run: >
           python tools/gf_maintenance.py release-status
-          --version "${GITHUB_REF_NAME}"
-          --artifact-manifest "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"
+          --version "$env:GITHUB_REF_NAME"
+          --artifact-manifest "build/release/gf-release-artifacts-$env:GITHUB_REF_NAME.json"
 
       - name: Upload immutable release artifact set
         uses: actions/upload-artifact@v7
@@ -156,6 +159,8 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             "build/release/gf-framework-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \
+            "build/release/gf-framework-windows-x86_64-${GITHUB_REF_NAME}.zip" \
+            "build/release/gf-native-windows-x86_64-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \

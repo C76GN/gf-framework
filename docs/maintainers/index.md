@@ -283,7 +283,7 @@ GF 正式版本 tag 统一使用不带 `v` 的 SemVer 格式，例如 `3.5.0`。
 
 新版本 changelog 只记录相对上一稳定版本的增量。发布态的 `docs/zh/changelog.md` 只保留目标正式版本，并从工作树删除所有旧正式段；不可变 Git tag 与 GitHub Release 是已发布历史的唯一事实源，不再维护平行的 Markdown 归档。不得把旧版本重命名为新版本，也不得重写已发布 tag。`release-status` 会拒绝当前页中的旧版本、重复版本、未发布段、不受支持标题、空正文和非法日期。完整作者规则见 [Changelog 编写契约](changelog-authoring.md)；公开 changelog 不承载维护策略或文件清单。
 
-推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 对应源码中提取目标 changelog 段，校验上述版本号一致，检查 Asset Store 标签与 AI 披露字段，构建文档，然后创建 GitHub Release。发布产物先由 `tools/build_gf_release_artifacts.py` 一次性构建并由同一份 SHA-256 manifest 固定；附件精确包含完整 Framework ZIP、独立 AI Developer Kit ZIP 和 release manifest，后续检查与发布只复核这批字节，不再重复打包。Framework ZIP 根目录必须直接是 `addons/`，不得以 GitHub source archive 代替。
+推送 `x.y.z` tag 后，GitHub Actions 的 `Release` 工作流会从该 tag 提取更新说明，核对版本、Asset Store 标签与 AI 披露字段，构建文档并创建 GitHub Release。Windows 构建任务一次生成通用框架、Windows x64 完整框架、同版本原生补充包、独立 AI Developer Kit 共四个 ZIP，并生成一份 SHA-256 清单。完整包和补充包共用经过真实项目导入、调试导出和发布导出的 DLL。后续检查按清单复核同一批文件。框架安装包解压后直接得到 `addons/`。原生能力的维护入口见[构建与验收](../../native/gf_native/README.md)。
 
 ## 文档维护
 
