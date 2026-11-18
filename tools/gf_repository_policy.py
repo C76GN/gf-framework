@@ -9,6 +9,7 @@ import datetime as dt
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import urllib.error
@@ -17,17 +18,28 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from gf_branch_workflow import (
+	COMMIT_SHA_RE,
+	STABLE_SEMVER_RE,
+	BranchHistory,
+	BranchWorkflowError,
+	UnpublishedReleaseError,
+	validate_branch_push,
+	validate_pull_route,
+	validate_release_tag,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / ".github/repository-policy.json"
 GITHUB_API_URL = "https://api.github.com"
-STABLE_SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 REPOSITORY_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 POLICY_FIELDS = {
 	"schema_version",
 	"repository",
 	"default_branch",
+	"development_branch",
+	"cutover_release",
+	"abandoned_release_tags",
 	"internal_branch_pattern",
 	"bot_branch_patterns",
 	"development_version_pattern",
@@ -72,6 +84,9 @@ FRAMEWORK_CI_TIMEOUT_MINUTES = {
 }
 REPOSITORY_POLICY_COMMAND = "python tools/gf_repository_policy.py validate --json"
 PULL_REQUEST_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-pr --json"
+BRANCH_PUSH_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-branch --json"
+RELEASE_TAG_POLICY_COMMAND = "python tools/gf_repository_policy.py validate-release-tag --json"
+FULL_CHECKOUT_FIELDS = (("fetch-depth", "0"), ("fetch-tags", "true"))
 QUICK_CI_COMMAND = (
 	"python tools/gf_maintenance.py check --suite quick "
 	"--failed-only --github-annotations"
@@ -150,7 +165,7 @@ METADATA_RELAY_COMMAND = (
 	"python tools/gf_repository_policy.py validate-pr-gate "
 	"--wait-seconds 1800 --poll-seconds 10 --json"
 )
-CI_RUN_NAME = "GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}"
+CI_RUN_NAME = "GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}|target=${{ github.base_ref || github.ref_name }}"
 FULL_VALIDATION_GATE_NAME = "GF full validation (${{ github.event.pull_request.base.sha || github.sha }})"
 MERGE_GATE_NAME = "${{ (" + REQUIRED_GATE_EVENT + ") && 'GF merge gate' || 'GF merge gate (not applicable)' }}"
 METADATA_CONCURRENCY_GROUP = "ci-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'policy' || 'validation' }}"
@@ -194,7 +209,19 @@ def main(argv: list[str] | None = None) -> int:
 	pr_parser.add_argument("--head-ref", default=os.environ.get("GITHUB_HEAD_REF", ""))
 	pr_parser.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY", ""))
 	pr_parser.add_argument("--head-repository", default=os.environ.get("GF_HEAD_REPOSITORY", ""))
+	pr_parser.add_argument("--base-sha", default=os.environ.get("GF_PR_BASE_SHA", ""))
+	pr_parser.add_argument("--head-sha", default=os.environ.get("GF_PR_HEAD_SHA", ""))
 	pr_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+	push_parser = subparsers.add_parser("validate-branch", help="Validate a push to a long-lived branch.")
+	push_parser.add_argument("--branch", default=os.environ.get("GITHUB_REF_NAME", ""))
+	push_parser.add_argument("--before-sha", default=os.environ.get("GF_PUSH_BEFORE_SHA", ""))
+	push_parser.add_argument("--head-sha", default=os.environ.get("GITHUB_SHA", ""))
+	push_parser.add_argument("--json", action="store_true", help="Print JSON output.")
+
+	tag_parser = subparsers.add_parser("validate-release-tag", help="Verify the tag is the final main release commit.")
+	tag_parser.add_argument("--tag", default=os.environ.get("GITHUB_REF_NAME", ""))
+	tag_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
 	gate_parser = subparsers.add_parser(
 		"validate-pr-gate",
@@ -204,15 +231,20 @@ def main(argv: list[str] | None = None) -> int:
 	gate_parser.add_argument("--pull-number", default=os.environ.get("GF_PR_NUMBER", ""))
 	gate_parser.add_argument("--head-sha", default=os.environ.get("GF_PR_HEAD_SHA", ""))
 	gate_parser.add_argument("--base-sha", default=os.environ.get("GF_PR_BASE_SHA", ""))
+	gate_parser.add_argument("--base-ref", default=os.environ.get("GITHUB_BASE_REF", ""))
 	gate_parser.add_argument("--wait-seconds", type=int, default=FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS)
 	gate_parser.add_argument("--poll-seconds", type=int, default=10)
 	gate_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
 	protection_parser = subparsers.add_parser(
 		"protection",
-		help="Check or explicitly apply GitHub repository settings and main protection.",
+		help="Check or explicitly apply GitHub settings and long-lived branch protection.",
 	)
 	protection_parser.add_argument("--repository", default="", help="GitHub owner/name. Defaults to policy repository.")
+	protection_parser.add_argument(
+		"--include-develop", action="store_true",
+		help="Use the two-branch protection policy after publishing the cutover release.",
+	)
 	protection_parser.add_argument("--apply", action="store_true", help="Apply drift before re-checking it.")
 	protection_parser.add_argument("--json", action="store_true", help="Print JSON output.")
 
@@ -238,12 +270,21 @@ def main(argv: list[str] | None = None) -> int:
 				head_repository=args.head_repository,
 				source_version=source_version,
 			))
+			if not issues:
+				issues.extend(audit_branch_event(policy, args, source_version=source_version))
 		result = make_result("validate-pr", issues, {
 			"base_ref": args.base_ref,
 			"head_ref": args.head_ref,
 			"repository": args.repository,
 			"head_repository": args.head_repository,
 		})
+		print_result(result, args.json)
+		return 0 if result["ok"] else 1
+	if args.command in ("validate-branch", "validate-release-tag"):
+		issues = [*load_issues]
+		if not issues:
+			issues.extend(audit_branch_event(policy, args))
+		result = make_result(args.command, issues)
 		print_result(result, args.json)
 		return 0 if result["ok"] else 1
 	if args.command == "validate-pr-gate":
@@ -257,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
 				pull_number=args.pull_number,
 				head_sha=args.head_sha,
 				base_sha=args.base_sha,
+				base_ref=args.base_ref,
 				wait_seconds=args.wait_seconds,
 				poll_seconds=args.poll_seconds,
 			)
@@ -269,10 +311,95 @@ def main(argv: list[str] | None = None) -> int:
 		if issues:
 			result = make_result("protection", issues, make_protection_result_context(repository, args.apply))
 		else:
-			result = check_or_apply_remote_policy(policy, repository, args.apply)
+			result = check_or_apply_remote_policy(
+				policy, repository, args.apply, include_develop=args.include_develop,
+			)
 		print_result(result, args.json)
 		return 0 if result["ok"] else 1
 	return 2
+
+
+def audit_branch_event(policy: dict[str, Any], args: argparse.Namespace, source_version: str = "") -> list[str]:
+	def require_published(version: str) -> None:
+		require_published_release(policy["repository"], version)
+
+	try:
+		history = BranchHistory(ROOT)
+		if args.command == "validate-branch":
+			if history.commit("HEAD") != args.head_sha:
+				raise BranchWorkflowError("Push checkout HEAD differs from the pushed commit.")
+			validate_branch_push(policy, history, args.branch, args.before_sha, args.head_sha, require_published)
+		elif args.command == "validate-release-tag":
+			validate_release_tag(policy, history, args.tag)
+		else:
+			if history.git("show", "-s", "--format=%P", "HEAD") != f"{args.base_sha} {args.head_sha}":
+				raise BranchWorkflowError("Pull request checkout must merge the exact event base and head commits.")
+			audit_abandoned_tag_update(policy, history, args.base_ref, args.base_sha)
+			candidate = validate_pull_route(
+				policy,
+				history,
+				base_ref=args.base_ref,
+				head_ref=args.head_ref,
+				base_sha=args.base_sha,
+				head_sha=args.head_sha,
+				internal=args.repository == args.head_repository,
+				merged_version=source_version,
+				require_published=require_published,
+			)
+			if candidate:
+				from gf_maintenance import api_baseline_diff
+
+				base_version = history.version(args.base_sha)
+				baseline = ""
+				if (
+					STABLE_SEMVER_RE.fullmatch(base_version)
+					and base_version != candidate
+					and base_version not in policy["abandoned_release_tags"]
+				):
+					baseline = base_version
+				api_diff = api_baseline_diff(baseline, candidate, enforce_version=True)
+				return [f"Release API baseline: {issue}" for issue in api_diff["issues"]]
+	except (OSError, ValueError, RuntimeError, configparser.Error, subprocess.TimeoutExpired) as error:
+		return [str(error)]
+	return []
+
+
+def audit_abandoned_tag_update(
+	policy: dict[str, Any], history: BranchHistory, base_ref: str, base_sha: str,
+) -> None:
+	main_branch = policy["default_branch"]
+	main_sha = base_sha if base_ref == main_branch else history.branch_commit(main_branch)
+	prior_policy = json.loads(history.git("show", f"{main_sha}:.github/repository-policy.json"))
+	prior = prior_policy.get("abandoned_release_tags", {})
+	proposed = policy["abandoned_release_tags"]
+	if prior == proposed:
+		return
+	version = history.version(main_sha)
+	if (
+		base_ref != main_branch
+		or STABLE_SEMVER_RE.fullmatch(version) is None
+		or version in prior
+		or proposed != {**prior, version: main_sha}
+	):
+		raise BranchWorkflowError("Only the recovery PR may record the current tagged, unpublished main commit.")
+
+
+def require_published_release(repository: str, version: str) -> None:
+	token = os.environ.get("GH_TOKEN", "").strip() or os.environ.get("GITHUB_TOKEN", "").strip()
+	path = f"/repos/{repository}/releases/tags/{version}"
+	try:
+		release = github_request("GET", path, token)
+	except GitHubApiError as error:
+		if error.status != 404:
+			raise
+		release = {}
+	if (
+		release.get("tag_name") != version
+		or release.get("draft") is not False
+		or release.get("prerelease") is not False
+		or parse_github_datetime(release.get("published_at")) is None
+	):
+		raise UnpublishedReleaseError(f"Publish the official GitHub Release {version} before continuing.")
 
 
 def configure_stdio() -> None:
@@ -303,14 +430,33 @@ def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def audit_policy_data(policy: dict[str, Any]) -> list[str]:
 	issues: list[str] = []
 	audit_exact_fields(policy, POLICY_FIELDS, "policy", issues)
-	if policy.get("schema_version") != 2:
-		issues.append("Repository policy schema_version must be the integer 2.")
+	if policy.get("schema_version") != 3:
+		issues.append("Repository policy schema_version must be the integer 3.")
 	repository = policy.get("repository")
 	if not isinstance(repository, str) or REPOSITORY_RE.fullmatch(repository) is None:
 		issues.append("Repository policy repository must use owner/name syntax.")
 	for field_name in ("default_branch", "internal_branch_pattern", "development_version_pattern"):
 		if not isinstance(policy.get(field_name), str) or not str(policy.get(field_name, "")).strip():
 			issues.append(f"Repository policy {field_name} must be a non-empty string.")
+	for field_name in ("default_branch", "development_branch"):
+		branch = policy.get(field_name)
+		if not isinstance(branch, str) or re.fullmatch(r"[a-z][a-z0-9-]*", branch) is None:
+			issues.append(f"Repository policy {field_name} must be a simple branch name.")
+	if policy.get("development_branch") == policy.get("default_branch"):
+		issues.append("Development and default branches must be distinct.")
+	cutover = policy.get("cutover_release")
+	if not isinstance(cutover, str) or re.fullmatch(r"[1-9][0-9]*\.0\.0", cutover) is None:
+		issues.append("Repository policy cutover_release must name a stable major release.")
+	abandoned = policy.get("abandoned_release_tags")
+	if not isinstance(abandoned, dict) or any(
+		not isinstance(version, str)
+		or STABLE_SEMVER_RE.fullmatch(version) is None
+		or not isinstance(sha, str)
+		or COMMIT_SHA_RE.fullmatch(sha) is None
+		or sha == "0" * 40
+		for version, sha in abandoned.items()
+	):
+		issues.append("Repository policy abandoned_release_tags must map stable versions to full commit SHAs.")
 	required_status_checks = policy.get("required_status_checks")
 	if (
 		not isinstance(required_status_checks, list)
@@ -445,9 +591,9 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	framework_skill = ".codex/skills/gf-framework-maintenance/SKILL.md"
 	framework_checks = ".codex/skills/gf-framework-maintenance/references/checks.md"
 
-	require(release_skill, "already reviewed short-lived internal branch", "ordinary release branch rule")
-	require(release_skill, "real stabilization freeze", "release freeze rule")
-	require(release_skill, "affected immutable stable tag", "hotfix tag-origin rule")
+	require(release_skill, "major candidates from synchronized `develop`", "major release branch rule")
+	require(release_skill, "current immutable stable tag", "hotfix tag-origin rule")
+	require(release_skill, "bring the actual tagged `main` commit into `develop`", "release synchronization rule")
 	require(
 		release_checks,
 		"check --suite release --artifact-manifest",
@@ -733,7 +879,8 @@ def audit_release_workflow(source: str) -> list[str]:
 			require_exact_job_fields(jobs[job_id], job_id, expected_fields, issues)
 	release_step_names = {
 		"build-release-artifacts": (
-			"Checkout tag", "Set up Python", "Set up Windows native build and export", "Build release artifact set",
+			"Checkout tag", "Set up Python", "Verify release tag on main",
+			"Set up Windows native build and export", "Build release artifact set",
 			"Verify release metadata against built artifacts",
 			"Upload immutable release artifact set",
 		),
@@ -742,13 +889,23 @@ def audit_release_workflow(source: str) -> list[str]:
 			"Set up Godot", "Run release framework shard",
 		),
 		"create-release": (
-			"Checkout tag", "Set up Python", "Download verified release artifact set",
+			"Checkout tag", "Set up Python", "Verify release tag on main", "Download verified release artifact set",
 			"Verify downloaded release artifact set", "Extract release notes", "Create release",
 		),
 	}
 	for job_id, expected_names in release_step_names.items():
 		if job_id in jobs:
 			require_exact_step_names(jobs[job_id], job_id, expected_names, issues)
+	for job_id in release_step_names:
+		if job_id in jobs:
+			require_exact_action_step(
+				jobs[job_id], job_id, "Checkout tag", "actions/checkout@v7", FULL_CHECKOUT_FIELDS, issues,
+			)
+	for job_id in ("build-release-artifacts", "create-release"):
+		if job_id in jobs:
+			require_exact_run_step(
+				jobs[job_id], job_id, "Verify release tag on main", RELEASE_TAG_POLICY_COMMAND, issues,
+			)
 	for job_id, job_source in jobs.items():
 		permission_keys = extract_yaml_mapping_keys(job_source, "permissions", 4)
 		contents_permission = extract_yaml_scalar(job_source, "contents", 6)
@@ -942,7 +1099,7 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	ci_step_names = {
 		"repository-policy": (
 			"Checkout", "Set up Python", "Validate repository policy",
-			"Validate pull request contract",
+			"Validate pull request contract", "Validate branch update",
 		),
 		"quick-checks": ("Checkout", "Set up Python", "Run quick maintenance suite"),
 		"framework-checks": (
@@ -964,6 +1121,11 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	for job_id, expected_names in ci_step_names.items():
 		if job_id in jobs:
 			require_exact_step_names(jobs[job_id], job_id, expected_names, issues)
+	for job_id in ("repository-policy", "quick-checks", "framework-checks", "windows-process-supervision"):
+		if job_id in jobs:
+			require_exact_action_step(
+				jobs[job_id], job_id, "Checkout", "actions/checkout@v7", FULL_CHECKOUT_FIELDS, issues,
+			)
 
 	pull_request_source = extract_yaml_mapping_block(source, "on", 0, "pull_request", 2)
 	if extract_yaml_mapping_keys(pull_request_source, "pull_request", 2) != ["types"]:
@@ -986,7 +1148,7 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	if extract_yaml_mapping_keys(push_source, "push", 2) != ["branches"]:
 		issues.append("CI push trigger must contain only branches.")
 	push_branches = extract_yaml_list(push_source, "branches", 4)
-	expected_push_branches = [str(policy["default_branch"])]
+	expected_push_branches = [policy["default_branch"], policy["development_branch"]]
 	if push_branches != expected_push_branches:
 		issues.append(
 			f"CI push.branches is {push_branches!r}, expected {expected_push_branches!r}."
@@ -997,7 +1159,7 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 	if extract_yaml_mapping_keys(source, "on", 0) != ["pull_request", "push"]:
 		issues.append("Required CI triggers must contain only pull_request and push.")
 	if extract_yaml_scalar(source, "run-name", 0) != CI_RUN_NAME:
-		issues.append("CI run-name must freeze the governed mode, pull request, head SHA, and base SHA epoch.")
+		issues.append("CI run-name must freeze the governed mode, pull request, head SHA, base SHA, and target branch.")
 	permissions_source = extract_yaml_top_level_block(source, "permissions")
 	if extract_yaml_mapping_keys(source, "permissions", 0) != ["contents"]:
 		issues.append("CI top-level permissions must contain only contents: read.")
@@ -1028,30 +1190,29 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 			REPOSITORY_POLICY_COMMAND,
 			issues,
 		)
-		pull_request_step = extract_ci_step_block(repository_job, "Validate pull request contract")
-		pull_request_fields = extract_ci_step_field_keys(pull_request_step)
-		if pull_request_fields != ["if", "env", "run"]:
-			issues.append(
-				"CI job repository-policy Validate pull request contract fields are "
-				f"{pull_request_fields!r}, expected ['if', 'env', 'run']."
-			)
-		if extract_yaml_scalar(pull_request_step, "if", 8) != "github.event_name == 'pull_request'":
-			issues.append("CI job repository-policy Validate pull request contract condition is not governed.")
-		pull_request_env_keys = extract_yaml_mapping_keys(pull_request_step, "env", 8)
-		pull_request_head_repository = extract_yaml_scalar(
-			pull_request_step,
-			"GF_HEAD_REPOSITORY",
-			10,
-		)
-		if (
-			pull_request_env_keys != ["GF_HEAD_REPOSITORY"]
-			or pull_request_head_repository != "${{ github.event.pull_request.head.repo.full_name }}"
+		for name, event, command, environment in (
+			("Validate pull request contract", "pull_request", PULL_REQUEST_POLICY_COMMAND, {
+				"GH_TOKEN": "${{ github.token }}",
+				"GF_HEAD_REPOSITORY": "${{ github.event.pull_request.head.repo.full_name }}",
+				"GF_PR_HEAD_SHA": "${{ github.event.pull_request.head.sha }}",
+				"GF_PR_BASE_SHA": "${{ github.event.pull_request.base.sha }}",
+			}),
+			("Validate branch update", "push", BRANCH_PUSH_POLICY_COMMAND, {
+				"GH_TOKEN": "${{ github.token }}",
+				"GF_PUSH_BEFORE_SHA": "${{ github.event.before }}",
+			}),
 		):
-			issues.append(
-				"CI job repository-policy Validate pull request contract environment is not governed."
-			)
-		if extract_yaml_scalar(pull_request_step, "run", 8) != PULL_REQUEST_POLICY_COMMAND:
-			issues.append("CI job repository-policy Validate pull request contract command is not governed.")
+			step = extract_ci_step_block(repository_job, name)
+			if extract_ci_step_field_keys(step) != ["if", "env", "run"]:
+				issues.append(f"CI job repository-policy {name} fields must be ['if', 'env', 'run'].")
+			if extract_yaml_scalar(step, "if", 8) != f"github.event_name == '{event}'":
+				issues.append(f"CI job repository-policy {name} condition is not governed.")
+			if extract_yaml_mapping_keys(step, "env", 8) != list(environment) or any(
+				extract_yaml_scalar(step, key, 10) != value for key, value in environment.items()
+			):
+				issues.append(f"CI job repository-policy {name} environment is not governed.")
+			if extract_yaml_scalar(step, "run", 8) != command:
+				issues.append(f"CI job repository-policy {name} command is not governed.")
 
 	quick_job = jobs.get("quick-checks", "")
 	if quick_job:
@@ -1944,8 +2105,9 @@ def audit_pull_request(
 	default_branch = str(policy["default_branch"])
 	if repository != expected_repository:
 		issues.append(f"Workflow repository must be {expected_repository}, got {repository or '<empty>'}.")
-	if base_ref != default_branch:
-		issues.append(f"Pull requests must target {default_branch}, got {base_ref or '<empty>'}.")
+	development_branch = str(policy["development_branch"])
+	if base_ref not in (default_branch, development_branch):
+		issues.append(f"Pull requests must target {default_branch} or {development_branch}, got {base_ref or '<empty>'}.")
 	if not head_ref:
 		issues.append("Pull request head branch is empty.")
 	internal_pull_request = head_repository == expected_repository
@@ -1954,8 +2116,8 @@ def audit_pull_request(
 	if not stable_source and development_pattern.fullmatch(source_version) is None:
 		issues.append(f"Pull request source version is not governed stable or development SemVer: {source_version!r}.")
 	if internal_pull_request and head_ref:
-		if head_ref == default_branch:
-			issues.append(f"Pull request head branch cannot be {default_branch}.")
+		if head_ref in (default_branch, development_branch):
+			issues.append(f"Use a short-lived branch as the pull request head, got {head_ref}.")
 		if not branch_name_is_allowed(policy, head_ref):
 			issues.append(f"Internal branch name does not match repository policy: {head_ref}")
 	if stable_source and not internal_pull_request:
@@ -1998,7 +2160,7 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	legacy_policy_issues = audit_policy_data(legacy_check_policy)
 	if not any("missing fields: required_status_checks" in issue for issue in legacy_policy_issues):
 		issues.append("Repository policy self-test did not reject the legacy required_status_check field.")
-	repository_fixture = dict(policy["repository_settings"])
+	repository_fixture = {**policy["repository_settings"], "default_branch": default_branch}
 	protection = policy["branch_protection"]
 	protection_fixture = {
 		"required_status_checks": {
@@ -2041,11 +2203,13 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	wrong_app_fixture["required_status_checks"]["checks"][0]["app_id"] = 1
 	if not any("required status checks" in issue for issue in audit_remote_policy(policy, repository_fixture, wrong_app_fixture)):
 		issues.append("Repository policy self-test did not detect a required status check bound to the wrong app.")
-	branch_fixture = {"commit": {"sha": "0123456789abcdef"}}
+	branch_sha = "a" * 40
+	branch_fixture = {"commit": {"sha": branch_sha}}
 	check_runs_fixture = {
 		"check_runs": [
 			{
 				"name": required_name,
+				"head_sha": branch_sha,
 				"status": "completed",
 				"conclusion": "success",
 				"app": {"id": GITHUB_ACTIONS_APP_ID, "slug": "github-actions"},
@@ -2062,6 +2226,9 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	failed_check_runs_fixture["check_runs"][0]["conclusion"] = "failure"
 	if not audit_required_status_checks(policy, branch_fixture, failed_check_runs_fixture):
 		issues.append("Repository policy self-test did not reject a failing required status check.")
+	wrong_sha_checks = {"check_runs": [{**run, "head_sha": "b" * 40} for run in check_runs_fixture["check_runs"]]}
+	if not audit_required_status_checks(policy, branch_fixture, wrong_sha_checks):
+		issues.append("Repository policy self-test accepted a required check on the wrong commit.")
 	not_started_context = make_protection_result_context(repository, True)
 	if not_started_context["applied"] or not_started_context["completed_mutations"]:
 		issues.append("Repository policy self-test reported an unstarted apply as completed.")
@@ -2076,6 +2243,13 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 	)
 	if not completed_context["applied"] or not completed_context["verification_completed"]:
 		issues.append("Repository policy self-test did not report a completed and verified apply.")
+	split_context = make_protection_result_context(
+		repository, True, ["branch_protection", "repository_settings"], include_develop=True,
+	)
+	if split_context["applied"]:
+		issues.append("Repository policy self-test did not require development protection to complete split apply.")
+	if make_branch_protection_payload(policy, development=True)["required_linear_history"]:
+		issues.append("Repository policy self-test did not allow synchronization merge commits on develop.")
 	protection_payload = make_branch_protection_payload(policy)
 	if protection_payload["lock_branch"] or protection_payload["allow_fork_syncing"]:
 		issues.append("Repository policy self-test allowed fork syncing on an unlocked default branch.")
@@ -2628,6 +2802,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 	pull_number = 28
 	head_sha = "a" * 40
 	base_sha = "b" * 40
+	base_ref = str(policy["default_branch"])
 	now = dt.datetime(2026, 1, 8, 12, 0, tzinfo=dt.timezone.utc)
 	run_id = 101
 	run_attempt = 2
@@ -2641,8 +2816,8 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		"run_attempt": run_attempt,
 		"check_suite_id": check_suite_id,
 		"run_started_at": "2026-01-08T10:00:00Z",
-		"display_title": make_full_validation_run_name(pull_number, head_sha, base_sha),
-		"name": make_full_validation_run_name(pull_number, head_sha, base_sha),
+		"display_title": make_full_validation_run_name(pull_number, head_sha, base_sha, base_ref),
+		"name": make_full_validation_run_name(pull_number, head_sha, base_sha, base_ref),
 		"event": "pull_request",
 		"head_sha": head_sha,
 		"repository": {"full_name": repository},
@@ -2690,9 +2865,34 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		now=now,
 	)
 	record(selection.get("state") == "success" and object_value(selection.get("epoch")).get("run_id") == run_id, "valid epoch")
+	retargeted_selection = select_latest_full_validation_epoch(
+		{"workflow_runs": [valid_run]},
+		repository=repository,
+		head_repository=repository,
+		pull_number=pull_number,
+		head_sha=head_sha,
+		base_sha=base_sha,
+		base_ref=str(policy["development_branch"]),
+		now=now,
+	)
+	record(retargeted_selection.get("state") == "pending", "same-SHA retarget cannot reuse Full validation")
+	wrong_target_association = [{
+		"number": pull_number,
+		"url": f"{GITHUB_API_URL}/repos/{repository}/pulls/{pull_number}",
+		"head": {"sha": head_sha, "repo": {"url": f"{GITHUB_API_URL}/repos/{repository}"}},
+		"base": {
+			"ref": policy["development_branch"], "sha": base_sha,
+			"repo": {"url": f"{GITHUB_API_URL}/repos/{repository}"},
+		},
+	}]
+	record(bool(audit_optional_pull_associations(
+		wrong_target_association, repository=repository, head_repository=repository,
+		pull_number=pull_number, head_sha=head_sha, base_sha=base_sha, base_ref=base_ref,
+	)), "same-SHA contradictory target association fails closed")
 
 	stale_old_run = json.loads(json.dumps(valid_run))
 	stale_old_run["id"] = 99
@@ -2707,6 +2907,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		now=now,
 	)
 	record(
@@ -2729,6 +2930,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		now=now,
 	)
 	record(
@@ -2744,6 +2946,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		now=now,
 	)
 	record(stale_only_selection.get("state") == "failure", "stale latest epoch fails closed")
@@ -2800,6 +3003,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 			check_run_id=check_run_id,
 			head_sha=head_sha,
 			base_sha=base_sha,
+			base_ref=base_ref,
 			pull_number=pull_number,
 			now=now,
 		),
@@ -2819,6 +3023,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 			check_run_id=check_run_id,
 			head_sha=head_sha,
 			base_sha=base_sha,
+			base_ref=base_ref,
 			pull_number=pull_number,
 			now=now,
 		)),
@@ -2838,6 +3043,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 			check_run_id=check_run_id,
 			head_sha=head_sha,
 			base_sha=base_sha,
+			base_ref=base_ref,
 			pull_number=pull_number,
 			now=now,
 		)),
@@ -2868,6 +3074,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 			check_run_id=check_run_id,
 			head_sha=head_sha,
 			base_sha=base_sha,
+			base_ref=base_ref,
 			pull_number=pull_number,
 			now=now,
 		)),
@@ -2912,6 +3119,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 			check_run_id=check_run_id,
 			head_sha=head_sha,
 			base_sha=base_sha,
+			base_ref=base_ref,
 			pull_number=pull_number,
 			now=now,
 		)),
@@ -2947,6 +3155,7 @@ def run_full_validation_relay_self_tests(policy: dict[str, Any]) -> list[str]:
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		valid_run=valid_run,
 		valid_job=valid_job,
 		valid_check_run=valid_check_run,
@@ -2960,6 +3169,7 @@ def run_full_validation_relay_transport_self_tests(
 	pull_number: int,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 	valid_run: dict[str, Any],
 	valid_job: dict[str, Any],
 	valid_check_run: dict[str, Any],
@@ -3001,6 +3211,7 @@ def run_full_validation_relay_transport_self_tests(
 				},
 			},
 			"base": {
+				"ref": base_ref,
 				"sha": base_sha,
 				"repo": {
 					"full_name": repository,
@@ -3037,6 +3248,7 @@ def run_full_validation_relay_transport_self_tests(
 			pull_number=pull_number,
 			head_sha=head_sha,
 			base_sha=base_sha,
+			base_ref=base_ref,
 			token="fixture-token",
 			deadline=time.monotonic() + 5.0,
 		)
@@ -3103,8 +3315,8 @@ def run_full_validation_relay_transport_self_tests(
 	return issues
 
 
-def make_full_validation_run_name(pull_number: int, head_sha: str, base_sha: str) -> str:
-	return f"GF CI|mode=full|pr={pull_number}|head={head_sha}|base={base_sha}"
+def make_full_validation_run_name(pull_number: int, head_sha: str, base_sha: str, base_ref: str) -> str:
+	return f"GF CI|mode=full|pr={pull_number}|head={head_sha}|base={base_sha}|target={base_ref}"
 
 
 def make_full_validation_marker_name(base_sha: str) -> str:
@@ -3118,6 +3330,7 @@ def validate_pr_gate_relay(
 	pull_number: Any,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 	wait_seconds: int,
 	poll_seconds: int,
 ) -> dict[str, Any]:
@@ -3139,6 +3352,8 @@ def validate_pr_gate_relay(
 		input_issues.append("Relay head SHA must be a lowercase 40-character hexadecimal commit SHA.")
 	if COMMIT_SHA_RE.fullmatch(base_sha) is None:
 		input_issues.append("Relay base SHA must be a lowercase 40-character hexadecimal commit SHA.")
+	if base_ref not in (policy.get("default_branch"), policy.get("development_branch")):
+		input_issues.append("Relay target must be a governed branch.")
 	if wait_seconds < 0 or wait_seconds > FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS:
 		input_issues.append(
 			f"Relay wait-seconds must be between 0 and {FULL_VALIDATION_RELAY_MAX_WAIT_SECONDS}."
@@ -3155,6 +3370,7 @@ def validate_pr_gate_relay(
 		"pull_number": parsed_pull_number,
 		"head_sha": head_sha,
 		"base_sha": base_sha,
+		"base_ref": base_ref,
 		"marker_name": make_full_validation_marker_name(base_sha),
 		"wait_seconds": wait_seconds,
 		"poll_seconds": poll_seconds,
@@ -3175,6 +3391,7 @@ def validate_pr_gate_relay(
 				pull_number=parsed_pull_number,
 				head_sha=head_sha,
 				base_sha=base_sha,
+				base_ref=base_ref,
 				token=token,
 				deadline=request_deadline,
 			)
@@ -3240,6 +3457,7 @@ def inspect_full_validation_relay_epoch(
 	pull_number: int,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 	token: str,
 	deadline: float,
 ) -> dict[str, Any]:
@@ -3255,6 +3473,7 @@ def inspect_full_validation_relay_epoch(
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 	)
 	if pull_issues:
 		return {"state": "failure", "issues": pull_issues}
@@ -3280,6 +3499,7 @@ def inspect_full_validation_relay_epoch(
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		now=dt.datetime.now(dt.timezone.utc),
 	)
 	if selection["state"] != "success":
@@ -3360,6 +3580,7 @@ def inspect_full_validation_relay_epoch(
 		check_run_id=check_run_id,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		pull_number=pull_number,
 		now=dt.datetime.now(dt.timezone.utc),
 	)
@@ -3378,6 +3599,7 @@ def inspect_full_validation_relay_epoch(
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 	)
 	if final_pull_issues:
 		return {"state": "failure", "issues": final_pull_issues}
@@ -3394,6 +3616,7 @@ def inspect_full_validation_relay_epoch(
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 		now=dt.datetime.now(dt.timezone.utc),
 	)
 	if final_selection["state"] != "success":
@@ -3495,6 +3718,7 @@ def audit_relay_pull_snapshot(
 	pull_number: int,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 ) -> list[str]:
 	issues: list[str] = []
 	if pull_data.get("number") != pull_number:
@@ -3507,6 +3731,8 @@ def audit_relay_pull_snapshot(
 		issues.append("GitHub pull-request snapshot head SHA no longer matches the metadata event.")
 	if str(base.get("sha", "")).lower() != base_sha:
 		issues.append("GitHub pull-request snapshot base SHA no longer matches the metadata event.")
+	if base.get("ref") != base_ref:
+		issues.append("GitHub pull-request snapshot target branch no longer matches the metadata event.")
 	head_repository = object_value(head.get("repo")).get("full_name")
 	if not isinstance(head_repository, str) or REPOSITORY_RE.fullmatch(head_repository) is None:
 		issues.append("GitHub pull-request snapshot has an invalid head repository identity.")
@@ -3531,12 +3757,13 @@ def select_latest_full_validation_epoch(
 	pull_number: int,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 	now: dt.datetime,
 ) -> dict[str, Any]:
 	runs = runs_data.get("workflow_runs")
 	if not isinstance(runs, list):
 		return {"state": "failure", "issues": ["GitHub workflow-runs response was malformed."]}
-	expected_title = make_full_validation_run_name(pull_number, head_sha, base_sha)
+	expected_title = make_full_validation_run_name(pull_number, head_sha, base_sha, base_ref)
 	candidates: list[tuple[dt.datetime, int, int, dict[str, Any]]] = []
 	for run in runs:
 		if not isinstance(run, dict) or run.get("display_title") != expected_title:
@@ -3558,7 +3785,7 @@ def select_latest_full_validation_epoch(
 	if not candidates:
 		return {
 			"state": "pending",
-			"issues": ["No exact Full validation intent exists for this repository, pull request, head SHA, and base SHA."],
+			"issues": ["No exact Full validation intent exists for this repository, pull request, head SHA, base SHA, and target branch."],
 		}
 	latest_started_at, run_id, run_attempt, latest = max(
 		candidates,
@@ -3591,6 +3818,7 @@ def select_latest_full_validation_epoch(
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 	))
 	if latest_issues:
 		return {"state": "failure", "issues": latest_issues}
@@ -3671,6 +3899,7 @@ def audit_full_validation_check_run(
 	check_run_id: int,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 	pull_number: int,
 	now: dt.datetime,
 ) -> list[str]:
@@ -3714,6 +3943,7 @@ def audit_full_validation_check_run(
 		pull_number=pull_number,
 		head_sha=head_sha,
 		base_sha=base_sha,
+		base_ref=base_ref,
 	))
 	if job.get("run_id") != run_id or job.get("run_attempt") != run_attempt:
 		issues.append("Full validation check run job binding changed during validation.")
@@ -3728,6 +3958,7 @@ def audit_optional_pull_associations(
 	pull_number: int,
 	head_sha: str,
 	base_sha: str,
+	base_ref: str,
 ) -> list[str]:
 	if value == []:
 		return []
@@ -3743,9 +3974,10 @@ def audit_optional_pull_associations(
 			or object_value(head.get("repo")).get("url")
 			!= f"https://api.github.com/repos/{head_repository}"
 			or str(base.get("sha", "")).lower() != base_sha
+			or base.get("ref") not in (None, base_ref)
 			or object_value(base.get("repo")).get("url") != f"https://api.github.com/repos/{repository}"
 		):
-			return ["GitHub pull-request associations contradict the selected pull request, head SHA, or base SHA."]
+			return ["GitHub pull-request associations contradict the selected pull request or its source and target."]
 	return []
 
 
@@ -3774,63 +4006,111 @@ def read_plugin_version(root: Path = ROOT) -> str:
 	return config.get("plugin", "version", fallback="").strip().strip('"')
 
 
-def check_or_apply_remote_policy(policy: dict[str, Any], repository: str, apply: bool) -> dict[str, Any]:
+def check_or_apply_remote_policy(
+	policy: dict[str, Any], repository: str, apply: bool, *, include_develop: bool = False,
+) -> dict[str, Any]:
 	completed_mutations: list[str] = []
+	main = policy["default_branch"]
+	develop = policy["development_branch"]
+	branch_shas: dict[str, str] = {}
+
+	def result(issues: list[str], *, verified: bool = False) -> dict[str, Any]:
+		return make_result("protection", issues, make_protection_result_context(
+			repository, apply, completed_mutations, verification_completed=verified,
+			head_sha=branch_shas.get(main, ""), development_head_sha=branch_shas.get(develop, ""),
+			include_develop=include_develop,
+		))
+
 	if REPOSITORY_RE.fullmatch(repository) is None:
-		return make_result(
-			"protection",
-			["Repository must use owner/name syntax."],
-			make_protection_result_context(repository, apply, completed_mutations),
-		)
+		return result(["Repository must use owner/name syntax."])
 	if repository != policy["repository"]:
-		return make_result(
-			"protection",
-			[f"Refusing repository mismatch: policy owns {policy['repository']}, requested {repository}."],
-			make_protection_result_context(repository, apply, completed_mutations),
-		)
+		return result([f"Refusing repository mismatch: policy owns {policy['repository']}, requested {repository}."])
 	token = os.environ.get("GH_TOKEN", "").strip() or os.environ.get("GITHUB_TOKEN", "").strip()
 	if not token:
-		return make_result(
-			"protection",
-			["GH_TOKEN or GITHUB_TOKEN with repository administration permission is required."],
-			make_protection_result_context(repository, apply, completed_mutations),
-		)
-	head_sha = ""
+		return result(["GH_TOKEN or GITHUB_TOKEN with repository administration permission is required."])
+	main_path = f"/repos/{repository}/branches/{main}"
+	develop_path = f"/repos/{repository}/branches/{develop}"
 	try:
 		if apply:
-			branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
-			branch_data = github_request("GET", f"/repos/{repository}/branches/{branch}", token)
-			head_sha = str(object_value(branch_data.get("commit")).get("sha", "")).strip()
-			check_runs_data = fetch_required_check_runs(policy, repository, head_sha, token)
-			preflight_issues = audit_required_status_checks(policy, branch_data, check_runs_data)
-			if preflight_issues:
-				return make_result(
-					"protection",
-					preflight_issues,
-					make_protection_result_context(repository, apply, completed_mutations, head_sha=head_sha),
-				)
-			apply_remote_policy(policy, repository, token, completed_mutations)
+			repository_before = github_request("GET", f"/repos/{repository}", token)
+			if repository_before.get("default_branch") != main:
+				return result([f"GitHub default branch must be {main} before applying protection."])
+			if not include_develop:
+				try:
+					github_request("GET", develop_path, token)
+				except GitHubApiError as error:
+					if error.status != 404:
+						raise
+				else:
+					return result([f"{develop} already exists. Use --include-develop for protection changes."])
+			branches = (main, develop) if include_develop else (main,)
+			for branch in branches:
+				branch_data = github_request("GET", f"/repos/{repository}/branches/{branch}", token)
+				sha = str(object_value(branch_data.get("commit")).get("sha", ""))
+				if COMMIT_SHA_RE.fullmatch(sha) is None:
+					return result([f"Cannot resolve the current {branch} commit."])
+				branch_shas[branch] = sha
+				checks = fetch_required_check_runs(policy, repository, sha, token)
+				preflight_issues = audit_required_status_checks(policy, branch_data, checks)
+				if preflight_issues:
+					return result([f"{branch}: {issue}" for issue in preflight_issues])
+			if include_develop:
+				history = BranchHistory(ROOT)
+				main_sha = branch_shas[main]
+				version = history.version(main_sha)
+				if not stable_main_version(policy, version):
+					raise BranchWorkflowError(f"Publish {policy['cutover_release']} before protecting {develop}.")
+				require_published_release(repository, version)
+				history.require_tag_at(version, main_sha)
+				local_tag = history.git("rev-parse", "--verify", f"refs/tags/{version}")
+				remote_tag = github_request("GET", f"/repos/{repository}/git/ref/tags/{version}", token)
+				tag_object = object_value(remote_tag.get("object"))
+				if tag_object.get("type") != "tag" or tag_object.get("sha") != local_tag:
+					raise BranchWorkflowError(f"Fetch and verify the remote annotated {version} tag before applying.")
+				require_development_push_ci(repository, develop, branch_shas[develop], token)
+			require_unchanged_branch_heads(repository, token, branch_shas)
+			apply_remote_policy(
+				policy, repository, token, completed_mutations, include_develop=include_develop,
+				expected_branch_shas=branch_shas,
+			)
 		repository_data = github_request("GET", f"/repos/{repository}", token)
-		branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
-		protection_data = github_request("GET", f"/repos/{repository}/branches/{branch}/protection", token)
+		protection_data = github_request("GET", f"{main_path}/protection", token)
+		issues = audit_remote_policy(policy, repository_data, protection_data, include_develop=include_develop)
+		if include_develop:
+			try:
+				development_data = github_request("GET", f"{develop_path}/protection", token)
+			except GitHubApiError as error:
+				if error.status != 404:
+					raise
+				return result([*issues, f"{develop} is missing or its branch protection is not available."])
+			issues.extend(audit_remote_branch_protection(policy, development_data, development=True))
 	except GitHubApiError as error:
-		return make_result(
-			"protection",
-			[f"GitHub API request failed ({error.status}): {error}"],
-			make_protection_result_context(repository, apply, completed_mutations, head_sha=head_sha),
-		)
-	issues = audit_remote_policy(policy, repository_data, protection_data)
-	return make_result(
-		"protection",
-		issues,
-		make_protection_result_context(
-			repository,
-			apply,
-			completed_mutations,
-			verification_completed=True,
-			head_sha=head_sha,
-		),
-	)
+		return result([f"GitHub API request failed ({error.status}): {error}"])
+	except (OSError, ValueError, RuntimeError, configparser.Error, subprocess.TimeoutExpired) as error:
+		return result([str(error)])
+	return result(issues, verified=True)
+
+
+def require_unchanged_branch_heads(repository: str, token: str, branch_shas: dict[str, str]) -> None:
+	for branch, expected_sha in branch_shas.items():
+		branch_data = github_request("GET", f"/repos/{repository}/branches/{branch}", token)
+		if object_value(branch_data.get("commit")).get("sha") != expected_sha:
+			raise BranchWorkflowError(f"{branch} advanced during protection setup. Audit the current branch checks again.")
+
+
+def require_development_push_ci(repository: str, branch: str, sha: str, token: str) -> None:
+	query = urllib.parse.urlencode({"branch": branch, "head_sha": sha, "event": "push", "per_page": 1})
+	data = github_request("GET", f"/repos/{repository}/actions/workflows/ci.yml/runs?{query}", token)
+	runs = object_array(data.get("workflow_runs"))
+	if not runs or any(runs[0].get(key) != value for key, value in {
+		"display_title": make_full_validation_run_name(0, sha, sha, branch),
+		"head_branch": branch,
+		"head_sha": sha,
+		"event": "push",
+		"status": "completed",
+		"conclusion": "success",
+	}.items()):
+		raise BranchWorkflowError(f"Wait for the Full CI push run on {branch} at {sha} before applying protection.")
 
 
 def apply_remote_policy(
@@ -3838,17 +4118,37 @@ def apply_remote_policy(
 	repository: str,
 	token: str,
 	completed_mutations: list[str] | None = None,
+	*,
+	include_develop: bool = False,
+	expected_branch_shas: dict[str, str] | None = None,
 ) -> None:
 	mutation_log = completed_mutations if completed_mutations is not None else []
-	branch = urllib.parse.quote(str(policy["default_branch"]), safe="")
-	github_request(
+	main = policy["default_branch"]
+	main_protection = github_request(
 		"PUT",
-		f"/repos/{repository}/branches/{branch}/protection",
+		f"/repos/{repository}/branches/{main}/protection",
 		token,
 		make_branch_protection_payload(policy),
 	)
 	mutation_log.append("branch_protection")
-	github_request("PATCH", f"/repos/{repository}", token, policy["repository_settings"])
+	settings = dict(policy["repository_settings"])
+	if include_develop:
+		main_issues = audit_remote_branch_protection(policy, main_protection)
+		if main_issues:
+			raise BranchWorkflowError("Main protection must verify before enabling merge commits. " + " ".join(main_issues))
+		develop = policy["development_branch"]
+		development_protection = github_request(
+			"PUT", f"/repos/{repository}/branches/{develop}/protection", token,
+			make_branch_protection_payload(policy, development=True),
+		)
+		mutation_log.append("development_branch_protection")
+		development_issues = audit_remote_branch_protection(policy, development_protection, development=True)
+		if development_issues:
+			raise BranchWorkflowError(" ".join(development_issues))
+		if expected_branch_shas is not None:
+			require_unchanged_branch_heads(repository, token, expected_branch_shas)
+		settings["allow_merge_commit"] = True
+	github_request("PATCH", f"/repos/{repository}", token, settings)
 	mutation_log.append("repository_settings")
 
 
@@ -3882,21 +4182,29 @@ def make_protection_result_context(
 	*,
 	verification_completed: bool = False,
 	head_sha: str = "",
+	development_head_sha: str = "",
+	include_develop: bool = False,
 ) -> dict[str, Any]:
 	mutations = list(completed_mutations or [])
+	expected_mutations = ["branch_protection"]
+	if include_develop:
+		expected_mutations.append("development_branch_protection")
+	expected_mutations.append("repository_settings")
 	context: dict[str, Any] = {
 		"repository": repository,
 		"apply_requested": apply_requested,
-		"applied": apply_requested and mutations == ["branch_protection", "repository_settings"],
+		"applied": apply_requested and mutations == expected_mutations,
 		"completed_mutations": mutations,
 		"verification_completed": verification_completed,
 	}
 	if head_sha:
 		context["head_sha"] = head_sha
+	if development_head_sha:
+		context["development_head_sha"] = development_head_sha
 	return context
 
 
-def make_branch_protection_payload(policy: dict[str, Any]) -> dict[str, Any]:
+def make_branch_protection_payload(policy: dict[str, Any], *, development: bool = False) -> dict[str, Any]:
 	protection = policy["branch_protection"]
 	return {
 		"required_status_checks": {
@@ -3915,7 +4223,7 @@ def make_branch_protection_payload(policy: dict[str, Any]) -> dict[str, Any]:
 			"required_approving_review_count": protection["required_approving_review_count"],
 		},
 		"restrictions": None,
-		"required_linear_history": protection["required_linear_history"],
+		"required_linear_history": protection["required_linear_history"] and not development,
 		"allow_force_pushes": protection["allow_force_pushes"],
 		"allow_deletions": protection["allow_deletions"],
 		"block_creations": False,
@@ -3929,14 +4237,31 @@ def audit_remote_policy(
 	policy: dict[str, Any],
 	repository_data: dict[str, Any],
 	protection_data: dict[str, Any],
+	*,
+	include_develop: bool = False,
 ) -> list[str]:
 	issues: list[str] = []
-	for field_name, expected in policy["repository_settings"].items():
+	settings = dict(policy["repository_settings"])
+	if include_develop:
+		settings["allow_merge_commit"] = True
+	for field_name, expected in settings.items():
 		actual = repository_data.get(field_name)
 		if actual != expected:
 			issues.append(f"GitHub repository setting {field_name} is {actual!r}, expected {expected!r}.")
+	if repository_data.get("default_branch") != policy["default_branch"]:
+		issues.append(f"GitHub default branch must be {policy['default_branch']}.")
 
-	protection = policy["branch_protection"]
+	issues.extend(audit_remote_branch_protection(policy, protection_data))
+	return issues
+
+
+def audit_remote_branch_protection(
+	policy: dict[str, Any], protection_data: dict[str, Any], *, development: bool = False,
+) -> list[str]:
+	issues: list[str] = []
+	protection = dict(policy["branch_protection"])
+	if development:
+		protection["required_linear_history"] = False
 	status_checks = object_value(protection_data.get("required_status_checks"))
 	if status_checks.get("strict") != protection["strict_status_checks"]:
 		issues.append("GitHub strict status-check mode differs from repository policy.")
@@ -3984,7 +4309,8 @@ def audit_remote_policy(
 	):
 		if enabled_value(protection_data.get(field_name)) != protection[field_name]:
 			issues.append(f"GitHub branch protection {field_name} differs from repository policy.")
-	return issues
+	branch = policy["development_branch"] if development else policy["default_branch"]
+	return [f"{branch}: {issue}" for issue in issues]
 
 
 def audit_required_status_checks(
@@ -3994,8 +4320,8 @@ def audit_required_status_checks(
 ) -> list[str]:
 	issues: list[str] = []
 	head_sha = object_value(branch_data.get("commit")).get("sha")
-	if not isinstance(head_sha, str) or not head_sha.strip():
-		return ["Cannot apply protection before resolving the default branch head commit."]
+	if not isinstance(head_sha, str) or COMMIT_SHA_RE.fullmatch(head_sha) is None:
+		return ["Cannot apply protection before resolving the branch head commit."]
 	check_runs = check_runs_data.get("check_runs")
 	if not isinstance(check_runs, list):
 		return ["Cannot apply protection because GitHub check-runs data is malformed."]
@@ -4007,18 +4333,19 @@ def audit_required_status_checks(
 			if (
 				isinstance(run, dict)
 				and run.get("name") == required_name
+				and run.get("head_sha") == head_sha
 				and object_value(run.get("app")).get("id") == GITHUB_ACTIONS_APP_ID
 				and object_value(run.get("app")).get("slug") == "github-actions"
 			)
 		]
 		if not matching_runs:
 			issues.append(
-				f"Cannot apply protection before {required_name!r} appears on the current default-branch commit."
+				f"Cannot apply protection before {required_name!r} appears on the current branch commit."
 			)
 			continue
 		if not any(run.get("status") == "completed" and run.get("conclusion") == "success" for run in matching_runs):
 			issues.append(
-				f"Cannot apply protection until {required_name!r} succeeds on the current default-branch commit."
+				f"Cannot apply protection until {required_name!r} succeeds on the current branch commit."
 			)
 	return issues
 

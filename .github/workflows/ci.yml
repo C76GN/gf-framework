@@ -1,7 +1,7 @@
 name: CI
 
 run-name: >-
-  GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}
+  GF CI|mode=${{ github.event_name == 'pull_request' && github.event.action == 'edited' && github.event.changes.base.ref.from == '' && 'metadata' || (github.event_name == 'pull_request' && github.event.pull_request.draft == true && 'draft' || 'full') }}|pr=${{ github.event.pull_request.number || 0 }}|head=${{ github.event.pull_request.head.sha || github.sha }}|base=${{ github.event.pull_request.base.sha || github.sha }}|target=${{ github.base_ref || github.ref_name }}
 
 on:
   pull_request:
@@ -15,6 +15,7 @@ on:
   push:
     branches:
       - main
+      - develop
 
 permissions:
   contents: read
@@ -47,8 +48,18 @@ jobs:
       - name: Validate pull request contract
         if: github.event_name == 'pull_request'
         env:
+          GH_TOKEN: ${{ github.token }}
           GF_HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          GF_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GF_PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: python tools/gf_repository_policy.py validate-pr --json
+
+      - name: Validate branch update
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GF_PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: python tools/gf_repository_policy.py validate-branch --json
 
   quick-checks:
     name: GF draft quick checks

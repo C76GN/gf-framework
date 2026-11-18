@@ -3292,6 +3292,13 @@ def resolve_api_baseline_ref(
 	eligible_refs = read_annotated_ancestor_semver_tags()
 	if eligible_refs is None:
 		return None, "Could not read a complete annotated SemVer tag inventory from Git."
+	policy_path = ROOT / ".github/repository-policy.json"
+	if policy_path.is_file():
+		repository_policy, issues = gf_repository_policy.load_repository_policy(policy_path)
+		if issues:
+			return None, "Could not validate the repository release policy: " + " ".join(issues)
+		abandoned = repository_policy["abandoned_release_tags"]
+		eligible_refs = tuple(ref for ref in eligible_refs if abandoned.get(ref.tag) != ref.commit_oid)
 	if explicit_tag:
 		tag_parts = parse_semver(explicit_tag)
 		matching_ref = next(

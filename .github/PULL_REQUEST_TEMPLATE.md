@@ -5,6 +5,7 @@
 ## Contract and Risk
 
 - Change type: <!-- feat / fix / refactor / perf / docs / test / build / ci / chore -->
+- Target branch and version: <!-- See CONTRIBUTING.md for development, release, hotfix, and sync PRs. -->
 - Consumer-visible behavior:
 - API or extension contract:
 - Persisted data, package, protocol, or ProjectSettings impact:
