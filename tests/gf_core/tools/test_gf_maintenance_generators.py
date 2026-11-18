@@ -1759,8 +1759,10 @@ func install(architecture: GFArchitecture, scope: GFAsyncScope) -> void:
 			write(
 				"docs/zh/overview/quickstart/install-autoload.md",
 				(
-					"GF 11 只提供完整框架 ZIP。参见 [Uninstall](uninstall.md) 与 "
-					"[GF 10 migration](package-manager-migration.md)。\n"
+					"`gf-framework-<version>.zip` 安装 `addons/gf`。\n"
+					"`gf-framework-windows-x86_64-<version>.zip` 同时安装 `addons/gf` 和 `addons/gf_native`。\n"
+					"已有同版本 GF 时可用 `gf-native-windows-x86_64-<version>.zip` 补装 `addons/gf_native`。\n"
+					"参见 [Uninstall](uninstall.md) 与 [GF 10 migration](package-manager-migration.md)。\n"
 				),
 			)
 			write(
