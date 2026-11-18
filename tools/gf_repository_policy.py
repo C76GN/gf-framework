@@ -24,6 +24,7 @@ from gf_branch_workflow import (
 	BranchHistory,
 	BranchWorkflowError,
 	UnpublishedReleaseError,
+	stable_main_version,
 	validate_branch_push,
 	validate_pull_route,
 	validate_release_tag,
@@ -104,6 +105,7 @@ RELEASE_METADATA_COMMAND = (
 	'python tools/gf_maintenance.py release-status --version "$env:GITHUB_REF_NAME" '
 	'--artifact-manifest "build/release/gf-release-artifacts-$env:GITHUB_REF_NAME.json"'
 )
+RELEASE_METADATA_TEMP = r"${{ github.workspace }}\build"
 RELEASE_UPLOAD_ACTION = "actions/upload-artifact@v7"
 RELEASE_UPLOAD_WITH_FIELDS = (
 	("name", "gf-release-${{ github.ref_name }}"),
@@ -936,6 +938,7 @@ def audit_release_workflow(source: str) -> list[str]:
 			"Verify release metadata against built artifacts",
 			RELEASE_METADATA_COMMAND,
 			issues,
+			expected_env=tuple((name, RELEASE_METADATA_TEMP) for name in ("TEMP", "TMP", "TMPDIR")),
 		)
 		require_exact_action_step(
 			build_release_job,
@@ -1967,13 +1970,21 @@ def require_exact_run_step(
 	step_name: str,
 	expected_command: str,
 	issues: list[str],
+	*,
+	expected_env: tuple[tuple[str, str], ...] = (),
 ) -> None:
 	step_source = extract_ci_step_block(job_source, step_name)
 	actual_fields = extract_ci_step_field_keys(step_source)
-	if actual_fields != ["run"]:
+	expected_fields = ["env", "run"] if expected_env else ["run"]
+	if actual_fields != expected_fields:
 		issues.append(
-			f"CI job {job_id} {step_name} fields are {actual_fields!r}, expected ['run']."
+			f"CI job {job_id} {step_name} fields are {actual_fields!r}, expected {expected_fields!r}."
 		)
+	if expected_env and (
+		extract_yaml_mapping_keys(step_source, "env", 8) != [key for key, _ in expected_env]
+		or any(extract_yaml_scalar(step_source, key, 10) != value for key, value in expected_env)
+	):
+		issues.append(f"CI job {job_id} {step_name} environment is not governed.")
 	actual_command = extract_yaml_scalar(step_source, "run", 8)
 	if actual_command != expected_command:
 		issues.append(
@@ -2258,7 +2269,7 @@ def run_policy_self_tests(policy: dict[str, Any]) -> list[str]:
 		for required_name in policy["required_status_checks"]
 	]
 	if (
-		protection_payload["required_status_checks"]["contexts"] != []
+		set(protection_payload["required_status_checks"]) != {"strict", "checks"}
 		or protection_payload["required_status_checks"]["checks"] != expected_protected_checks
 	):
 		issues.append(
@@ -2721,6 +2732,15 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 				"python tools/gf_maintenance.py workspace-status",
 			),
 			"Verify release metadata against built artifacts command",
+		),
+		(
+			"uncontrolled_release_snapshot_temp",
+			mutate_job(
+				build_job,
+				f"TMPDIR: {RELEASE_METADATA_TEMP}",
+				"TMPDIR: ${{ runner.temp }}",
+			),
+			"Verify release metadata against built artifacts environment",
 		),
 		(
 			"wrong_release_upload_action",
@@ -4209,7 +4229,6 @@ def make_branch_protection_payload(policy: dict[str, Any], *, development: bool 
 	return {
 		"required_status_checks": {
 			"strict": protection["strict_status_checks"],
-			"contexts": [],
 			"checks": [
 				{"context": required_name, "app_id": GITHUB_ACTIONS_APP_ID}
 				for required_name in policy["required_status_checks"]

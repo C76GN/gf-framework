@@ -255,6 +255,43 @@ class BranchWorkflowTests(unittest.TestCase):
 			run["head_branch"] = "develop"
 			policy_tool.require_development_push_ci(self.policy["repository"], "develop", self.main, "fixture")
 
+	def test_dual_protection_preflight_reaches_develop_ci_for_the_official_main_version(self) -> None:
+		policy_tool = gf_maintenance.gf_repository_policy
+		repository = self.policy["repository"]
+		base_path = f"/repos/{repository}"
+		tag_oid = "d" * 40
+		self.history.git.return_value = tag_oid
+		branch_data = {"commit": {"sha": self.main}}
+		responses = {
+			base_path: {"default_branch": "main"},
+			f"{base_path}/branches/main": branch_data,
+			f"{base_path}/branches/develop": branch_data,
+			f"{base_path}/git/ref/tags/12.0.0": {"object": {"type": "tag", "sha": tag_oid}},
+		}
+		checks = {"check_runs": [{
+			"name": name, "head_sha": self.main, "status": "completed", "conclusion": "success",
+			"app": {"id": policy_tool.GITHUB_ACTIONS_APP_ID, "slug": "github-actions"},
+		} for name in self.policy["required_status_checks"]]}
+
+		def request(method, path, _token):
+			self.assertEqual(method, "GET")
+			return responses[path]
+
+		with (
+			mock.patch.dict(os.environ, {"GH_TOKEN": "fixture"}),
+			mock.patch.object(policy_tool, "BranchHistory", return_value=self.history),
+			mock.patch.object(policy_tool, "github_request", side_effect=request),
+			mock.patch.object(policy_tool, "fetch_required_check_runs", return_value=checks),
+			mock.patch.object(policy_tool, "require_published_release") as published,
+			mock.patch.object(policy_tool, "require_development_push_ci",
+				side_effect=gf_branch_workflow.BranchWorkflowError("Missing develop push proof.")) as push_ci,
+		):
+			result = policy_tool.check_or_apply_remote_policy(self.policy, repository, True, include_develop=True)
+		self.assertEqual(result["issues"], ["Missing develop push proof."])
+		self.assertEqual(result["completed_mutations"], [])
+		published.assert_called_once_with(repository, "12.0.0")
+		push_ci.assert_called_once_with(repository, "develop", self.main, "fixture")
+
 	def test_protection_head_drift_preserves_partial_write_accounting(self) -> None:
 		policy_tool = gf_maintenance.gf_repository_policy
 		mutations = []
