@@ -30,6 +30,8 @@ Use this skill only when the user has explicitly moved the task into release, co
    - `ASSET_STORE.md`
    - `docs/zh/changelog.md`
    - all built-in extension `gf_extension.json` `version` fields
+   - bundled tool plugin versions and the shipped Platform Adapter compatibility profile
+   Regenerate the shipped AI API index with `python tools/build_gf_ai_developer_kit.py --generate-source` after the version and API references are current.
    Keep only the target formal section in `docs/zh/changelog.md`. Remove every older formal section from the working tree; released history remains available from immutable Git tags and GitHub Releases. `release-status` rejects stale, duplicate, unsupported, or unreleased sections.
 4. Run focused behavior checks, API/docs validation and `check --suite full` on the final candidate sources. These pre-commit checks do not require release artifacts and do not replace the pre-tag release gate.
    Save the Full report with `--json-output build/<candidate>.json`. After an unchanged-source failure, diagnose the failed checks and use `check-retry --from-report build/<candidate>.json` for those checks and their fresh dependencies instead of restarting all passed checks. Use `--timeout N` only when the observed timeout warrants a higher budget; internal protocol deadlines need separate diagnosis. Preserve both reports and report their actual outcomes. A focused retry does not create a new successful Full run or replace CI/release evidence. Source, toolchain or environment changes require a fresh applicable validation plan.
@@ -38,7 +40,7 @@ Use this skill only when the user has explicitly moved the task into release, co
 7. After the release PR merges and Full push CI passes, check out its final `main` commit in a clean worktree. Build the immutable artifacts once and run [release-checks.md](references/release-checks.md) on that exact commit. Any subsequent source commit invalidates this artifact set and requires a new candidate build and release gate.
 8. If the user requested a tag, create the local annotated SemVer tag only after the release gate passes for that same `HEAD`. Never replace a published tag.
 9. Push branch and tag only when requested. After pushing, verify the remote tag's peeled commit points at the intended commit.
-10. Do not create an automatic post-release development commit. The first explicitly requested post-release change selects the next intended line and updates `plugin.cfg` plus bundled extension manifest versions to `X.Y.Z-dev.0` in its own PR.
+10. After a major release, use an explicitly requested PR to open the following major on `develop`. Synchronize the framework, bundled extension and tool versions, shipped compatibility profile, and generated AI API index to `X.0.0-dev.0`. Patch synchronization keeps the current development version and prerelease counter.
 
 ## Reporting
 
