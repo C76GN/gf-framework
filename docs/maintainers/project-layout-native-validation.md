@@ -15,6 +15,9 @@ The target directory supplies read-only filesystem data. The maintenance process
 never starts Godot with that directory as `--path`: it snapshots trusted GF source
 into a private project with no target autoloads, plugins, scenes or project settings.
 It pins the engine selection and creates private OS user/config/cache directories.
+Capture and snapshot replay both keep the private project outside the analysis target.
+When the target contains the maintenance log directory, Godot writes its logs inside
+the temporary project fixture.
 Import, execution, output drains and process-tree cleanup share one absolute
 deadline. An unavailable executor produces a transport diagnostic, never a
 synthetic native analysis report or a fallback evaluator.

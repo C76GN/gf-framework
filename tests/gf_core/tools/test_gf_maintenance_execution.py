@@ -190,7 +190,11 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 
 			@contextlib.contextmanager
 			def validation_directory(**kwargs):
-				yield owned
+				try:
+					yield owned
+				finally:
+					if failure == "start":
+						self.assertTrue(kwargs["cleanup_permitted"]())
 				if failure == "cleanup":
 					kwargs["cleanup_errors"].append("fixture cleanup failed")
 
@@ -215,6 +219,8 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 			))
 
 			def native_result(command, **kwargs):
+				if failure == "start":
+					raise gf_process_supervisor.SupervisedProcessStartError(FileNotFoundError("missing Godot"))
 				name, exit_code, status = next(cases)
 				project = kwargs["cwd"]
 				log = Path(command[command.index("--log-file") + 1])
@@ -286,7 +292,7 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 		for optimization in (0, 1, 2):
 			for failure in (
 				"exit", "incomplete", "source-write", "autoload", "positive-control",
-				"editor", "process-boundary", "cleanup",
+				"editor", "process-boundary", "cleanup", "start",
 				"selected-admission", "missing-progress",
 			):
 				with self.subTest(optimization=optimization, failure=failure):
@@ -294,6 +300,8 @@ class CodeQualityNativeAcceptanceTests(unittest.TestCase):
 					self.assertEqual(exit_code, 1, report)
 					self.assertFalse(report["ok"])
 					self.assertIn("error", report)
+					if failure == "start":
+						self.assertEqual(report["error"], "missing Godot")
 
 
 class FrozenProcessAuthorityTests(unittest.TestCase):
@@ -4699,6 +4707,104 @@ class GutLifecycleSmokeBoundaryTests(unittest.TestCase):
 class ProjectLayoutProfileTests(unittest.TestCase):
 	"""Transport regressions; profile semantics live in native GUT fixtures."""
 
+	def test_snapshot_replay_binds_its_read_only_root_to_the_native_transport(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			(root / "input.json").write_text("{}", encoding="utf-8")
+			with mock.patch.object(gf_maintenance, "run_project_layout_native", return_value=self._report()) as runner:
+				result = gf_maintenance.project_profile_boundary(root=root, snapshot_path="input.json")
+			self.assertTrue(result["ok"])
+			self.assertEqual(runner.call_args.args, ({"schema_version": 1, "operation": "analyze_snapshot", "snapshot_text": "{}"},))
+			self.assertEqual(runner.call_args.kwargs["protected_root"], root)
+
+	def test_quiet_native_interruption_cleans_fixture_and_keeps_logs_out_of_read_only_target(self) -> None:
+		import gf_project_layout_native as native
+		with tempfile.TemporaryDirectory() as directory:
+			parent = Path(directory).resolve()
+			trusted = parent / "trusted"
+			trusted.mkdir()
+			owned = parent / "owned"
+			cleanup_errors: list[str] = []
+			mark_target_quiet = mock.Mock()
+			primary = KeyboardInterrupt("native engine interrupted")
+
+			def temporary_directory(state):
+				return gf_maintenance.managed_owned_directory(
+					owned, cleanup_errors=cleanup_errors, cleanup_permitted=lambda: state["permitted"],
+				)
+
+			def interrupt(command, **kwargs):
+				log = Path(command[command.index("--log-file") + 1])
+				self.assertEqual(log.parent, owned / "logs")
+				kwargs["on_quiet_failure"]()
+				raise primary
+
+			with mock.patch.object(native, "_stage_trusted_source"), \
+				mock.patch.object(native, "resolve_godot_executable", return_value="trusted-godot"), \
+				mock.patch.object(native, "run_supervised_process_bytes", side_effect=interrupt), \
+				self.assertRaises(KeyboardInterrupt) as raised:
+				native.run_native_analysis({}, trusted_root=trusted, protected_root=trusted, environment={},
+					temporary_directory=temporary_directory, private_environment=lambda *_args: {},
+					on_quiet_failure=mark_target_quiet)
+
+			self.assertIs(raised.exception, primary)
+			mark_target_quiet.assert_called_once()
+			self.assertFalse(owned.exists())
+			self.assertFalse((trusted / "ai_analysis").exists())
+			self.assertEqual(cleanup_errors, [])
+
+	def test_failed_capture_keeps_the_report_and_cleans_a_quiet_acceptance_target(self) -> None:
+		import gf_project_layout_native as native
+		for quiet in (True, False):
+			with self.subTest(quiet=quiet), tempfile.TemporaryDirectory() as directory:
+				owned = Path(directory) / "owned"
+
+				def temporary_directory(*, cleanup_errors, cleanup_permitted, **_options):
+					return gf_maintenance.managed_owned_directory(
+						owned, cleanup_errors=cleanup_errors, cleanup_permitted=cleanup_permitted,
+					)
+
+				with mock.patch.object(gf_maintenance, "managed_validation_directory", temporary_directory), \
+					mock.patch.object(gf_maintenance, "PROJECT_PROFILE_ACCEPTANCE_GENERATED_FILES", 2), \
+					mock.patch.object(gf_maintenance, "run_project_layout_native", side_effect=native.NativeExecutionError(
+						"project_layout.native_unavailable", process_boundary_quiet=quiet,
+					)) as executor:
+					result = gf_maintenance.project_profile_native_acceptance()
+
+				executor.assert_called_once()
+				self.assertFalse(result["ok"])
+				self.assertFalse(result["snapshot_verified"])
+				self.assertEqual(result["analysis"]["issues"][0]["kind"], "project_layout.native_unavailable")
+				self.assertEqual(owned.exists(), not quiet)
+				self.assertEqual(bool(result["cleanup_errors"]), not quiet)
+
+	def test_late_native_result_still_cleans_a_quiet_engine_fixture(self) -> None:
+		import gf_project_layout_native as native
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			owned = root / "owned"
+			cleanup_errors: list[str] = []
+
+			def temporary_directory(state: dict[str, bool]):
+				return gf_maintenance.managed_owned_directory(
+					owned, cleanup_errors=cleanup_errors, cleanup_permitted=lambda: state["permitted"],
+				)
+
+			with mock.patch.object(native, "RUN_TIMEOUT_SECONDS", 0.0), \
+				mock.patch.object(native, "_stage_trusted_source"), \
+				mock.patch.object(native, "resolve_godot_executable", return_value="trusted-godot"), \
+				mock.patch.object(native, "run_supervised_process_bytes", return_value=(
+					gf_process_supervisor.SupervisedBinaryProcessResult(0, b"", b"", False, 0.01, 123, cleanup_complete=True)
+				)), self.assertRaises(native.NativeExecutionError) as raised:
+				native.run_native_analysis({}, trusted_root=root, environment={},
+					temporary_directory=temporary_directory,
+					private_environment=lambda project, user, env: {})
+
+			self.assertIsInstance(raised.exception.__cause__, TimeoutError)
+			self.assertTrue(raised.exception.process_boundary_quiet)
+			self.assertFalse(owned.exists())
+			self.assertEqual(cleanup_errors, [])
+
 	def _analyze(self, root: Path, executor: object, **options: object) -> dict:
 		return gf_project_layout_profile.project_profile_boundary(
 			root=root, native_executor=executor, **options,
@@ -5779,12 +5885,26 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 		self.assertEqual(raised.exception.cleanup_status, dirty_status)
 		self.assertIs(raised.exception.deferred_cleanup, deferred_handle)
 
+	def test_binary_monitor_publishes_quiet_failure_before_reraising(self) -> None:
+		primary = KeyboardInterrupt("synthetic binary monitor interruption")
+		on_quiet = mock.Mock()
+		with mock.patch.object(gf_process_supervisor, "_prepare_binary_pipe_for_polling", side_effect=primary), \
+			self.assertRaises(KeyboardInterrupt) as raised:
+			gf_process_supervisor.run_supervised_process_bytes(
+				[sys.executable, "-c", "pass"], cwd=ROOT, timeout_seconds=5.0,
+				environment=_SHARED_PROCESS_AUTHORITY.environment.values(),
+				max_stdout_bytes=1024, max_stderr_bytes=1024, on_quiet_failure=on_quiet,
+			)
+		self.assertIs(raised.exception, primary)
+		on_quiet.assert_called_once()
+
 	def test_binary_monitor_preserves_primary_but_wraps_cleanup_failure(self) -> None:
 		primary = RuntimeError("synthetic binary monitor failure")
 		cleanup = RuntimeError("synthetic binary confirmation failure")
 		original_owner_factory = gf_process_supervisor._new_process_tree_owner
 		owner_holder: list[gf_process_supervisor._ProcessTreeOwner] = []
 		original_close_holder: list[Callable[[float], list[str]]] = []
+		on_quiet = mock.Mock()
 
 		def failing_owner_factory() -> gf_process_supervisor._ProcessTreeOwner:
 			owner = original_owner_factory()
@@ -5829,11 +5949,13 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 					environment=_SHARED_PROCESS_AUTHORITY.environment.values(),
 					max_stdout_bytes=1024,
 					max_stderr_bytes=1024,
+					on_quiet_failure=on_quiet,
 				)
 
 		self.assertIs(raised.exception.__cause__, primary)
 		self.assertIs(raised.exception.original_error, primary)
 		self.assertFalse(raised.exception.owner_closed)
+		on_quiet.assert_not_called()
 		self.assertFalse(raised.exception.cleanup_complete)
 		self.assertTrue(
 			any("confirmation failed" in note for note in raised.exception.notes),
@@ -5925,6 +6047,7 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 
 	def test_text_monitor_rethrows_original_only_after_quiet_cleanup(self) -> None:
 		primary = RuntimeError("synthetic text monitor failure")
+		on_quiet = mock.Mock()
 		with self.assertRaises(RuntimeError) as raised:
 			gf_process_supervisor.run_supervised_process(
 				[sys.executable, "-c", "pass"],
@@ -5932,8 +6055,10 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 				timeout_seconds=5.0,
 				environment=_SHARED_PROCESS_AUTHORITY.environment.values(),
 				process_started_callback=lambda _pid: (_ for _ in ()).throw(primary),
+				on_quiet_failure=on_quiet,
 			)
 		self.assertIs(raised.exception, primary)
+		on_quiet.assert_called_once()
 
 	def test_text_monitor_wraps_original_when_cleanup_fails(self) -> None:
 		primary = RuntimeError("synthetic text monitor failure")
@@ -19158,6 +19283,127 @@ class GutShardRunIntegrationTests(unittest.TestCase):
 
 
 class WorkspaceExecutionBoundaryTests(unittest.TestCase):
+	@unittest.skipUnless(os.name == "nt", "DOS path aliases are specific to Windows")
+	def test_noncanonical_windows_temp_parent_is_rejected(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			parent = Path(directory).resolve()
+			self.assertEqual(gf_maintenance.validation_temp_candidate_issue(parent), "")
+			alias = parent.with_name(parent.name + ".")
+			self.assertTrue(gf_maintenance.validation_temp_candidate_issue(alias))
+
+	def test_materialization_deadline_before_submission_preserves_cleanup_authority(self) -> None:
+		state = {"permitted": True}
+		with self.assertRaises(gf_maintenance.WorkspaceDeadlineError):
+			gf_maintenance.prepare_parallel_full_batch(
+				0, [], ROOT, captured_workspace=mock.Mock(), git_process=_SHARED_PROCESS_AUTHORITY.git,
+				expected_checks_by_shard={}, validation_catalog=gf_maintenance._VALIDATION_CATALOG,
+				timeout_seconds=None, suite_deadline=time.perf_counter() - 1.0, fail_fast=False,
+				allow_breaking_api=False, base_process_environment=None, cleanup_state=state, cleanup_errors=[],
+			)
+		self.assertTrue(state["permitted"])
+
+	def test_quiet_full_failure_preserves_logs_if_result_processing_is_interrupted(self) -> None:
+		plan = _synthetic_parallel_shard_plan("first", ("docs",))
+		command = (str(Path(sys.executable).resolve()), "-V")
+		shard = gf_maintenance.ParallelShard("first", command, ROOT, 1.0, {})
+		result = gf_maintenance.ParallelShardResult(
+			name="first", command=command, workspace=ROOT, exit_code=1, process_exit_code=1,
+			stdout="", stderr="", timed_out=False, cancelled=False, duration_seconds=0.1,
+			pid=123, started=True, process_boundary_quiescent=True,
+		)
+		prepared = gf_maintenance.PreparedParallelFullBatch(0, (plan,), ROOT, (shard,), {}, {}, [])
+		captured = mock.Mock(workspace_fingerprint="b" * 64)
+		cleanup = {"permitted": True}
+		interrupted = KeyboardInterrupt("result processing interrupted")
+
+		def progress(event, _name, _duration):
+			if event == "finished":
+				raise interrupted
+
+		with mock.patch.object(gf_maintenance.gf_parallel_validation, "run_parallel_shards", return_value=[result]), \
+			mock.patch.object(gf_maintenance, "collect_parallel_failure_logs", return_value=[]) as collect, \
+			self.assertRaises(KeyboardInterrupt) as raised:
+			gf_maintenance.execute_prepared_parallel_full_batch(
+				prepared, jobs=1, suite_deadline=None, fail_fast=False, output_callback=None,
+				progress_callback=progress, captured_workspace=captured, git_process=_SHARED_PROCESS_AUTHORITY.git,
+				validation_catalog=gf_maintenance._VALIDATION_CATALOG, expected_checks_by_shard={},
+				expected_check_graphs_by_shard={}, cleanup_state=cleanup, occurrences={}, parallel_shard_reports=[],
+				failed_shards=[], log_copy_errors=[], shard_results=[], validation_occurrences_out=None,
+			)
+		self.assertIs(raised.exception, interrupted)
+		collect.assert_called_once_with([result], {"first"}, captured.workspace_fingerprint)
+		self.assertTrue(cleanup["permitted"])
+
+	def test_artifact_fixture_prefers_ignored_build_unless_it_would_touch_the_target(self) -> None:
+		with tempfile.TemporaryDirectory() as directory:
+			root = Path(directory).resolve()
+			checkout = root / "checkout"
+			build = checkout / "build"
+			build.mkdir(parents=True)
+			(build / ".gdignore").write_text("", encoding="utf-8")
+			artifact_parent = build / "validation"
+			fallback = root / "fallback"
+			fallback.mkdir()
+			with mock.patch.object(gf_maintenance, "ROOT", checkout), \
+				mock.patch.object(gf_maintenance, "capture_maintenance_process_environment", return_value={
+					"TMPDIR": str(checkout), "TEMP": str(fallback),
+				}), \
+				mock.patch.object(tempfile, "gettempdir", side_effect=AssertionError("unexpected temp file probe")), \
+				mock.patch.object(gf_maintenance, "git_exit_code", return_value=0) as git:
+				for protected_root, expected_parent in ((None, artifact_parent), (checkout, fallback)):
+					with self.subTest(target=protected_root):
+						cleanup_errors: list[str] = []
+						with gf_maintenance.managed_validation_directory(
+							prefix="fixture-", cleanup_errors=cleanup_errors, windows_max_characters=200,
+							project_artifacts=True, protected_root=protected_root,
+						) as owned:
+							self.assertEqual(owned.parent, expected_parent)
+							(owned / "fixture.txt").write_text("fixture", encoding="utf-8")
+						self.assertFalse(owned.exists())
+						self.assertEqual(cleanup_errors, [])
+				git.assert_called_once_with(["check-ignore", "-q", "--", "build/validation/"])
+
+	def test_interrupted_full_probe_releases_workspaces_after_proving_quiescence(self) -> None:
+		parallel = gf_maintenance.gf_parallel_validation
+		for quiet in (True, False):
+			with self.subTest(quiet=quiet), tempfile.TemporaryDirectory() as directory:
+				owned = Path(directory).resolve() / "owned"
+				cleanup = {"permitted": True}
+				cleanup_errors: list[str] = []
+				started = threading.Event()
+				interrupted = KeyboardInterrupt("interrupt isolation probe")
+
+				def run_probe(*_args, **_kwargs):
+					started.set()
+					return gf_process_supervisor.SupervisedProcessResult(
+						return_code=0, stdout="", stderr="", timed_out=False, duration_seconds=0.01,
+						pid=123, process_boundary_quiescent=quiet,
+					)
+
+				def interrupt_wait(*_args, **_kwargs):
+					self.assertTrue(started.wait(5.0))
+					raise interrupted
+
+				with mock.patch.object(gf_maintenance, "resolve_godot_executable", return_value=sys.executable), \
+					mock.patch.object(parallel, "run_supervised_process", side_effect=run_probe), \
+					mock.patch.object(concurrent.futures, "wait", side_effect=interrupt_wait), \
+					self.assertRaises(KeyboardInterrupt) as raised:
+					with gf_maintenance.managed_owned_directory(
+						owned, cleanup_errors=cleanup_errors, cleanup_permitted=lambda: cleanup["permitted"],
+					):
+						lease = gf_maintenance.ParallelFullBatchLease(owned / "b0", cleanup_state=cleanup)
+						try:
+							gf_maintenance.run_parallel_godot_isolation_probe(
+								owned, deadline=time.perf_counter() + 10.0, output_callback=None, cleanup_state=cleanup,
+							)
+						except KeyboardInterrupt as error:
+							gf_maintenance.release_parallel_full_batch_leases([lease], error=error)
+							raise
+
+				self.assertIs(raised.exception, interrupted)
+				self.assertEqual(owned.exists(), not quiet)
+				self.assertEqual(bool(cleanup_errors), not quiet)
+
 	def test_parallel_shard_freezes_and_materializes_environment_by_value(
 		self,
 	) -> None:

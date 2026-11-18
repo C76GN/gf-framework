@@ -23,6 +23,7 @@ from typing import Mapping
 from gf_process_authority import FrozenGitProcess
 from gf_process_supervisor import SupervisedProcessStartError
 from gf_process_supervisor import add_exception_note
+from gf_process_supervisor import exception_has_cleanup_debt
 from gf_process_supervisor import rmtree_with_exception_callback
 from gf_process_supervisor import run_supervised_process
 from gf_process_supervisor import safe_exception_detail
@@ -620,6 +621,7 @@ def run_parallel_shards(
 	fail_fast: bool = False,
 	cancellation_event: threading.Event | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
+	on_quiet_interruption: Callable[[list[ParallelShardResult]], None] | None = None,
 ) -> list[ParallelShardResult]:
 	"""Run isolated shard commands with bounded workers and cooperative cancellation."""
 	shard_list = list(shards)
@@ -685,20 +687,34 @@ def run_parallel_shards(
 				return_when=concurrent.futures.FIRST_COMPLETED,
 			)
 			for future in done:
-				index = in_flight.pop(future)
+				index = in_flight[future]
 				if future.cancelled():
 					result = _not_started_result(shard_list[index], cancellation.reason())
 				else:
 					result = future.result()
 				results[index] = result
+				del in_flight[future]
 				if fail_fast and not result.ok and not cancellation.event.is_set():
 					cancellation.cancel(f"fail-fast followed shard {result.name!r}")
 			submit_available()
-	except BaseException:
+	except BaseException as error:
 		cancellation.cancel("the parallel runner was interrupted")
 		for future in in_flight:
 			future.cancel()
 		executor.shutdown(wait=True, cancel_futures=True)
+		if on_quiet_interruption is not None and not exception_has_cleanup_debt(error):
+			for future, index in in_flight.items():
+				if future.cancelled():
+					results[index] = _not_started_result(shard_list[index], cancellation.reason())
+				elif future.exception() is None:
+					results[index] = future.result()
+			# Reserve each result index before submission. A partially published
+			# submission leaves a missing result and cannot authorize cleanup.
+			dispatched_results = [result for result in results[:next_index] if result is not None]
+			if len(dispatched_results) == next_index and all(
+				result.process_boundary_quiescent is True for result in dispatched_results
+			):
+				on_quiet_interruption(dispatched_results)
 		raise
 	else:
 		executor.shutdown(wait=True, cancel_futures=True)

@@ -5726,6 +5726,7 @@ def run_supervised_process_bytes(
 	max_stdout_bytes: int,
 	max_stderr_bytes: int,
 	environment: dict[str, str],
+	on_quiet_failure: Callable[[], None] | None = None,
 ) -> SupervisedBinaryProcessResult:
 	"""Run one owned process tree with raw, byte-bounded output capture."""
 	if environment is None:
@@ -5792,8 +5793,12 @@ def run_supervised_process_bytes(
 	try:
 		spawn_operation.launch()
 		handoff = spawn_operation.claim_before_deadline(deadline)
-	except BaseException:
+	except BaseException as error:
 		spawn_operation.abandon(deadline=deadline)
+		if on_quiet_failure is not None and not exception_has_cleanup_debt(error):
+			state = spawn_operation.snapshot_before_deadline(time.perf_counter())
+			if _binary_cleanup_status_is_quiet(state):
+				on_quiet_failure()
 		raise
 	if handoff is None:
 		duration_seconds = time.perf_counter() - started
@@ -6020,6 +6025,11 @@ def run_supervised_process_bytes(
 		error_type=type(pending_error).__name__ if pending_error is not None else "",
 	)
 	if pending_error is not None:
+		if (
+			on_quiet_failure is not None and _binary_cleanup_status_is_quiet(cleanup_status)
+			and not exception_has_cleanup_debt(pending_error)
+		):
+			on_quiet_failure()
 		_raise_binary_original_or_cleanup_debt(
 			pending_error,
 			pending_traceback,
@@ -6063,6 +6073,7 @@ def run_supervised_process(
 	text_errors: str = "replace",
 	binary_output: bool = False,
 	binary_output_encoding: str = "utf-8",
+	on_quiet_failure: Callable[[], None] | None = None,
 ) -> SupervisedProcessResult:
 	if environment is None:
 		raise TypeError("Supervised process requires an explicit environment.")
@@ -6633,6 +6644,8 @@ def run_supervised_process(
 		raise SupervisedProcessStartError(pending_error) from pending_error
 	if pending_error is not None:
 		if owner is None or no_child_owner_quiet:
+			if on_quiet_failure is not None and not exception_has_cleanup_debt(pending_error):
+				on_quiet_failure()
 			raise BaseException.with_traceback(pending_error, pending_traceback)
 		owner_closed = owner is not None and owner.is_closed()
 		process_tree_empty = (
@@ -6646,6 +6659,8 @@ def run_supervised_process(
 			and direct_reap_completed
 		)
 		if cleanup_complete:
+			if on_quiet_failure is not None and not exception_has_cleanup_debt(pending_error):
+				on_quiet_failure()
 			raise BaseException.with_traceback(pending_error, pending_traceback)
 		owned_pid = 0
 		owned_target = process

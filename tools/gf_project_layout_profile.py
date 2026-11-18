@@ -121,6 +121,8 @@ def project_profile_boundary(
 	except NativeExecutionError as error:
 		base["evaluation_status"] = "unavailable"
 		base["process_boundary_quiet"] = error.process_boundary_quiet
+		if error.cleanup_errors:
+			base["cleanup_errors"] = list(error.cleanup_errors)
 		base["issues"] = [{
 			"kind": error.reason, "severity": "error", "path": "",
 			"message": "The trusted native Project Layout executor did not complete.",

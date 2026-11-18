@@ -18,9 +18,10 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from gf_godot_process import resolve_godot_executable
+from gf_maintenance import WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS
 from gf_maintenance import managed_validation_directory, parallel_shard_environment
 from gf_process_authority import FrozenProcessEnvironment
-from gf_process_supervisor import run_supervised_process
+from gf_process_supervisor import SupervisedProcessStartError, exception_has_cleanup_debt, run_supervised_process
 
 
 TOOL = "addons/gf/tools/code_quality"
@@ -66,7 +67,9 @@ def run_acceptance() -> dict[str, Any]:
 	base = FrozenProcessEnvironment.capture(os.environ)
 	deadline = time.monotonic() + 70.0
 	with managed_validation_directory(
-		prefix="gfcq-", cleanup_errors=cleanup_errors, windows_max_characters=40,
+		prefix="gfcq-", cleanup_errors=cleanup_errors,
+		windows_max_characters=WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS,
+		project_artifacts=True,
 		cleanup_permitted=lambda: cleanup["permitted"],
 	) as owned:
 		host = owned / "p"
@@ -114,13 +117,20 @@ def run_acceptance() -> dict[str, Any]:
 			command = [engine, "--headless", "--path", str(project), "--log-file", str(log)]
 			command.extend(arguments if editor_mode else ["--script", runner, "--", *arguments])
 			cleanup["permitted"] = False
-			result = run_supervised_process(
-				command, cwd=project, environment=private, timeout_seconds=remaining,
-				max_stdout_characters=4 * 1024 * 1024, max_stderr_characters=256 * 1024,
-				heartbeat_callback=lambda elapsed, _pid: print(
-					f"CLI {name}: {elapsed:.1f}s", file=sys.stderr, flush=True,
-				),
-			)
+			try:
+				result = run_supervised_process(
+					command, cwd=project, environment=private, timeout_seconds=remaining,
+					max_stdout_characters=4 * 1024 * 1024, max_stderr_characters=256 * 1024,
+					heartbeat_callback=lambda elapsed, _pid: print(
+						f"CLI {name}: {elapsed:.1f}s", file=sys.stderr, flush=True,
+					),
+					on_quiet_failure=lambda: cleanup.__setitem__("permitted", True),
+				)
+			except SupervisedProcessStartError as error:
+				cleanup["permitted"] = (
+					error.process_boundary_quiescent is True and not exception_has_cleanup_debt(error)
+				)
+				raise
 			cleanup["permitted"] = result.process_boundary_quiescent
 			_require(result.process_boundary_quiescent, f"{name}: process cleanup is not proven")
 			_require(not result.timed_out and not result.cancelled, f"{name}: interrupted")
@@ -286,7 +296,7 @@ def main() -> int:
 	try:
 		result = run_acceptance()
 	except (AssertionError, OSError, RuntimeError, ValueError) as error:
-		result = {"ok": False, "error": str(error)}
+		result = {"ok": False, "error": "\n".join((str(error), *getattr(error, "__notes__", ())))}
 	print(json.dumps(result, ensure_ascii=False) if args.json else result)
 	return 0 if result["ok"] else 1
 
