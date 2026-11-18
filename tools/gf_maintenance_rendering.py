@@ -541,6 +541,7 @@ f"executor={data.get('executor', 'godot_gdscript')} "
 				details.append(f"{key}={issue[key]}")
 		suffix = f" ({', '.join(details)})" if details else ""
 		lines.append(f"- {issue['kind']}: {location}{suffix} {issue.get('message', '')}".rstrip())
+	lines.extend(data.get("cleanup_errors", ()))
 	return "\n".join(lines)
 
 

@@ -4,6 +4,14 @@ Run the same checks with the same failure criteria, and measure expensive work b
 
 Before a long Full run, prefer cheap checks for the changed surface: `python tools/gf_gdscript_readability.py --path <changed-file>` catches layout issues, and Catalog contract tests catch stale command snapshots and timeout expectations. Use owned LSP diagnostics for typed GDScript changes, since passing runtime assertions does not establish a warning-clean result. These focused checks help find failures early; the required complete gates remain unchanged.
 
+## Temporary validation files
+
+Project Layout and Code Quality native fixtures prefer `build/validation/`. Git ignores this directory, and `build/.gdignore` excludes it from Godot's resource scan. If the fixture would write inside the read-only analysis target or exceed its Windows path budget, the runner selects a compatible temporary directory.
+
+Parallel Full and GUT sharding require source-independent workspaces. When the Windows system temporary directory exceeds the short-path budget, the runner uses `gft` on the checkout's drive, such as `D:\gft`. `GF_MAINTENANCE_VALIDATION_TEMP_ROOT` can select an explicit compatible parent directory.
+
+Each run removes the temporary directories it owns after confirming that their process trees have stopped. The same cleanup applies after a failed check or a handled interruption. The runner preserves failed shard logs in `ai_analysis/godot_logs/` and reports directories that cannot be safely removed. A forced process termination can interrupt cleanup before it runs.
+
 ## Continue after a failure
 
 When a Full run fails, inspect the failed checks before starting another Full:

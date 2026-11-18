@@ -326,6 +326,8 @@ GODOT_LOG_DIR = ROOT / "ai_analysis" / "godot_logs"
 LEGACY_MAINTENANCE_LOG_DIR = ROOT / ".gf"
 MAINTENANCE_KEEP_LOGS_ENV_VAR = "GF_MAINTENANCE_KEEP_LOGS"
 MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR = "GF_MAINTENANCE_VALIDATION_TEMP_ROOT"
+PROJECT_VALIDATION_ARTIFACTS = Path("build/validation")
+PROJECT_PROFILE_ACCEPTANCE_GENERATED_FILES = 20_050
 WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS = 64
 # The longest runner-owned materialization root adds 11 characters
 # (``bN/.sN.m/w``); keep it no longer than a normal 30-character checkout.
@@ -1035,7 +1037,6 @@ class ParallelFullBatchLease:
 			cleanup_started=lambda: cleanup_state.__setitem__("permitted", False),
 			cleanup_succeeded=lambda: cleanup_state.__setitem__("permitted", True),
 			cleanup_failed=lambda: cleanup_state.__setitem__("permitted", False),
-			body_failed=lambda: cleanup_state.__setitem__("permitted", False),
 		)
 		self.root = self._manager.__enter__()
 		self.active = True
@@ -1044,6 +1045,9 @@ class ParallelFullBatchLease:
 		if not self.active:
 			return
 		self.active = False
+		if error is not None and exception_has_cleanup_debt(error):
+			self._cleanup_state["permitted"] = False
+		first_cleanup_error = len(self.cleanup_errors)
 		traceback = (
 			None
 			if error is None
@@ -1054,6 +1058,9 @@ class ParallelFullBatchLease:
 			error,
 			traceback,
 		)
+		if error is not None:
+			for cleanup_error in self.cleanup_errors[first_cleanup_error:]:
+				add_exception_note(error, cleanup_error)
 		if suppressed:
 			raise WorkspaceSnapshotError(
 				"Parallel Full batch owner unexpectedly suppressed an execution error."
@@ -4198,10 +4205,26 @@ def project_profile_boundary(
 	*,
 	root: Path = ROOT,
 	snapshot_path: str = "",
+	target_cleanup: dict[str, bool] | None = None,
 ) -> dict[str, Any]:
+	def execute_native(request: dict[str, Any]) -> dict[str, Any]:
+		if target_cleanup is None:
+			return run_project_layout_native(request, protected_root=root)
+		target_cleanup["permitted"] = False
+		try:
+			result = run_project_layout_native(
+				request, protected_root=root,
+				on_quiet_failure=functools.partial(target_cleanup.__setitem__, "permitted", True),
+			)
+		except gf_project_layout_native.NativeExecutionError as error:
+			target_cleanup["permitted"] = error.process_boundary_quiet
+			raise
+		target_cleanup["permitted"] = True
+		return result
+
 	return gf_project_layout_profile.project_profile_boundary(
 		profile_path=profile_path, fail_on_warnings=fail_on_warnings,
-		root=root, native_executor=run_project_layout_native,
+		root=root, native_executor=execute_native,
 		snapshot_path=snapshot_path,
 	)
 
@@ -4210,41 +4233,65 @@ def project_profile_boundary(
 def project_profile_native_acceptance() -> dict[str, Any]:
 	"""Exercise native scope capture without executing any target project code."""
 	cleanup_errors: list[str] = []
-	cleanup = {"permitted": False}
+	cleanup = {"permitted": True}
 	with managed_validation_directory(
-		prefix="gflt-", cleanup_errors=cleanup_errors, windows_max_characters=40,
+		prefix="gflt-", cleanup_errors=cleanup_errors,
+		windows_max_characters=WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS,
+		project_artifacts=True,
 		cleanup_permitted=lambda: cleanup["permitted"],
 	) as target:
-		(target / "scripts").mkdir()
-		(target / "generated").mkdir()
-		(target / "scripts/main.gd").write_text("extends RefCounted\n", encoding="utf-8", newline="\n")
-		marker = target / "target_was_executed.txt"
-		(target / "sentinel.gd").write_text(
-			"extends Node\nfunc _ready() -> void:\n\tvar f = FileAccess.open("
-			+ json.dumps(str(marker)) + ", FileAccess.WRITE)\n\tf.store_string(\"executed\")\n",
-			encoding="utf-8", newline="\n",
-		)
-		(target / "project.godot").write_text(
-			'config_version=5\n[application]\nconfig/name="Untrusted Layout Target"\n'
-			'[autoload]\nSentinel="*res://sentinel.gd"\n', encoding="utf-8", newline="\n",
-		)
-		for index in range(20_050):
-			(target / f"generated/{index}.txt").write_bytes(b"")
-		profile = {"schema_version": 2, "id": "native.acceptance", "zones": [],
-			"rules": [{"id": "required_main", "kind": "path_exists", "paths": ["scripts/main.gd"]}],
-			"capture_scope": {"schema_version": 1, "root_path": "res://",
-				"required_roots": ["scripts"],
-				"excluded_roots": [{"path": "generated", "kind": "generated_evidence"}]}}
-		(target / "gf_project_profile.json").write_text(json.dumps(profile), encoding="utf-8", newline="\n")
-		protected_paths = ("scripts/main.gd", "sentinel.gd", "project.godot", "gf_project_profile.json")
-		before = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
-			target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
-		report = project_profile_boundary(root=target)
-		analysis = report.get("analysis", {})
-		graph = analysis.get("graph", {})
+		result = _run_project_profile_acceptance_fixture(target, cleanup)
+	result["cleanup_errors"] = cleanup_errors
+	result["ok"] = result["ok"] and not cleanup_errors
+	return result
+
+
+def _run_project_profile_acceptance_fixture(target: Path, cleanup: dict[str, bool]) -> dict[str, Any]:
+	(target / "scripts").mkdir()
+	(target / "generated").mkdir()
+	(target / "scripts/main.gd").write_text("extends RefCounted\n", encoding="utf-8", newline="\n")
+	marker = target / "target_was_executed.txt"
+	(target / "sentinel.gd").write_text(
+		"extends Node\nfunc _ready() -> void:\n\tvar f = FileAccess.open("
+		+ json.dumps(str(marker)) + ", FileAccess.WRITE)\n\tf.store_string(\"executed\")\n",
+		encoding="utf-8", newline="\n",
+	)
+	(target / "project.godot").write_text(
+		'config_version=5\n[application]\nconfig/name="Untrusted Layout Target"\n'
+		'[autoload]\nSentinel="*res://sentinel.gd"\n', encoding="utf-8", newline="\n",
+	)
+	for index in range(PROJECT_PROFILE_ACCEPTANCE_GENERATED_FILES):
+		(target / f"generated/{index}.txt").write_bytes(b"")
+	profile = {"schema_version": 2, "id": "native.acceptance", "zones": [],
+		"rules": [{"id": "required_main", "kind": "path_exists", "paths": ["scripts/main.gd"]}],
+		"capture_scope": {"schema_version": 1, "root_path": "res://",
+			"required_roots": ["scripts"],
+			"excluded_roots": [{"path": "generated", "kind": "generated_evidence"}]}}
+	(target / "gf_project_profile.json").write_text(json.dumps(profile), encoding="utf-8", newline="\n")
+	protected_paths = ("scripts/main.gd", "sentinel.gd", "project.godot", "gf_project_profile.json")
+	before = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
+		target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
+	report = project_profile_boundary(root=target, target_cleanup=cleanup)
+
+	analysis = report.get("analysis", {})
+	graph = analysis.get("graph", {})
+	scope = graph.get("scope", {})
+	binding_keys = (
+		"capture_scope", "source_root", "root_path", "protected_roots",
+		"profile_source_path", "excluded_prefixes",
+	)
+	frozen_report: dict[str, Any] = {}
+	snapshot_verified = False
+	if cleanup["permitted"] and report["ok"] and isinstance(scope, dict) and all(key in scope for key in binding_keys):
+		# Model the Editor's logical res:// binding while replaying in the trusted CLI fixture.
+		scope = dict(scope, root_path="res://", profile_source_path="res://gf_project_profile.json")
+		binding = {key: scope[key] for key in binding_keys}
+		scope["policy_digest"] = hashlib.sha256(json.dumps(
+			binding, sort_keys=True, ensure_ascii=False, separators=(",", ":"),
+		).encode("utf-8")).hexdigest()
 		frozen = {
 			"schema_version": 2, "kind": "project_layout_snapshot",
-			"root_path": analysis.get("root_path", ""), "scope": graph.get("scope", {}),
+			"root_path": "res://", "scope": scope,
 			"complete": graph.get("complete", False), "capture_status": graph.get("capture_status", "not_started"),
 			"files": [node["relative_path"] for node in graph.get("nodes", []) if node["node_kind"] == "file"],
 			"directories": [node["relative_path"] for node in graph.get("nodes", []) if node["node_kind"] == "directory" and node["relative_path"] != "."],
@@ -4254,66 +4301,84 @@ def project_profile_native_acceptance() -> dict[str, Any]:
 			}, "observations": []},
 		}
 		(target / "evidence.json").write_text(json.dumps(frozen), encoding="utf-8", newline="\n")
-		# Model the Editor's logical res:// binding while replaying in the trusted CLI fixture.
-		frozen["root_path"] = "res://"
-		frozen["scope"] = dict(frozen["scope"])
-		frozen["scope"]["root_path"] = "res://"
-		frozen["scope"]["profile_source_path"] = "res://gf_project_profile.json"
-		binding = {key: frozen["scope"][key] for key in (
-			"capture_scope", "source_root", "root_path", "protected_roots",
-			"profile_source_path", "excluded_prefixes",
-		)}
-		frozen["scope"]["policy_digest"] = hashlib.sha256(json.dumps(
-			binding, sort_keys=True, ensure_ascii=False, separators=(",", ":"),
-		).encode("utf-8")).hexdigest()
-		(target / "evidence.json").write_text(json.dumps(frozen), encoding="utf-8", newline="\n")
-		frozen_report = project_profile_boundary(root=target, snapshot_path="evidence.json")
-		dependency_report = frozen_report.get("analysis", {}).get("graph", {}).get("dependencies", {})
+		frozen_report = project_profile_boundary(
+			root=target, snapshot_path="evidence.json", target_cleanup=cleanup,
+		)
+		replay_analysis = frozen_report.get("analysis", {})
+		replay_graph = replay_analysis.get("graph", {})
+		dependency_report = replay_graph.get("dependencies", {})
+		replay_scope = replay_graph.get("scope", {})
 		snapshot_verified = (
 			frozen_report.get("ok") is True
 			and frozen_report.get("file_count") == report.get("file_count")
 			and dependency_report.get("startup_files") == ["scripts/main.gd", "sentinel.gd"]
 			and dependency_report.get("coverage") == "partial"
-			and frozen_report.get("analysis", {}).get("root_path") == "res://"
-			and frozen_report.get("analysis", {}).get("graph", {}).get("scope", {}).get("source_root") == frozen["scope"]["source_root"]
-			and frozen_report.get("analysis", {}).get("graph", {}).get("scope", {}).get("policy_digest") == frozen["scope"]["policy_digest"]
+			and replay_analysis.get("root_path") == "res://"
+			and replay_scope.get("source_root") == scope["source_root"]
+			and replay_scope.get("policy_digest") == scope["policy_digest"]
 		)
-		after = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
-			target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
-		unchanged = before == after and not os.path.lexists(marker)
-		bounded = report.get("evaluation_complete") is True and report.get("file_count", 0) < 20_000
-		cleanup["permitted"] = report.get("process_boundary_quiet") is True and frozen_report.get("process_boundary_quiet") is True
-		result = {"ok": report["ok"] and unchanged and bounded and snapshot_verified,
-			"analysis": report, "target_unchanged": unchanged,
-			"snapshot_verified": snapshot_verified, "snapshot_analysis": frozen_report,
-			"generated_file_count": 20_050}
-	result["cleanup_errors"] = cleanup_errors
-	result["ok"] = result["ok"] and not cleanup_errors
-	return result
+	after = {path: hashlib.sha256(gf_path_security.read_pinned_regular_file(
+		target, path, max_bytes=1024 * 1024)).hexdigest() for path in protected_paths}
+	unchanged = before == after and not os.path.lexists(marker)
+	bounded = report.get("evaluation_complete") is True and report.get("file_count", 0) < 20_000
+	return {"ok": report["ok"] and unchanged and bounded and snapshot_verified,
+		"analysis": report, "target_unchanged": unchanged,
+		"snapshot_verified": snapshot_verified, "snapshot_analysis": frozen_report,
+		"generated_file_count": PROJECT_PROFILE_ACCEPTANCE_GENERATED_FILES}
 
 
-def run_project_layout_native(request: dict[str, Any]) -> dict[str, Any]:
+def run_project_layout_native(
+	request: dict[str, Any],
+	*,
+	protected_root: Path,
+	on_quiet_failure: Callable[[], None] | None = None,
+) -> dict[str, Any]:
 	cleanup_errors: list[str] = []
+	try:
+		protected_root = gf_path_security.absolute_lexical_path(protected_root)
+		if gf_path_security.path_has_reparse_component(protected_root):
+			raise OSError("The analysis target has a link or reparse component.")
+		protected_root = protected_root.resolve(strict=True)
+	except OSError as error:
+		raise gf_project_layout_native.NativeExecutionError(
+			"project_layout.source_root_unavailable", process_boundary_quiet=True,
+		) from error
+	except BaseException:
+		if on_quiet_failure is not None:
+			on_quiet_failure()
+		raise
+	project_artifacts = not gf_path_security.path_is_inside_lexical(
+		protected_root, ROOT / "ai_analysis/godot_logs",
+	)
 
 	@contextlib.contextmanager
 	def owned_directory(cleanup: dict[str, bool]) -> Any:
 		with managed_validation_directory(
 			prefix="gfl-", cleanup_errors=cleanup_errors,
-			windows_max_characters=40,
+			windows_max_characters=WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS,
+			project_artifacts=project_artifacts, protected_root=protected_root,
 			cleanup_permitted=lambda: cleanup["permitted"],
 		) as path:
 			yield path
-		if cleanup_errors:
-			raise WorkspaceSnapshotError("\n".join(cleanup_errors))
-
-	return gf_project_layout_native.run_native_analysis(
-		request, trusted_root=ROOT,
-		environment=capture_maintenance_process_environment(),
-		temporary_directory=owned_directory,
-		private_environment=lambda workspace, isolation, environment: parallel_shard_environment(
-			workspace, isolation, base_environment=environment,
-		)[0],
-	)
+	try:
+		result = gf_project_layout_native.run_native_analysis(
+			request, trusted_root=ROOT, protected_root=protected_root,
+			on_quiet_failure=on_quiet_failure,
+			environment=capture_maintenance_process_environment(),
+			temporary_directory=owned_directory,
+			private_environment=lambda workspace, isolation, environment: parallel_shard_environment(
+				workspace, isolation, base_environment=environment,
+			)[0],
+		)
+	except gf_project_layout_native.NativeExecutionError as error:
+		error.cleanup_errors = tuple(cleanup_errors)
+		raise
+	if cleanup_errors:
+		raise gf_project_layout_native.NativeExecutionError(
+			"project_layout.native_unavailable", process_boundary_quiet=True,
+			cleanup_errors=tuple(cleanup_errors),
+		)
+	return result
 
 
 def prepare_package_manifest_analysis() -> tuple[
@@ -10481,40 +10546,80 @@ def managed_validation_directory(
 	prefix: str,
 	cleanup_errors: list[str],
 	windows_max_characters: int,
+	project_artifacts: bool = False,
+	protected_root: Path | None = None,
 	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
 	"""Own a short temp root so Windows path limits cannot corrupt validation results."""
+	environment = capture_maintenance_process_environment()
 	override = (
-		frozen_environment_value(
-			capture_maintenance_process_environment(),
-			MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR,
-		)
+		frozen_environment_value(environment, MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR)
 		or ""
 	).strip()
+	project_parent = None
+	short_parent = None
 	if override:
 		candidate_roots = [Path(override)]
 	else:
 		candidate_roots = []
+		if project_artifacts:
+			project_parent = ROOT / PROJECT_VALIDATION_ARTIFACTS
+			candidate_roots.append(project_parent)
+		# tempfile.gettempdir() probes by creating a file before we can validate
+		# the directory, including when TEMP points inside the analysis target.
+		system_candidates = [
+			Path(value) for key in ("TMPDIR", "TEMP", "TMP")
+			if (value := frozen_environment_value(environment, key))
+		]
+		if os.name == "nt":
+			system_candidates.extend(
+				Path(value) / "Temp" for key in ("LOCALAPPDATA", "SystemRoot")
+				if (value := frozen_environment_value(environment, key))
+			)
+		else:
+			system_candidates.extend(Path(value) for value in ("/tmp", "/var/tmp", "/usr/tmp"))
+		for candidate in system_candidates:
+			if not candidate.is_absolute() or candidate == candidate.parent:
+				continue
+			if os.name != "nt":
+				try:
+					candidate = candidate.resolve(strict=True)
+				except OSError:
+					continue
+			candidate_roots.append(candidate)
 		if os.name == "nt" and re.fullmatch(r"[A-Za-z]:\\", ROOT.anchor):
-			candidate_roots.append(Path(ROOT.anchor))
-		automatic_temp_root = Path(tempfile.gettempdir())
-		if os.name != "nt":
-			try:
-				automatic_temp_root = automatic_temp_root.resolve(strict=True)
-			except OSError:
-				pass
-		candidate_roots.append(automatic_temp_root)
+			short_parent = Path(ROOT.anchor) / "gft"
+			candidate_roots.append(short_parent)
 
 	creation_errors: list[str] = []
 	path: Path | None = None
 	identity: os.stat_result | None = None
-	for candidate_root in candidate_roots:
+	for candidate_root in dict.fromkeys(candidate_roots):
+		project_candidate = candidate_root == project_parent
 		try:
-			candidate_issue = validation_temp_candidate_issue(candidate_root)
+			if protected_root is not None and path_is_within_or_equal(candidate_root, protected_root):
+				raise ValueError("candidate root is inside the read-only analysis target")
+			if project_candidate:
+				marker = gf_path_security.read_optional_pinned_utf8_regular_file(
+					ROOT, "build/.gdignore", max_bytes=4096,
+				)
+				if marker is None or git_exit_code(["check-ignore", "-q", "--", "build/validation/"]) != 0:
+					raise ValueError("project validation artifacts require a Godot and Git ignored build directory")
+				candidate_root.mkdir(exist_ok=True)
+			elif candidate_root == short_parent:
+				parent_issue = validation_temp_candidate_issue(candidate_root.parent)
+				if parent_issue or path_is_within_or_equal(candidate_root, ROOT):
+					raise ValueError(parent_issue or "short-path parent is inside the source workspace")
+				candidate_root.mkdir(exist_ok=True)
+			candidate_issue = validation_temp_candidate_issue(candidate_root, project_artifacts=project_candidate)
 			if candidate_issue:
 				raise ValueError(candidate_issue)
+			if os.name == "nt" and windows_utf16_path_code_units(candidate_root / prefix) >= windows_max_characters:
+				raise ValueError("candidate root leaves no path budget for a random directory name")
 			created = Path(tempfile.mkdtemp(prefix=prefix, dir=candidate_root))
 		except (OSError, ValueError) as error:
+			if exception_has_cleanup_debt(error):
+				raise
 			creation_errors.append(f"{candidate_root}: {error}")
 			if override:
 				break
@@ -10530,10 +10635,12 @@ def managed_validation_directory(
 				or bool(int(getattr(created_metadata, "st_file_attributes", 0)) & 0x0400)
 			):
 				created_error = "created validation root is not a real directory"
-			elif paths_overlap(created, ROOT):
+			elif not project_candidate and paths_overlap(created, ROOT):
 				created_error = "created validation root overlaps the source workspace"
+			elif protected_root is not None and paths_overlap(created, protected_root):
+				created_error = "created validation root overlaps the read-only analysis target"
 			else:
-				created_error = validation_temp_candidate_issue(created)
+				created_error = validation_temp_candidate_issue(created, project_artifacts=project_candidate)
 			created_code_units = windows_utf16_path_code_units(created)
 			if (
 				not created_error
@@ -10547,10 +10654,11 @@ def managed_validation_directory(
 		except OSError as error:
 			created_error = str(error)
 		if created_error:
-			cleanup_error = remove_managed_temporary_tree(
-				created,
-				expected_identity=created_metadata,
-			)
+			cleanup_error = ""
+			if created_metadata is not None:
+				cleanup_error = remove_managed_temporary_tree(created, expected_identity=created_metadata)
+			elif os.path.lexists(created):
+				cleanup_error = "directory identity was not established"
 			if cleanup_error:
 				raise WorkspaceSnapshotError(
 					f"Could not reject unsafe validation root {created}: {cleanup_error}"
@@ -10570,9 +10678,14 @@ def managed_validation_directory(
 			f"Set {MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR} to an absolute real directory "
 			f"with a short path. Details: {details}"
 		)
+	body_error: BaseException | None = None
 	try:
 		yield path
+	except BaseException as error:
+		body_error = error
+		raise
 	finally:
+		first_cleanup_error = len(cleanup_errors)
 		if cleanup_permitted is not None and not cleanup_permitted():
 			cleanup_errors.append(
 				"Retained validation root because cleanup ownership was not proven: "
@@ -10582,6 +10695,9 @@ def managed_validation_directory(
 			cleanup_error = remove_managed_temporary_tree(path, expected_identity=identity)
 			if cleanup_error:
 				cleanup_errors.append(cleanup_error)
+		if body_error is not None:
+			for cleanup_error in cleanup_errors[first_cleanup_error:]:
+				add_exception_note(body_error, cleanup_error)
 
 
 @contextlib.contextmanager
@@ -10788,7 +10904,7 @@ def path_is_within_or_equal(path: Path, parent: Path) -> bool:
 		return False
 
 
-def validation_temp_candidate_issue(candidate_root: Path) -> str:
+def validation_temp_candidate_issue(candidate_root: Path, *, project_artifacts: bool = False) -> str:
 	if not candidate_root.is_absolute():
 		return "candidate root is not absolute"
 	if os.name == "nt":
@@ -10805,9 +10921,20 @@ def validation_temp_candidate_issue(candidate_root: Path) -> str:
 			return drive_issue
 	if not os.path.lexists(candidate_root):
 		return "candidate root does not exist"
-	if path_is_within_or_equal(candidate_root, ROOT):
+	if path_is_within_or_equal(candidate_root, ROOT) and not (
+		project_artifacts and path_is_within_or_equal(candidate_root, ROOT / PROJECT_VALIDATION_ARTIFACTS)
+	):
 		return "candidate root is inside the source workspace"
-	return real_directory_chain_issue(candidate_root)
+	chain_issue = real_directory_chain_issue(candidate_root)
+	if chain_issue:
+		return chain_issue
+	try:
+		canonical = candidate_root.resolve(strict=True)
+	except OSError as error:
+		return f"cannot resolve candidate root: {error}"
+	if canonical != candidate_root:
+		return "candidate root must use its canonical local directory path"
+	return ""
 
 
 def windows_validation_drive_issue(
@@ -10947,8 +11074,6 @@ def remove_managed_temporary_tree(
 				cleanup_path,
 				make_managed_temp_remove_writable,
 			)
-		except FileNotFoundError:
-			return ""
 		except OSError as error:
 			last_error = str(error)
 		if not os.path.lexists(path):
@@ -16791,24 +16916,23 @@ def run_parallel_godot_isolation_probe(
 		# fail-closed until every supervisor result has positively proved its owned
 		# process boundary quiescent.
 		cleanup_state["permitted"] = False
-	try:
-		results = gf_parallel_validation.run_parallel_shards(
-			shards,
-			max_workers=2,
-			deadline_seconds=remaining,
-			fail_fast=True,
-			output_callback=output_callback,
+	results = gf_parallel_validation.run_parallel_shards(
+		shards,
+		max_workers=2,
+		deadline_seconds=remaining,
+		fail_fast=True,
+		output_callback=output_callback,
+		on_quiet_interruption=(
+			(lambda _results: cleanup_state.__setitem__("permitted", True))
+			if cleanup_state is not None else None
+		),
+	)
+	if any(result.process_boundary_quiescent is not True for result in results):
+		raise WorkspaceSnapshotError(
+			"Godot isolation probe process-boundary cleanup was not proven."
 		)
-		if any(result.process_boundary_quiescent is not True for result in results):
-			raise WorkspaceSnapshotError(
-				"Godot isolation probe process-boundary cleanup was not proven."
-			)
-		if cleanup_state is not None:
-			cleanup_state["permitted"] = True
-	except BaseException:
-		if cleanup_state is not None:
-			cleanup_state["permitted"] = False
-		raise
+	if cleanup_state is not None:
+		cleanup_state["permitted"] = True
 	payloads = {
 		result.name: parse_parallel_godot_probe_output(
 			result,
@@ -16886,15 +17010,14 @@ def prepare_parallel_full_batch(
 	cleanup_errors: list[str],
 ) -> PreparedParallelFullBatch:
 	"""Materialize and freeze one batch without making it eligible to dispatch."""
-	cleanup_state["permitted"] = False
 	workspace_by_shard = materialize_parallel_full_workspaces(
 		captured_workspace,
 		batch_root,
 		batch_plan,
 		git_process=git_process,
 		deadline=suite_deadline,
+		cleanup_state=cleanup_state,
 	)
-	cleanup_state["permitted"] = True
 	batch_shards: list[ParallelShard] = []
 	report_paths: dict[str, Path] = {}
 	command_contracts: dict[str, ParallelShardCommandContract] = {}
@@ -17058,6 +17181,23 @@ def execute_prepared_parallel_full_batch(
 	for shard in batch_shards:
 		if progress_callback is not None:
 			progress_callback("started", f"shard:{shard.name}", None)
+
+	def preserve_batch_logs(results: list[ParallelShardResult], failures: set[str]) -> None:
+		copy_errors = (
+			collect_parallel_failure_logs(results, failures, captured_workspace.workspace_fingerprint)
+			if failures else []
+		)
+		log_copy_errors.extend(copy_errors)
+		cleanup_state["permitted"] = not copy_errors
+		active_error = sys.exc_info()[1]
+		if active_error is not None:
+			for copy_error in copy_errors:
+				add_exception_note(active_error, copy_error)
+
+	def preserve_interrupted_batch_logs(results: list[ParallelShardResult]) -> None:
+		assert_parallel_shard_results_match_dispatch(batch_shards[:len(results)], results)
+		preserve_batch_logs(results, {result.name for result in results if result.started})
+
 	cleanup_state["permitted"] = False
 	batch_results = gf_parallel_validation.run_parallel_shards(
 		batch_shards,
@@ -17065,6 +17205,7 @@ def execute_prepared_parallel_full_batch(
 		deadline_seconds=run_remaining,
 		fail_fast=fail_fast,
 		output_callback=output_callback,
+		on_quiet_interruption=preserve_interrupted_batch_logs,
 	)
 	if any(
 		result.process_boundary_quiescent is not True
@@ -17074,132 +17215,128 @@ def execute_prepared_parallel_full_batch(
 		raise WorkspaceSnapshotError(
 			"Parallel Full shard process-boundary cleanup was not proven."
 		)
-	cleanup_state["permitted"] = True
-	assert_parallel_shard_results_match_dispatch(
-		batch_shards,
-		batch_results,
-	)
-	shard_results.extend(batch_results)
-	for dispatched_shard, shard_result in zip(
-		batch_shards,
-		batch_results,
-		strict=True,
-	):
-		if progress_callback is not None:
-			progress_callback(
-				"finished",
-				f"shard:{shard_result.name}",
-				shard_result.duration_seconds,
-			)
-		expected_checks = expected_checks_by_shard[shard_result.name]
-		report, report_issue = load_parallel_shard_report(
-			shard_result,
-			prepared.report_paths[shard_result.name],
-			expected_checks,
-			captured_workspace.workspace_state(),
-			validation_catalog=validation_catalog,
-			expected_command_contract=prepared.command_contracts[
-				shard_result.name
-			],
-			expected_check_graph=expected_check_graphs_by_shard[
-				shard_result.name
-			],
-			expected_requested_minimum_seconds=(
-				trusted_parallel_shard_timeout_option(
-					dispatched_shard.command,
-					"--timeout",
+	assert_parallel_shard_results_match_dispatch(batch_shards, batch_results)
+	verifying_workspace = False
+	try:
+		shard_results.extend(batch_results)
+		for dispatched_shard, shard_result in zip(
+			batch_shards,
+			batch_results,
+			strict=True,
+		):
+			if progress_callback is not None:
+				progress_callback(
+					"finished",
+					f"shard:{shard_result.name}",
+					shard_result.duration_seconds,
 				)
-			),
-			expected_suite_timeout_seconds=(
-				trusted_parallel_shard_timeout_option(
-					dispatched_shard.command,
-					"--suite-timeout",
-				)
-			),
-		)
-		try:
-			shard_workspace_state = workspace_fingerprint(
-				shard_result.workspace,
-				git_process=git_process,
-				deadline=suite_deadline,
-			)
-		except TimeoutError as error:
-			report_issue = append_issue_text(report_issue, str(error))
-		else:
-			if (
-				shard_workspace_state["fingerprint"]
-				!= captured_workspace.workspace_fingerprint
-			):
-				report_issue = append_issue_text(
-					report_issue,
-					"Shard workspace source changed while validation was running.",
-				)
-		if report_issue:
-			failed_shards.append(shard_result.name)
-			for check_name in expected_checks:
-				occurrences.setdefault(check_name, []).append((
-					shard_result.name,
-					make_parallel_missing_check_result(
-						check_name,
-						shard_result,
-						report_issue,
-						validation_catalog=validation_catalog,
-					),
-				))
-				publish_parallel_validation_occurrences(
-					validation_occurrences_out,
-					occurrences,
-				)
-		else:
-			assert report is not None
-			result_by_name = {
-				str(item.get("name", "")): item
-				for item in report.get("results", [])
-				if isinstance(item, dict)
-			}
-			for check_name in expected_checks:
-				result = result_by_name.get(check_name)
-				if result is None:
-					result = make_parallel_missing_check_result(
-						check_name,
-						shard_result,
-						"Shard ended before this check produced a result.",
-						validation_catalog=validation_catalog,
+			expected_checks = expected_checks_by_shard[shard_result.name]
+			report, report_issue = load_parallel_shard_report(
+				shard_result,
+				prepared.report_paths[shard_result.name],
+				expected_checks,
+				captured_workspace.workspace_state(),
+				validation_catalog=validation_catalog,
+				expected_command_contract=prepared.command_contracts[
+					shard_result.name
+				],
+				expected_check_graph=expected_check_graphs_by_shard[
+					shard_result.name
+				],
+				expected_requested_minimum_seconds=(
+					trusted_parallel_shard_timeout_option(
+						dispatched_shard.command,
+						"--timeout",
 					)
-				occurrences.setdefault(check_name, []).append((
-					shard_result.name,
-					result,
-				))
-				publish_parallel_validation_occurrences(
-					validation_occurrences_out,
-					occurrences,
+				),
+				expected_suite_timeout_seconds=(
+					trusted_parallel_shard_timeout_option(
+						dispatched_shard.command,
+						"--suite-timeout",
+					)
+				),
+			)
+			verifying_workspace = True
+			try:
+				shard_workspace_state = workspace_fingerprint(
+					shard_result.workspace,
+					git_process=git_process,
+					deadline=suite_deadline,
 				)
-			if not shard_result.ok or not bool(report.get("ok")):
+			except (TimeoutError, subprocess.TimeoutExpired) as error:
+				if exception_has_cleanup_debt(error):
+					raise
+				report_issue = append_issue_text(report_issue, str(error))
+			else:
+				if (
+					shard_workspace_state["fingerprint"]
+					!= captured_workspace.workspace_fingerprint
+				):
+					report_issue = append_issue_text(
+						report_issue,
+						"Shard workspace source changed while validation was running.",
+					)
+			verifying_workspace = False
+			if report_issue:
 				failed_shards.append(shard_result.name)
-		parallel_shard_reports.append({
-			"name": shard_result.name,
-			"expected_checks": expected_checks,
-			"report_valid": not report_issue,
-			"report_issue": report_issue,
-			"runner": shard_result.to_dict(),
-		})
+				for check_name in expected_checks:
+					occurrences.setdefault(check_name, []).append((
+						shard_result.name,
+						make_parallel_missing_check_result(
+							check_name,
+							shard_result,
+							report_issue,
+							validation_catalog=validation_catalog,
+						),
+					))
+					publish_parallel_validation_occurrences(
+						validation_occurrences_out,
+						occurrences,
+					)
+			else:
+				assert report is not None
+				result_by_name = {
+					str(item.get("name", "")): item
+					for item in report.get("results", [])
+					if isinstance(item, dict)
+				}
+				for check_name in expected_checks:
+					result = result_by_name.get(check_name)
+					if result is None:
+						result = make_parallel_missing_check_result(
+							check_name,
+							shard_result,
+							"Shard ended before this check produced a result.",
+							validation_catalog=validation_catalog,
+						)
+					occurrences.setdefault(check_name, []).append((
+						shard_result.name,
+						result,
+					))
+					publish_parallel_validation_occurrences(
+						validation_occurrences_out,
+						occurrences,
+					)
+				if not shard_result.ok or not bool(report.get("ok")):
+					failed_shards.append(shard_result.name)
+			parallel_shard_reports.append({
+				"name": shard_result.name,
+				"expected_checks": expected_checks,
+				"report_valid": not report_issue,
+				"report_issue": report_issue,
+				"runner": shard_result.to_dict(),
+			})
+	except BaseException as error:
+		if not verifying_workspace and not exception_has_cleanup_debt(error):
+			preserve_interrupted_batch_logs(batch_results)
+		raise
 	batch_failed = {result.name for result in batch_results if not result.ok}
 	batch_failed.update(
 		name
 		for name in failed_shards
 		if name in {item.name for item in prepared.plan}
 	)
-	if batch_failed:
-		cleanup_state["permitted"] = False
-		batch_log_copy_errors = collect_parallel_failure_logs(
-			batch_results,
-			batch_failed,
-			captured_workspace.workspace_fingerprint,
-		)
-		if batch_log_copy_errors:
-			log_copy_errors.extend(batch_log_copy_errors)
-		else:
-			cleanup_state["permitted"] = True
+	preserve_batch_logs(batch_results, batch_failed)
 	return batch_failed
 
 
@@ -17254,13 +17391,11 @@ def run_parallel_full_checks(
 		shard_name: validation_plan.check_graph.describe(expected_checks)
 		for shard_name, expected_checks in expected_checks_by_shard.items()
 	}
-	cleanup_state["permitted"] = False
 	gf_parallel_validation.assert_source_matches_snapshot(
 		captured_workspace,
 		git_process=git_process,
 		deadline=suite_deadline,
 	)
-	cleanup_state["permitted"] = True
 	prepared_batches: list[PreparedParallelFullBatch] = []
 	batch_leases: list[ParallelFullBatchLease] = []
 	try:
@@ -17361,14 +17496,11 @@ def run_parallel_full_checks(
 					validation_occurrences_out,
 					occurrences,
 				)
-			batch_cleanup_was_permitted = cleanup_state.get("permitted") is True
-			cleanup_state["permitted"] = False
 			gf_parallel_validation.assert_source_matches_snapshot(
 				captured_workspace,
 				git_process=git_process,
 				deadline=suite_deadline,
 			)
-			cleanup_state["permitted"] = batch_cleanup_was_permitted
 			lease.release()
 			raise_parallel_full_batch_cleanup_failure(
 				batch_leases,
@@ -17647,6 +17779,7 @@ def materialize_parallel_full_workspaces(
 	*,
 	git_process: FrozenGitProcess,
 	deadline: float | None,
+	cleanup_state: dict[str, bool] | None = None,
 ) -> dict[str, Path]:
 	workspaces: dict[str, Path] = {}
 	failures: list[tuple[str, BaseException]] = []
@@ -17656,6 +17789,8 @@ def materialize_parallel_full_workspaces(
 		thread_name_prefix="gf-workspace-materialize",
 	) as executor:
 		future_by_name: dict[str, concurrent.futures.Future[Path]] = {}
+		if cleanup_state is not None:
+			cleanup_state["permitted"] = False
 		for index, shard_plan in enumerate(plan):
 			try:
 				future_by_name[shard_plan.name] = executor.submit(
@@ -17678,6 +17813,14 @@ def materialize_parallel_full_workspaces(
 				# hidden by an earlier ordinary exception.
 				failures.append((shard_name, error))
 	if failures:
+		if cleanup_state is not None and len(future_by_name) == len(plan):
+			# Shutdown has joined the workers. A materializer with unknown cleanup
+			# is still a reason to retain the batch, even when a sibling failed first.
+			worker_errors = [future.exception() for future in future_by_name.values() if not future.cancelled()]
+			cleanup_state["permitted"] = all(
+				error is None or (isinstance(error, Exception) and not exception_has_cleanup_debt(error))
+				for error in worker_errors
+			)
 		primary_name, primary_error = min(
 			enumerate(failures),
 			key=lambda indexed_failure: (
@@ -17709,6 +17852,8 @@ def materialize_parallel_full_workspaces(
 		except BaseException:
 			pass
 		raise primary_error
+	if cleanup_state is not None:
+		cleanup_state["permitted"] = True
 	return workspaces
 
 
