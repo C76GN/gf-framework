@@ -10,7 +10,7 @@ This repository is prepared for Godot Asset Library submission with a focused in
 
 The legacy Asset Library submission should represent the complete GF addon. Use the `gf-framework-11.0.0.zip` GitHub Release asset when the form accepts a package URL. If the legacy form only accepts a tag or commit, keep `Download Commit/URL` at `11.0.0`; `.gitattributes` keeps GitHub archive downloads focused on `addons/gf/**`.
 
-GF 11 and later do not publish a minimal kernel, registry, offline bundle, or per-module archives. A release contains the complete framework ZIP, the optional standalone AI Developer Kit ZIP, and the release artifact manifest.
+GF 11 and later do not publish a minimal kernel, registry, offline bundle, or per-module archives. The Asset Library distributes the complete portable addon. The matching GitHub Release lists any additional downloads available for that version.
 
 The plugin folder contains its own `README.md` and `LICENSE.md`. Root-level docs, tests, and maintainer files are excluded from GitHub archive downloads through `.gitattributes`, so `docs/wiki` stays in the repository without being installed with the addon.
 

@@ -63,6 +63,10 @@ if working.ok:
 旧 `duplicate_variant(value, deep, duplicate_resources)` 和 `duplicate_collection()` 调用应按真实语义迁移：普通数据使用 `copy_value()`，引用图使用 `duplicate_graph()`，跨任务只读数据使用快照；不再保留旧多布尔参数别名。
 
 
+## 固定版本与分帧快照
+
+需要在同一时刻固定数据版本，再按共享帧预算读取时，参见 [版本化与分帧快照](versioned-snapshots.md)。该能力可按数据域采用，提供框架受控容器和项目不可变适配器。
+
 ## Variant 差异报告
 
 当配置、存档、导入结果、校验上下文或网络载荷需要展示“变了什么”时，可使用 `GFVariantData.diff_variant()` 生成纯数据报告：

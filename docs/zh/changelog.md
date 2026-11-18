@@ -6,6 +6,8 @@
 
 ### 🚀 新增特性 (Added)
 
+- 新增[固定版本与分帧快照](standard/foundation/data-validation/formula-variant/variant-data-json.md#固定版本与分帧快照)：可选择框架分页记录序列或项目不可变版本适配器；受控事务保持旧版本稳定，共享帧预算区分暂停与失败，保留内存、取消及分步回收可观察。
+- [Data Batch](extensions/data-batch/index.md#可选原生-gather) 支持自动选择同步整型 gather 后端。Windows x64 完整包附带预编译 Rust 库，已有同版本 GF 可加装原生补充包。通用包使用 GDScript，项目也可显式选择脚本或自定义后端。所有后端沿用 GF 的类型、版本、预算与原子发布检查。
 - 新增 [GFDataSnapshot 只读数据快照](standard/foundation/data-validation/formula-variant/variant-data-json.md#只读数据快照)，统一有界值树复制、来源隔离与可变副本导出；后台 CPU/IO 提交直接保留已准备快照，取消运行任务后保留输入至物理 join。
 - [确定性序列化](standard/foundation/scalars/deterministic-serialization.md)采用 canonical v2 二进制格式，哈希、字节导出和计量共用单遍编码器；新增结构化结果、排序工作区预算、时间预算与取消检查，Packed 整数分块编码。
 - 新增独立版本化的[确定性 JSON](standard/foundation/data-validation/formula-variant/deterministic-json.md)导出与有界读取，保留内建类型声明、完整 int64、精确浮点及全部 Packed 类型；支持快照借用、时间预算与取消，拒绝重复键和无法精确恢复的载荷，canonical v2 字节与摘要保持独立。

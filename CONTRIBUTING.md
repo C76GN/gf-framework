@@ -184,10 +184,11 @@ The full suite always treats LSP
 errors, warnings, diagnostic timeouts, connection failures, and transport
 failures as hard failures.
 
-A release is a separate operation and must pass the Release workflow against
-one immutable three-file artifact set: the complete framework ZIP, the optional
-standalone AI Developer Kit ZIP, and their release manifest. Release validation
-must consume those exact bytes instead of rebuilding equivalent archives.
+A release must pass the Release workflow against the archives listed in its
+manifest. These include the portable framework, the Windows x64 framework with
+native acceleration, the Windows x64 native supplement for an existing portable
+installation, and the standalone AI Developer Kit. Validation and publication
+use the same manifest and archive bytes.
 
 ## Hotfixes and Releases
 

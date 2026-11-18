@@ -41,6 +41,12 @@ enum Failure {
 	READ_ONLY_TRANSFER,
 	## 已通过预算验证，但引擎未能构造完整长度的列。
 	ALLOCATION_FAILED,
+	## 同步后端正在执行，本发布者拒绝嵌套发布。
+	BUSY,
+	## 后端拒绝或返回不符合类型、列数、长度契约的结果。
+	BACKEND_FAILED,
+	## 原生后端当前只允许主线程调用。
+	WRONG_THREAD,
 }
 
 
@@ -136,6 +142,21 @@ var _last_copied_payload_bytes: int = 0
 ## @api private
 var _last_transferred_payload_bytes: int = 0
 
+## 创建时固定的可选后端；null 始终使用纯 GDScript gather。
+## [br]
+## @api private
+var _backend: GFDataBatchBackend = null
+
+## 安装可选原生库后，串行交给工作线程的发布者仍可使用脚本 gather。
+## [br]
+## @api private
+var _script_gather_on_worker: bool = false
+
+## 外部后端执行期间阻止重入发布，关闭仍立即使当前调用失去提交资格。
+## [br]
+## @api private
+var _backend_busy: bool = false
+
 
 # --- 公共方法 ---
 
@@ -153,7 +174,11 @@ var _last_transferred_payload_bytes: int = 0
 ## [br]
 ## @param max_rows: 大于零且不超过 2147483647 的源容量及输出行数上限。
 ## [br]
-## @param max_owned_bytes: 正 payload 字节预算，覆盖当前快照加候选批次。
+## @param max_owned_bytes: 正 payload 字节预算，覆盖当前快照、候选批次与后端声明的临时载荷。
+## [br]
+## @param backend: 省略时在主线程尝试已安装的原生 gather 服务。显式传 null 选择脚本，也可传入项目后端。
+## [br]
+## @param require_backend: true 时必须有兼容后端，工作线程 gather 会失败。可选原生后端在工作线程直接使用脚本。
 ## [br]
 ## @return: 开放的发布者；配置无效或布局缓存分配失败返回 null。
 static func create(
@@ -161,7 +186,9 @@ static func create(
 	producer_id: StringName,
 	producer_generation: int,
 	max_rows: int,
-	max_owned_bytes: int
+	max_owned_bytes: int,
+	backend: GFDataBatchBackend = GFDataBatchNativeBackend.create(),
+	require_backend: bool = false
 ) -> GFDataBatchPublication:
 	if schema == null or not schema.is_valid():
 		return null
@@ -191,6 +218,18 @@ static func create(
 	publication._producer_generation = producer_generation
 	publication._max_rows = max_rows
 	publication._max_owned_bytes = max_owned_bytes
+	var compatible: bool = backend != null and Thread.is_main_thread()
+	if compatible:
+		compatible = backend.get_protocol_version() == 1
+	if compatible:
+		for column_type: int in publication._column_types:
+			if not backend.supports_type(column_type):
+				compatible = false
+				break
+	if require_backend and not compatible:
+		return null
+	publication._backend = backend if compatible else null
+	publication._script_gather_on_worker = publication._backend is GFDataBatchNativeBackend and not require_backend
 	publication._open = true
 	return publication
 
@@ -374,7 +413,7 @@ func get_last_failure() -> Failure:
 ## [br]
 ## @return: 发布者预算和最近成功构造的复制/移交字节。
 ## [br]
-## @schema return: Dictionary，open:bool、max_rows:int、max_owned_bytes:int、current_payload_bytes:int、last_required_payload_bytes:int、last_peak_payload_bytes:int、last_copied_payload_bytes:int、last_transferred_payload_bytes:int、publication_sequence:int、last_failure:int、external_retention_tracked:bool（恒为 false）。
+## @schema return: Dictionary，open:bool、max_rows:int、max_owned_bytes:int、current_payload_bytes:int、last_required_payload_bytes:int、last_peak_payload_bytes:int、last_copied_payload_bytes:int、last_transferred_payload_bytes:int、publication_sequence:int、last_failure:int、external_retention_tracked:bool（恒为 false）、backend_selected:bool、backend_busy:bool。后端临时载荷计入 required 和 peak。
 func get_debug_snapshot() -> Dictionary:
 	return {
 		"open": _open,
@@ -388,12 +427,14 @@ func get_debug_snapshot() -> Dictionary:
 		"publication_sequence": _publication_sequence,
 		"last_failure": _last_failure,
 		"external_retention_tracked": false,
+		"backend_selected": _backend != null,
+		"backend_busy": _backend_busy,
 	}
 
 
 # --- 私有/辅助方法 ---
 
-## 完成全部可拒绝检查后才构造或消费列；期间不调用用户代码，也不让出执行权。
+## GF 保留发布权；可选后端调用受重入、关闭及固定提交序号检查保护，不让出执行权。
 ## [br]
 ## @api private
 func _publish(
@@ -407,6 +448,8 @@ func _publish(
 ) -> Error:
 	if not _open:
 		return _reject(Failure.CLOSED, ERR_UNAVAILABLE)
+	if _backend_busy:
+		return _reject(Failure.BUSY, ERR_BUSY)
 	if mode == _ColumnMode.TRANSFER and source_columns.is_read_only():
 		return _reject(Failure.READ_ONLY_TRANSFER, ERR_INVALID_PARAMETER)
 	var columns: Array = []
@@ -442,7 +485,19 @@ func _publish(
 		return _reject(Failure.BYTE_BUDGET, ERR_OUT_OF_MEMORY)
 	if columns.size() != _column_names.size():
 		return _reject(Failure.ALLOCATION_FAILED, ERR_OUT_OF_MEMORY)
-	if not _materialize_columns(
+	var use_backend: bool = mode == _ColumnMode.GATHER and _backend != null
+	if use_backend and _script_gather_on_worker:
+		use_backend = Thread.is_main_thread()
+	if use_backend:
+		var backend_error: Error = _gather_with_backend(
+			columns,
+			row_indices,
+			source_count,
+			candidate_bytes
+		)
+		if backend_error != OK:
+			return backend_error
+	elif not _materialize_columns(
 		columns,
 		row_indices,
 		mode
@@ -467,6 +522,62 @@ func _publish(
 	_last_copied_payload_bytes = candidate_bytes if mode != _ColumnMode.TRANSFER else 0
 	_last_transferred_payload_bytes = candidate_bytes if mode == _ColumnMode.TRANSFER else 0
 	_last_failure = Failure.NONE
+	return OK
+
+
+## 所有外部调用都在 busy 区间内；结果只检查形状，值一致性由可信后端与差分测试保证。
+## [br]
+## @api private
+func _gather_with_backend(
+	columns: Array,
+	indices: PackedInt32Array,
+	source_count: int,
+	output_bytes: int
+) -> Error:
+	if not Thread.is_main_thread():
+		return _reject(Failure.WRONG_THREAD, ERR_UNAVAILABLE)
+	_backend_busy = true
+	var sequence: int = _publication_sequence
+	var scratch: int = _backend.get_scratch_bytes(output_bytes)
+	if not _open or sequence != _publication_sequence:
+		_backend_busy = false
+		return _reject(Failure.CLOSED, ERR_UNAVAILABLE)
+	if scratch < 0:
+		_backend_busy = false
+		return _reject(Failure.BACKEND_FAILED, ERR_INVALID_DATA)
+	var fits: bool = scratch <= _max_owned_bytes - _last_required_payload_bytes
+	if scratch > 9_223_372_036_854_775_807 - _last_required_payload_bytes:
+		_last_required_payload_bytes = 9_223_372_036_854_775_807
+	else:
+		_last_required_payload_bytes += scratch
+	if not fits:
+		_backend_busy = false
+		return _reject(Failure.BYTE_BUDGET, ERR_OUT_OF_MEMORY)
+	var output: Array = _backend.gather(
+		columns,
+		indices,
+		source_count
+	)
+	_backend_busy = false
+	if not _open or sequence != _publication_sequence:
+		return _reject(Failure.CLOSED, ERR_UNAVAILABLE)
+	if output.size() != _column_types.size():
+		return _reject(Failure.BACKEND_FAILED, ERR_INVALID_DATA)
+	for index: int in range(output.size()):
+		var value: Variant = output[index]
+		if _column_types[index] == GFDataBatchSchema.NumericType.INT32:
+			if not value is PackedInt32Array:
+				return _reject(Failure.BACKEND_FAILED, ERR_INVALID_DATA)
+			var narrow: PackedInt32Array = value
+			if narrow.size() != indices.size():
+				return _reject(Failure.BACKEND_FAILED, ERR_INVALID_DATA)
+		else:
+			if not value is PackedInt64Array:
+				return _reject(Failure.BACKEND_FAILED, ERR_INVALID_DATA)
+			var wide: PackedInt64Array = value
+			if wide.size() != indices.size():
+				return _reject(Failure.BACKEND_FAILED, ERR_INVALID_DATA)
+	columns.assign(output)
 	return OK
 
 

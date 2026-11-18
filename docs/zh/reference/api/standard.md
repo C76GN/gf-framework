@@ -6,10 +6,10 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 200 | 3541 | 2419 |
-| [协议与扩展点](#category-protocol) | 29 | 366 | 294 |
+| [运行时服务](#category-runtime_service) | 201 | 3548 | 2426 |
+| [协议与扩展点](#category-protocol) | 30 | 375 | 303 |
 | [资源定义](#category-resource_definition) | 123 | 1600 | 804 |
-| [运行时句柄](#category-runtime_handle) | 63 | 1017 | 669 |
+| [运行时句柄](#category-runtime_handle) | 65 | 1026 | 678 |
 | [值对象](#category-value_object) | 72 | 1114 | 754 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
@@ -217,6 +217,7 @@
 | [`GFVariantJsonCodec`](classes/GFVariantJsonCodec.md#gfvariantjsoncodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
 | [`GFVariantKeyCodec`](classes/GFVariantKeyCodec.md#gfvariantkeycodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_key_codec.gd` |
 | [`GFVariantReferenceCodec`](classes/GFVariantReferenceCodec.md#gfvariantreferencecodec) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
+| [`GFVersionedDataStore`](classes/GFVersionedDataStore.md#gfversioneddatastore) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_versioned_data_store.gd` |
 | [`GFViewportSurfaceInputBridge`](classes/GFViewportSurfaceInputBridge.md#gfviewportsurfaceinputbridge) | `RefCounted` | `addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd` |
 | [`GFViewportUtility`](classes/GFViewportUtility.md#gfviewportutility) | `GFUtility` | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 | [`GFVirtualInputBridge`](classes/GFVirtualInputBridge.md#gfvirtualinputbridge) | `RefCounted` | `addons/gf/standard/input/common/gf_virtual_input_bridge.gd` |
@@ -235,6 +236,7 @@
 | [`GFAudioBackend`](classes/GFAudioBackend.md#gfaudiobackend) | `RefCounted` | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
 | [`GFConfigProvider`](classes/GFConfigProvider.md#gfconfigprovider) | `GFUtility` | `addons/gf/standard/utilities/config/gf_config_provider.gd` |
 | [`GFConfigValidationRule`](classes/GFConfigValidationRule.md#gfconfigvalidationrule) | `Resource` | `addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd` |
+| [`GFDataSnapshotSource`](classes/GFDataSnapshotSource.md#gfdatasnapshotsource) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd` |
 | [`GFDiagnosticSnapshotProvider`](classes/GFDiagnosticSnapshotProvider.md#gfdiagnosticsnapshotprovider) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd` |
 | [`GFFormula`](classes/GFFormula.md#gfformula) | `Resource` | `addons/gf/standard/foundation/formula/gf_formula.gd` |
 | [`GFGridSelection2D`](classes/GFGridSelection2D.md#gfgridselection2d) | `Resource` | `addons/gf/standard/foundation/math/gf_grid_selection_2d.gd` |
@@ -420,6 +422,8 @@
 | [`GFConfigTableQuery`](classes/GFConfigTableQuery.md#gfconfigtablequery) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
 | [`GFConfigWorkBudget`](classes/GFConfigWorkBudget.md#gfconfigworkbudget) | `RefCounted` | `addons/gf/standard/utilities/config/gf_config_work_budget.gd` |
 | [`GFControlEditSession`](classes/GFControlEditSession.md#gfcontroleditsession) | `RefCounted` | `addons/gf/standard/utilities/ui/gf_control_edit_session.gd` |
+| [`GFDataSnapshotCapture`](classes/GFDataSnapshotCapture.md#gfdatasnapshotcapture) | `RefCounted` | `addons/gf/standard/foundation/variant/gf_data_snapshot_capture.gd` |
+| [`GFDataVersion`](classes/GFDataVersion.md#gfdataversion) | `GFDataSnapshotSource` | `addons/gf/standard/foundation/variant/gf_data_version.gd` |
 | [`GFDeterministicRandom`](classes/GFDeterministicRandom.md#gfdeterministicrandom) | `RefCounted` | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
 | [`GFDownloadTask`](classes/GFDownloadTask.md#gfdownloadtask) | `RefCounted` | `addons/gf/standard/utilities/io/gf_download_task.gd` |
 | [`GFDragSession`](classes/GFDragSession.md#gfdragsession) | `RefCounted` | `addons/gf/standard/input/drag_drop/gf_drag_session.gd` |

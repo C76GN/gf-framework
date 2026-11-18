@@ -7,6 +7,7 @@
 - [资源化公式](formulas.md)：`GFFormula`、`GFFormulaParameter`、`GFFormulaSet` 和类型兜底计算。
 - [Variant 深拷贝与 JSON 转换](variant-data-json.md)：`GFVariantData`、metadata / options 字典语义、`GFVariantJsonCodec`、`GFVariantReferenceCodec`、Godot 类型标记和对象引用边界。
 - [确定性 JSON](deterministic-json.md)：保留类型的稳定文本导出、有界恢复、协议节点与失败报告。
+- [版本化与分帧快照](versioned-snapshots.md)：受控写入、固定版本、项目适配器、共享帧预算与版本释放。
 
 ## 使用边界
 

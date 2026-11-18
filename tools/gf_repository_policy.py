@@ -82,12 +82,12 @@ FRAMEWORK_CI_COMMAND = (
 )
 RELEASE_FRAMEWORK_COMMAND = FRAMEWORK_CI_COMMAND
 RELEASE_BUILD_ARTIFACT_COMMAND = (
-	'python tools/build_gf_release_artifacts.py --version "${GITHUB_REF_NAME}" '
+	'python tools/build_gf_release_artifacts.py --version "$env:GITHUB_REF_NAME" '
 	"--output-dir build/release"
 )
 RELEASE_METADATA_COMMAND = (
-	'python tools/gf_maintenance.py release-status --version "${GITHUB_REF_NAME}" '
-	'--artifact-manifest "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"'
+	'python tools/gf_maintenance.py release-status --version "$env:GITHUB_REF_NAME" '
+	'--artifact-manifest "build/release/gf-release-artifacts-$env:GITHUB_REF_NAME.json"'
 )
 RELEASE_UPLOAD_ACTION = "actions/upload-artifact@v7"
 RELEASE_UPLOAD_WITH_FIELDS = (
@@ -114,6 +114,8 @@ RELEASE_CREATE_COMMAND = (
 	'gh release create "${GITHUB_REF_NAME}" \\ '
 	'"build/release/gf-framework-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-framework-windows-x86_64-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-native-windows-x86_64-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\ '
 	'--verify-tag \\ '
 	'--title "${GITHUB_REF_NAME}" \\ '
@@ -731,7 +733,7 @@ def audit_release_workflow(source: str) -> list[str]:
 			require_exact_job_fields(jobs[job_id], job_id, expected_fields, issues)
 	release_step_names = {
 		"build-release-artifacts": (
-			"Checkout tag", "Set up Python", "Build release artifact set",
+			"Checkout tag", "Set up Python", "Set up Windows native build and export", "Build release artifact set",
 			"Verify release metadata against built artifacts",
 			"Upload immutable release artifact set",
 		),
@@ -760,6 +762,10 @@ def audit_release_workflow(source: str) -> list[str]:
 			issues.append(f"Release job {job_id} may only narrow its permissions to contents: read.")
 	build_release_job = jobs.get("build-release-artifacts", "")
 	if build_release_job:
+		require_exact_job_scalar(build_release_job, "build-release-artifacts", "runs-on", "windows-latest", issues)
+		require_exact_job_scalar(build_release_job, "build-release-artifacts", "timeout-minutes", "45", issues)
+		require_exact_run_step(build_release_job, "build-release-artifacts", "Set up Windows native build and export",
+			"python .github/scripts/setup_gf_native_windows.py", issues)
 		require_exact_run_step(
 			build_release_job,
 			"build-release-artifacts",
@@ -2600,8 +2606,8 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 			"build_job_write_permission",
 			mutate_job(
 				build_job,
-				"    runs-on: ubuntu-latest",
-				"    permissions:\n      contents: write\n    runs-on: ubuntu-latest",
+				"    runs-on: windows-latest",
+				"    permissions:\n      contents: write\n    runs-on: windows-latest",
 			),
 			"permission contents must not be write",
 		),

@@ -16,7 +16,7 @@
 | 类型 | 名称 | 签名 |
 |---|---|---|
 | 枚举 | [`Failure`](#member-gfdatabatchpublication-enums-failure) | `enum Failure` |
-| 方法 | [`create`](#member-gfdatabatchpublication-methods-create) | `static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int ) -> GFDataBatchPublication:` |
+| 方法 | [`create`](#member-gfdatabatchpublication-methods-create) | `static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int, backend: GFDataBatchBackend = GFDataBatchNativeBackend.create(), require_backend: bool = false ) -> GFDataBatchPublication:` |
 | 方法 | [`publish_copy`](#member-gfdatabatchpublication-methods-publish_copy) | `func publish_copy( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:` |
 | 方法 | [`publish_transfer`](#member-gfdatabatchpublication-methods-publish_transfer) | `func publish_transfer( columns: Dictionary, count: int, capacity: int, structural_revision: int, value_revision: int ) -> Error:` |
 | 方法 | [`publish_gather_copy`](#member-gfdatabatchpublication-methods-publish_gather_copy) | `func publish_gather_copy( source_columns: Dictionary, source_count: int, source_capacity: int, row_indices: PackedInt32Array, structural_revision: int, value_revision: int ) -> Error:` |
@@ -57,6 +57,12 @@ enum Failure {
 	READ_ONLY_TRANSFER,
 	## 已通过预算验证，但引擎未能构造完整长度的列。
 	ALLOCATION_FAILED,
+	## 同步后端正在执行，本发布者拒绝嵌套发布。
+	BUSY,
+	## 后端拒绝或返回不符合类型、列数、长度契约的结果。
+	BACKEND_FAILED,
+	## 原生后端当前只允许主线程调用。
+	WRONG_THREAD,
 }
 ```
 
@@ -72,7 +78,7 @@ enum Failure {
 - 首次版本：`unreleased`
 
 ```gdscript
-static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int ) -> GFDataBatchPublication:
+static func create( schema: GFDataBatchSchema, producer_id: StringName, producer_generation: int, max_rows: int, max_owned_bytes: int, backend: GFDataBatchBackend = GFDataBatchNativeBackend.create(), require_backend: bool = false ) -> GFDataBatchPublication:
 ```
 
 构造固定生产者和预算的发布边界。配置无效或布局缓存分配失败返回 null。
@@ -85,7 +91,9 @@ static func create( schema: GFDataBatchSchema, producer_id: StringName, producer
 | `producer_id` | 非空项目生产者标识，不代表业务权限。 |
 | `producer_generation` | 大于零的生命期代次。 |
 | `max_rows` | 大于零且不超过 2147483647 的源容量及输出行数上限。 |
-| `max_owned_bytes` | 正 payload 字节预算，覆盖当前快照加候选批次。 |
+| `max_owned_bytes` | 正 payload 字节预算，覆盖当前快照、候选批次与后端声明的临时载荷。 |
+| `backend` | 省略时在主线程尝试已安装的原生 gather 服务。显式传 null 选择脚本，也可传入项目后端。 |
+| `require_backend` | true 时必须有兼容后端，工作线程 gather 会失败。可选原生后端在工作线程直接使用脚本。 |
 
 返回：开放的发布者；配置无效或布局缓存分配失败返回 null。
 
@@ -258,4 +266,4 @@ func get_debug_snapshot() -> Dictionary:
 
 结构：
 
-- `return`: Dictionary，open:bool、max_rows:int、max_owned_bytes:int、current_payload_bytes:int、last_required_payload_bytes:int、last_peak_payload_bytes:int、last_copied_payload_bytes:int、last_transferred_payload_bytes:int、publication_sequence:int、last_failure:int、external_retention_tracked:bool（恒为 false）。
+- `return`: Dictionary，open:bool、max_rows:int、max_owned_bytes:int、current_payload_bytes:int、last_required_payload_bytes:int、last_peak_payload_bytes:int、last_copied_payload_bytes:int、last_transferred_payload_bytes:int、publication_sequence:int、last_failure:int、external_retention_tracked:bool（恒为 false）、backend_selected:bool、backend_busy:bool。后端临时载荷计入 required 和 peak。

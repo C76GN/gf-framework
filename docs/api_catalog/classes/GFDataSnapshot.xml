@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataSnapshot" path="addons/gf/standard/foundation/variant/gf_data_snapshot.gd" module="standard" extends="RefCounted" classDigest="dee4b4f9a69faf896d7ecf8135a8c724797355bef4e8c332e676dc5c45dcb9b1">
+<class name="GFDataSnapshot" path="addons/gf/standard/foundation/variant/gf_data_snapshot.gd" module="standard" extends="RefCounted" classDigest="d9f2f630da9bcdc8a618f0e45b06cefda07147aee576a6fed12227c94de40bfb">
 	<description>GFDataSnapshot: 隔离纯数据后发布的只读快照。
 捕获期间源数据必须稳定。共享子容器按值展开，循环、对象和对象类型容器被拒绝。
-读取返回独立副本，后台任务可保留快照直到物理执行结束。</description>
+读取返回独立副本，后台任务可保留快照直到物理执行结束。
+分帧捕获结果还持有源租约；源线程须保留最后引用，直到后台结束后在源线程释放。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">value_object</tag>

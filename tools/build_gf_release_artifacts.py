@@ -18,6 +18,8 @@ from typing import Any
 
 import build_asset_store_package
 import build_gf_ai_developer_kit
+import gf_native_acceptance
+import gf_native_distribution
 from gf_path_security import absolute_lexical_path
 from gf_path_security import path_has_reparse_component
 from gf_path_security import path_is_inside_lexical
@@ -33,10 +35,19 @@ from gf_process_supervisor import SupervisedProcessCleanupError
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / "build"
-MANIFEST_SCHEMA_VERSION = 3
+MANIFEST_SCHEMA_VERSION = 4
 MANIFEST_MAX_BYTES = 1024 * 1024
 FULL_GIT_OBJECT_ID_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
-RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit")
+RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64")
+
+
+def archive_names(version: str) -> dict[str, str]:
+	return {
+		"framework": f"gf-framework-{version}.zip",
+		"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip",
+		"framework_windows_x86_64": f"gf-framework-{gf_native_distribution.TARGET}-{version}.zip",
+		"native_windows_x86_64": f"gf-native-{gf_native_distribution.TARGET}-{version}.zip",
+	}
 
 
 def main() -> int:
@@ -146,7 +157,8 @@ def build_release_artifacts(
 		)
 	candidate.mkdir()
 	try:
-		framework_path = candidate / f"gf-framework-{version}.zip"
+		archives = {role: candidate / name for role, name in archive_names(version).items()}
+		framework_path = archives["framework"]
 		build_asset_store_package.build_package(framework_path)
 		framework_audit = build_asset_store_package.audit_package(framework_path)
 		if not framework_audit.get("ok"):
@@ -163,7 +175,7 @@ def build_release_artifacts(
 				output_dir,
 				list(ai_kit_source_audit.get("issues", [])),
 			)
-		ai_kit_path = candidate / f"gf-ai-developer-kit-{version}.zip"
+		ai_kit_path = archives["ai_developer_kit"]
 		build_gf_ai_developer_kit.build_plugin_archive(ai_kit_path, version)
 		ai_kit_audit = build_gf_ai_developer_kit.audit_plugin_archive(
 			ai_kit_path,
@@ -176,10 +188,14 @@ def build_release_artifacts(
 				list(ai_kit_audit.get("issues", [])),
 			)
 
-		artifacts = [
-			artifact_record(framework_path, "framework"),
-			artifact_record(ai_kit_path, "ai_developer_kit"),
-		]
+		native_result = gf_native_acceptance.qualify(
+			framework_path, archives["native_windows_x86_64"], archives["framework_windows_x86_64"],
+			version, source_revision, export=True,
+		)
+		artifacts = [artifact_record(archives[role], role) for role in RELEASE_ARTIFACT_ROLES]
+		qualified = {entry["name"]: entry["sha256"] for entry in artifacts if entry["role"] != "ai_developer_kit"}
+		if qualified != native_result["archives_sha256"]:
+			raise ValueError("Release ZIPs changed after native acceptance.")
 		manifest_path = candidate / f"gf-release-artifacts-{version}.json"
 		write_json(manifest_path, {
 			"schema_version": MANIFEST_SCHEMA_VERSION,
@@ -207,7 +223,9 @@ def build_release_artifacts(
 			version,
 			source_revision,
 		)
-	except (OSError, ValueError, json.JSONDecodeError) as error:
+	except SupervisedProcessCleanupError:
+		raise
+	except (OSError, RuntimeError, ValueError, zipfile.BadZipFile) as error:
 		return make_failure(
 			version,
 			output_dir,
@@ -332,7 +350,7 @@ def audit_release_artifact_manifest(
 		or data["artifact_count"] != len(artifacts)
 	):
 		issues.append("Release artifact_count does not match the artifact array.")
-	issues.extend(audit_artifact_entries(manifest_path, version, artifacts))
+	issues.extend(audit_artifact_entries(manifest_path, version, artifacts, source_revision))
 	return make_audit_result(
 		version,
 		manifest_path,
@@ -346,12 +364,10 @@ def audit_artifact_entries(
 	manifest_path: Path,
 	version: str,
 	artifacts: list[Any],
+	source_revision: str,
 ) -> list[str]:
 	issues: list[str] = []
-	expected_paths = {
-		"framework": f"gf-framework-{version}.zip",
-		"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip",
-	}
+	expected_paths = archive_names(version)
 	seen_roles: set[str] = set()
 	seen_paths: set[str] = set()
 	paths_by_role: dict[str, Path] = {}
@@ -360,7 +376,7 @@ def audit_artifact_entries(
 			issues.append("Release artifact entries must be objects.")
 			continue
 		if set(artifact) != {"role", "name", "path", "size_bytes", "sha256"}:
-			issues.append("Release artifact entries must use the exact v3 field set.")
+			issues.append("Release artifact entries must use the exact manifest field set.")
 		role = artifact.get("role", "")
 		relative_path = artifact.get("path", "")
 		if not isinstance(role, str) or role not in RELEASE_ARTIFACT_ROLES:
@@ -416,6 +432,13 @@ def audit_artifact_entries(
 		list(build_asset_store_package.iter_package_files()),
 		"GF Framework artifact",
 	))
+	try:
+		gf_native_distribution.verify(
+			framework_path, paths_by_role["native_windows_x86_64"], paths_by_role["framework_windows_x86_64"],
+			version, source_revision,
+		)
+	except (OSError, RuntimeError, ValueError, zipfile.BadZipFile) as error:
+		issues.append(f"GF native archives: {error}")
 	ai_kit_audit = build_gf_ai_developer_kit.audit_plugin_archive(
 		paths_by_role["ai_developer_kit"],
 		version,
@@ -438,7 +461,7 @@ def audit_artifact_entries(
 	else:
 		if actual_entries != expected_files:
 			issues.append(
-				"Release directory must contain only the two archives and their manifest."
+				"Release directory must contain only the four archives and their manifest."
 			)
 	return issues
 

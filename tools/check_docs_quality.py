@@ -331,8 +331,10 @@ def check_public_entry_contracts(repository_root: Path) -> list[str]:
     install_text = texts.get("installation guide", "")
     if install_text and "uninstall.md" not in install_text:
         errors.append("installation guide must link the complete uninstall journey")
-    if install_text and "GF 11 只提供完整框架 ZIP" not in install_text:
-        errors.append("installation guide must state the complete-framework ZIP boundary")
+    for install_item in ("gf-framework-<version>.zip", "gf-framework-windows-x86_64-<version>.zip",
+                         "gf-native-windows-x86_64-<version>.zip", "addons/gf", "addons/gf_native"):
+        if install_text and f"`{install_item}`" not in install_text:
+            errors.append(f"installation guide must identify the installable archive or directory `{install_item}`")
     if install_text and "package-manager-migration.md" not in install_text:
         errors.append("installation guide must link the GF 10 migration guide")
 

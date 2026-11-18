@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 79 | 1155 | [Kernel](#module-kernel) |
-| Standard | 512 | 7880 | [Standard](#module-standard) |
+| Standard | 516 | 7905 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -15,7 +15,7 @@
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 71 | 708 | [Combat](#module-extensions-combat) |
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
-| Data Batch | 3 | 34 | [Data Batch](#module-extensions-data_batch) |
+| Data Batch | 5 | 42 | [Data Batch](#module-extensions-data_batch) |
 | Decision | 8 | 111 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
 | Domain | 23 | 367 | [Domain](#module-extensions-domain) |
@@ -316,6 +316,7 @@
 | [`GFVariantJsonCodec`](GFVariantJsonCodec.md#gfvariantjsoncodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/foundation/variant/gf_variant_json_codec.gd` |
 | [`GFVariantKeyCodec`](GFVariantKeyCodec.md#gfvariantkeycodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 3 | `addons/gf/standard/foundation/variant/gf_variant_key_codec.gd` |
 | [`GFVariantReferenceCodec`](GFVariantReferenceCodec.md#gfvariantreferencecodec) | 运行时服务 (`runtime_service`) | `RefCounted` | 21 | `addons/gf/standard/foundation/variant/gf_variant_reference_codec.gd` |
+| [`GFVersionedDataStore`](GFVersionedDataStore.md#gfversioneddatastore) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/foundation/variant/gf_versioned_data_store.gd` |
 | [`GFViewportSurfaceInputBridge`](GFViewportSurfaceInputBridge.md#gfviewportsurfaceinputbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 19 | `addons/gf/standard/input/runtime/gf_viewport_surface_input_bridge.gd` |
 | [`GFViewportUtility`](GFViewportUtility.md#gfviewportutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 27 | `addons/gf/standard/utilities/display/gf_viewport_utility.gd` |
 | [`GFVirtualInputBridge`](GFVirtualInputBridge.md#gfvirtualinputbridge) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/input/common/gf_virtual_input_bridge.gd` |
@@ -327,6 +328,7 @@
 | [`GFAudioBackend`](GFAudioBackend.md#gfaudiobackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 39 | `addons/gf/standard/utilities/audio/gf_audio_backend.gd` |
 | [`GFConfigProvider`](GFConfigProvider.md#gfconfigprovider) | 协议与扩展点 (`protocol`) | `GFUtility` | 13 | `addons/gf/standard/utilities/config/gf_config_provider.gd` |
 | [`GFConfigValidationRule`](GFConfigValidationRule.md#gfconfigvalidationrule) | 协议与扩展点 (`protocol`) | `Resource` | 18 | `addons/gf/standard/utilities/config/validation/gf_config_validation_rule.gd` |
+| [`GFDataSnapshotSource`](GFDataSnapshotSource.md#gfdatasnapshotsource) | 协议与扩展点 (`protocol`) | `RefCounted` | 9 | `addons/gf/standard/foundation/variant/gf_data_snapshot_source.gd` |
 | [`GFDiagnosticSnapshotProvider`](GFDiagnosticSnapshotProvider.md#gfdiagnosticsnapshotprovider) | 协议与扩展点 (`protocol`) | `RefCounted` | 8 | `addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd` |
 | [`GFFormula`](GFFormula.md#gfformula) | 协议与扩展点 (`protocol`) | `Resource` | 5 | `addons/gf/standard/foundation/formula/gf_formula.gd` |
 | [`GFGridSelection2D`](GFGridSelection2D.md#gfgridselection2d) | 协议与扩展点 (`protocol`) | `Resource` | 10 | `addons/gf/standard/foundation/math/gf_grid_selection_2d.gd` |
@@ -498,6 +500,8 @@
 | [`GFConfigTableQuery`](GFConfigTableQuery.md#gfconfigtablequery) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 27 | `addons/gf/standard/utilities/config/gf_config_table_query.gd` |
 | [`GFConfigWorkBudget`](GFConfigWorkBudget.md#gfconfigworkbudget) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 11 | `addons/gf/standard/utilities/config/gf_config_work_budget.gd` |
 | [`GFControlEditSession`](GFControlEditSession.md#gfcontroleditsession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 8 | `addons/gf/standard/utilities/ui/gf_control_edit_session.gd` |
+| [`GFDataSnapshotCapture`](GFDataSnapshotCapture.md#gfdatasnapshotcapture) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 5 | `addons/gf/standard/foundation/variant/gf_data_snapshot_capture.gd` |
+| [`GFDataVersion`](GFDataVersion.md#gfdataversion) | 运行时句柄 (`runtime_handle`) | `GFDataSnapshotSource` | 4 | `addons/gf/standard/foundation/variant/gf_data_version.gd` |
 | [`GFDeterministicRandom`](GFDeterministicRandom.md#gfdeterministicrandom) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 15 | `addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd` |
 | [`GFDownloadTask`](GFDownloadTask.md#gfdownloadtask) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 23 | `addons/gf/standard/utilities/io/gf_download_task.gd` |
 | [`GFDragSession`](GFDragSession.md#gfdragsession) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 12 | `addons/gf/standard/input/drag_drop/gf_drag_session.gd` |
@@ -836,7 +840,9 @@
 
 | 类 | 类别 | 继承 | 成员 | 源文件 |
 |---|---|---|---:|---|
+| [`GFDataBatchNativeBackend`](GFDataBatchNativeBackend.md#gfdatabatchnativebackend) | 运行时服务 (`runtime_service`) | `GFDataBatchBackend` | 4 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd` |
 | [`GFDataBatchPublication`](GFDataBatchPublication.md#gfdatabatchpublication) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd` |
+| [`GFDataBatchBackend`](GFDataBatchBackend.md#gfdatabatchbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd` |
 | [`GFDataBatchSchema`](GFDataBatchSchema.md#gfdatabatchschema) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd` |
 | [`GFDataBatchSnapshot`](GFDataBatchSnapshot.md#gfdatabatchsnapshot) | 值对象 (`value_object`) | `RefCounted` | 13 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd` |
 
