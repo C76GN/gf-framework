@@ -43,6 +43,10 @@ jobs:
           --output-dir build/release
 
       - name: Verify release metadata against built artifacts
+        env:
+          TEMP: ${{ github.workspace }}\build
+          TMP: ${{ github.workspace }}\build
+          TMPDIR: ${{ github.workspace }}\build
         run: >
           python tools/gf_maintenance.py release-status
           --version "$env:GITHUB_REF_NAME"
