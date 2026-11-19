@@ -1,7 +1,19 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.12.0",
+  "catalog_version": "1.13.0",
   "catalog_api_requirements": [
+    {
+      "catalog": "recipe",
+      "record_id": "pure-data-cpu-job",
+      "class_name": "GFBackgroundWorkUtility",
+      "members": ["submit_cpu_work", "cancel_work"]
+    },
+    {
+      "catalog": "recipe",
+      "record_id": "pure-data-cpu-job",
+      "class_name": "GFDataSnapshot",
+      "members": ["capture", "copy_value"]
+    },
     {
       "catalog": "recipe",
       "record_id": "typed-batch-publication",
@@ -336,6 +348,18 @@
   ],
   "capability_queries": [
     {
+      "query": "background work",
+      "expected_id": "background-work"
+    },
+    {
+      "query": "job",
+      "expected_id": "background-work"
+    },
+    {
+      "query": "thread",
+      "expected_id": "background-work"
+    },
+    {
       "query": "save persistence slots",
       "expected_id": "storage-save"
     },
@@ -489,6 +513,11 @@
     }
   ],
   "recipe_cases": [
+    {
+      "recipe_id": "pure-data-cpu-job",
+      "expected_class": "GFBackgroundWorkUtility",
+      "expected_step_fragment": "apply_callback"
+    },
     {
       "recipe_id": "save-profile",
       "expected_class": "GFSaveProfileUtility"

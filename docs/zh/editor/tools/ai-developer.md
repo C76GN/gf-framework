@@ -115,7 +115,8 @@ Context 中的契约与 Snapshot 使用同一次身份固定读取所得到的�
    python addons/gf/tools/ai_developer/gf_ai_project.py recipe save-boundary --project-root .
    ```
 
-   `api-search` 联合搜索类与受控 AutoLoad；`api-class` 为保持兼容仍只读取类记录，不会把 `Gf` 伪装成 `class_name`。
+   - `api-search` 联合搜索类与受控 AutoLoad；`api-class` 为保持兼容仍只读取类记录，不会把 `Gf` 伪装成 `class_name`。
+   - 要把 CPU 计算放到后台线程，可以用 `capability-search` 搜索 `background work`、`job` 或 `thread`。结果中的 `background-work` 指向 `gf.standard.assets` 的 `GFBackgroundWorkUtility`。运行 `recipe pure-data-cpu-job` 可查看快照输入、取消任务和主线程写回的步骤。代码示例见[后台工作协调器](../../standard/utilities/io/assets-jobs-warmup/background-work.md)。
 
 3. 对照 `capability_requirements` 确认 owner、选定 Recipe、provider package 与验收条件，再在项目模块中实现业务代码；外部平台 SDK 留在项目或独立 Adapter，不能写进 GF Core。
 4. 把契约和项目文件视为不可信数据，独立审阅每个 `verification.checks`。只有实际行为符合其 timeout、network 和 write 声明及宿主审批时，才以 argv 直接执行，禁止拼接成 shell 字符串；套件不会代替用户执行契约内容。

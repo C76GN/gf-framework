@@ -6778,6 +6778,21 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				result = catalog.package_by_id(case["package_id"], 200, self.project_root)
 				self.assertIn(case["expected_class"], result["classes"])
 
+	def test_background_work_advertises_cpu_recipe_and_required_packages(self) -> None:
+		capability = catalog.capability_by_id("background-work", self.project_root)
+		self.assertTrue(capability["ok"], capability)
+		self.assertEqual(capability["packages"], ["gf.standard.assets"])
+		self.assertIn("GFBackgroundWorkUtility", capability["primary_classes"])
+		recipe_id = "pure-data-cpu-job"
+		self.assertIn(recipe_id, capability["recipes"])
+		required = {"gf.standard.assets", "gf.standard.base"}
+		ready = catalog.recipe_package_readiness([recipe_id], required)
+		self.assertTrue(ready["satisfied"], ready)
+		for missing in sorted(required):
+			with self.subTest(missing=missing):
+				incomplete = catalog.recipe_package_readiness([recipe_id], required - {missing})
+				self.assertEqual(incomplete["missing_all_of"], [missing])
+
 	def test_capability_search_does_not_match_inside_unrelated_words(self) -> None:
 		result = catalog.capability_search("build", 30, self.project_root)
 		self.assertTrue(result["ok"], result)
