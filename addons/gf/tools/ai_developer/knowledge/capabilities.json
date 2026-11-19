@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.12.0",
+  "catalog_version": "1.13.0",
   "capabilities": [
     {
       "id": "architecture",
@@ -21,6 +21,19 @@
       "primary_classes": ["GFAsyncCompletion", "GFAsyncScope", "GFAsyncWaitUtility", "GFAsyncFlowTools", "GFAsyncKeyedGate"],
       "recipes": ["owned-async-operation"],
       "boundary": "The caller owns business retries and rollback; GF owns reusable terminal-state and cancellation mechanics."
+    },
+    {
+      "id": "background-work",
+      "title": "Pure-data background CPU jobs",
+      "summary": "Run CPU work on a read-only GFDataSnapshot in a worker thread, with cooperative cancellation and a main-thread callback to apply the result.",
+      "keywords": ["background work", "job", "thread", "CPU job", "worker", "main thread", "cooperative cancellation"],
+      "packages": ["gf.standard.assets"],
+      "primary_classes": ["GFBackgroundWorkUtility", "GFBackgroundWorkTask", "GFBackgroundWorkContext"],
+      "required_api_members": [
+        {"class_name": "GFBackgroundWorkUtility", "members": ["submit_cpu_work", "cancel_work"]}
+      ],
+      "recipes": ["pure-data-cpu-job"],
+      "boundary": "GF schedules the worker and the main-thread callback. The project owns the request lifetime, decides which results are still current, and orders writes to game state."
     },
     {
       "id": "assets-content",

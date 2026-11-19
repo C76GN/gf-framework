@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "catalog_version": "1.12.0",
+  "catalog_version": "1.13.0",
   "recipes": [
     {
       "id": "project-feature",
@@ -43,6 +43,26 @@
         "Observe every terminal state and test late callbacks."
       ],
       "avoid": ["Fire-and-forget work with hidden failure", "Awaiting a signal whose emitter can disappear"]
+    },
+    {
+      "id": "pure-data-cpu-job",
+      "title": "Run a CPU job and apply its result on the main thread",
+      "package_requirements": {"all_of": ["gf.standard.assets", "gf.standard.base"], "any_of": []},
+      "primary_classes": ["GFBackgroundWorkUtility", "GFBackgroundWorkTask", "GFBackgroundWorkContext"],
+      "required_api_members": [
+        {"class_name": "GFBackgroundWorkUtility", "members": ["submit_cpu_work", "cancel_work"]},
+        {"class_name": "GFDataSnapshot", "members": ["capture", "copy_value"]},
+        {"class_name": "GFBackgroundWorkContext", "members": ["is_cancel_requested"]},
+        {"class_name": "GFBackgroundWorkTask", "members": ["work_id", "result"]}
+      ],
+      "steps": [
+        "Choose the scene or system that owns the request. Give each replacement request a new generation and record it at submission. Capture stable pure data with captured = GFDataSnapshot.capture(input) and check captured.ok before using captured.snapshot.",
+        "Call submit_cpu_work(worker, captured.snapshot, apply_callback, options) on the project's GFBackgroundWorkUtility. Keep the returned GFBackgroundWorkTask with its owner and handle immediate submission failure.",
+        "Run a bounded calculation on the read-only snapshot and return plain data. A worker that needs mutable input calls copy_value() and checks the result before editing its private copy.",
+        "When the request is superseded or its owner exits, call cancel_work(task.work_id). For cooperative cancellation, set pass_cancellation_context to true and give the worker exactly two arguments (snapshot, context). Poll context.is_cancel_requested() between bounded steps and return promptly. GF joins a running worker before releasing its input and suppresses the cancelled task's pending apply callback.",
+        "In the main-thread apply_callback(task), write task.result only if the owner is still valid and the request generation is current. If several results affect ordered gameplay, stage them by project sequence and commit them in that order."
+      ],
+      "avoid": ["Capturing a live Node, Resource, or mutable project state in the worker", "Relying on cancellation to interrupt a blocking call"]
     },
     {
       "id": "bounded-runtime-work",
