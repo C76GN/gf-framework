@@ -12,6 +12,20 @@ class_name GFSpatialQueryIndex2D
 extends RefCounted
 
 
+# --- 枚举 ---
+
+## 记录当前输入的建树结果。两种线性回退状态都在下次输入变化前复用。
+## [br]
+## @api private
+## [br]
+enum _QuadTreeState {
+	DIRTY,
+	BOUNDS_UNAVAILABLE,
+	READY,
+	BUILD_FAILED,
+}
+
+
 # --- 常量 ---
 
 ## 根据实体数量和 bounds 自动选择策略。
@@ -112,6 +126,12 @@ var quadtree_max_entities: int = GFQuadTreeUtility.DEFAULT_MAX_ENTITIES:
 ## [br]
 var _records: Dictionary = {}
 
+## 只保存带弱引用的记录键。记录表拥有对应弱引用和实体数据。
+## [br]
+## @api private
+## [br]
+var _weak_entity_keys: Dictionary[String, bool] = {}
+
 ## 延迟构建的四叉树查询后端；线性策略下可为空。
 ## [br]
 ## @api private
@@ -124,17 +144,11 @@ var _quad_tree: GFQuadTreeUtility
 ## [br]
 var _quad_tree_key_by_id: Dictionary = {}
 
-## 记录查询后端是否需要重建。
+## 只有 READY 状态才能使用缓存的树和代理键。
 ## [br]
 ## @api private
 ## [br]
-var _index_dirty: bool = true
-
-## 最近一次四叉树构建是否失败；索引变脏时会重置。
-## [br]
-## @api private
-## [br]
-var _backend_build_failed: bool = false
+var _quad_tree_state: _QuadTreeState = _QuadTreeState.DIRTY
 
 
 # --- 公共方法 ---
@@ -216,6 +230,8 @@ func upsert(
 	if entity_record.is_empty():
 		return false
 	_records[entity_key] = entity_record
+	if entity_record.get("entity_ref") is WeakRef:
+		_weak_entity_keys[entity_key] = true
 	_mark_index_dirty()
 	return true
 
@@ -276,7 +292,7 @@ func remove(entity: Variant) -> bool:
 	var entity_key: String = _make_entity_key(entity)
 	if entity_key.is_empty() or not _records.has(entity_key):
 		return false
-	var _removed: bool = _records.erase(entity_key)
+	_erase_record(entity_key)
 	_mark_index_dirty()
 	return true
 
@@ -287,7 +303,9 @@ func remove(entity: Variant) -> bool:
 ## [br]
 ## @since 7.0.0
 func clear() -> void:
+	_weak_entity_keys.clear()
 	_records.clear()
+	_quad_tree = null
 	_quad_tree_key_by_id.clear()
 	_mark_index_dirty()
 
@@ -329,16 +347,20 @@ func get_entity_count() -> int:
 ## [br]
 ## @since 8.0.0
 func prune_invalid_entities() -> void:
+	if _weak_entity_keys.is_empty():
+		return
+
 	var keys_to_remove: Array[String] = []
-	for entity_key: String in _records.keys():
+	for entity_key: String in _weak_entity_keys:
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
 		if not _record_is_valid(entity_record):
 			keys_to_remove.append(entity_key)
 
+	if keys_to_remove.is_empty():
+		return
 	for entity_key: String in keys_to_remove:
-		var _removed: bool = _records.erase(entity_key)
-	if not keys_to_remove.is_empty():
-		_mark_index_dirty()
+		_erase_record(entity_key)
+	_mark_index_dirty()
 
 
 ## 获取实体记录副本。
@@ -644,13 +666,17 @@ func query_records_radius_into(
 ## @schema return: Dictionary，包含 strategy、active_strategy、bounds、entity_count 和 index_dirty。
 func get_debug_snapshot() -> Dictionary:
 	prune_invalid_entities()
+	var active_strategy: StringName = _get_active_strategy()
+	# 边界不可用时，调试状态仍显示索引尚未尝试构建。
+	var needs_build: bool = _quad_tree_state == _QuadTreeState.DIRTY
+	var invalid_bounds: bool = _quad_tree_state == _QuadTreeState.BOUNDS_UNAVAILABLE
 	return {
 		"strategy": strategy,
-		"active_strategy": _get_active_strategy(),
+		"active_strategy": active_strategy,
 		"bounds": bounds,
 		"entity_count": _records.size(),
-		"index_dirty": _index_dirty,
-		"backend_build_failed": _backend_build_failed,
+		"index_dirty": needs_build or invalid_bounds,
+		"backend_build_failed": _quad_tree_state == _QuadTreeState.BUILD_FAILED,
 		"auto_quadtree_threshold": auto_quadtree_threshold,
 		"quadtree_max_depth": quadtree_max_depth,
 		"quadtree_max_entities": quadtree_max_entities,
@@ -796,16 +822,20 @@ func _append_records_for_keys(entity_keys: Array[String], out_records: Array[Dic
 		out_records.append(_record_to_snapshot(GFVariantData.as_dictionary(_records[entity_key])))
 
 
-## 按有效边界懒构建四叉树；构建失败时清除后端并记录失败状态供线性回退。
+## 首次需要四叉树时求有效边界并尝试建树，直至索引失效前复用结果。
 ## [br]
 ## @api private
 ## [br]
 func _ensure_quad_tree() -> bool:
+	if _quad_tree_state != _QuadTreeState.DIRTY:
+		return _quad_tree_state == _QuadTreeState.READY
+
+	_quad_tree = null
+	_quad_tree_key_by_id.clear()
 	var world_bounds: Rect2 = _get_effective_bounds()
 	if not _SPATIAL_BOUNDS_MATH.is_finite_rect2(world_bounds) or not _rect_has_area(world_bounds):
+		_quad_tree_state = _QuadTreeState.BOUNDS_UNAVAILABLE
 		return false
-	if not _index_dirty:
-		return _quad_tree != null and not _backend_build_failed
 
 	var candidate_tree: GFQuadTreeUtility = GFQuadTreeUtility.new()
 	candidate_tree.init()
@@ -823,16 +853,12 @@ func _ensure_quad_tree() -> bool:
 			surrogate_id,
 			_get_record_bounds(entity_record)
 		):
-			_quad_tree = null
-			_quad_tree_key_by_id.clear()
-			_index_dirty = false
-			_backend_build_failed = true
+			_quad_tree_state = _QuadTreeState.BUILD_FAILED
 			return false
 		surrogate_id += 1
 	_quad_tree = candidate_tree
 	_quad_tree_key_by_id = candidate_keys
-	_index_dirty = false
-	_backend_build_failed = false
+	_quad_tree_state = _QuadTreeState.READY
 	return true
 
 
@@ -880,27 +906,16 @@ func _get_effective_bounds() -> Rect2:
 	return record_bounds
 
 
-## 尝试使用首选策略；四叉树不可用时返回线性策略。
+## 根据配置与当前有效条数选择后端，无法使用四叉树时回退到线性扫描。
 ## [br]
 ## @api private
 ## [br]
 func _get_active_strategy() -> StringName:
-	var preferred_strategy: StringName = _get_preferred_strategy()
-	if preferred_strategy == STRATEGY_QUADTREE and _ensure_quad_tree():
-		return STRATEGY_QUADTREE
-	return STRATEGY_LINEAR
-
-
-## 按显式策略或实体数量阈值和有效边界选择首选查询策略。
-## [br]
-## @api private
-## [br]
-func _get_preferred_strategy() -> StringName:
 	if strategy == STRATEGY_LINEAR:
 		return STRATEGY_LINEAR
-	if strategy == STRATEGY_QUADTREE:
-		return STRATEGY_QUADTREE
-	if _records.size() >= auto_quadtree_threshold and _rect_has_area(_get_effective_bounds()):
+	if strategy == STRATEGY_AUTO and _records.size() < auto_quadtree_threshold:
+		return STRATEGY_LINEAR
+	if _ensure_quad_tree():
 		return STRATEGY_QUADTREE
 	return STRATEGY_LINEAR
 
@@ -1004,13 +1019,21 @@ func _make_entity_key(entity: Variant) -> String:
 	return GFSpatialQueryIdentity.make_key(entity)
 
 
-## 标记四叉树索引待重建，并清除上次后端构建失败标记。
+## 同步移除主记录和弱引用键，由调用方在一批移除完成后使索引失效。
+## [br]
+## @api private
+## [br]
+func _erase_record(entity_key: String) -> void:
+	var _weak_key_erased: bool = _weak_entity_keys.erase(entity_key)
+	var _record_erased: bool = _records.erase(entity_key)
+
+
+## 输入变更后在下次需要四叉树时重新评估边界并建树。
 ## [br]
 ## @api private
 ## [br]
 func _mark_index_dirty() -> void:
-	_index_dirty = true
-	_backend_build_failed = false
+	_quad_tree_state = _QuadTreeState.DIRTY
 
 
 ## 仅接受 linear 和 quadtree；其他值规范化为 auto。
