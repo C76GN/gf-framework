@@ -1,6 +1,7 @@
 ## GFNotificationUtility: 通用运行时通知队列。
 ##
-## 只管理通知数据、队列、去重和生命周期信号，不规定 Toast、HUD 或编辑器 UI 样式。
+## 管理通知数据、队列、去重和生命周期信号。默认串行展示，可配置多个活动通知。
+## 单条活动通知接口面向最早开始展示且仍在活动的记录。项目决定展示布局和样式。
 ## [br]
 ## @api public
 ## [br]
@@ -42,11 +43,13 @@ signal notification_started(notification: Dictionary)
 ## @schema notification: Dictionary，字段同 notification_queued 的 notification。
 signal notification_finished(notification: Dictionary, reason: String)
 
-## 当前通知动作被触发时发出。
+## 活动通知的动作被触发时发出。
 ## [br]
 ## @api public
 ## [br]
-## @param notification: 当前通知副本。
+## @since 3.17.0
+## [br]
+## @param notification: 触发动作的通知副本。
 ## [br]
 ## @param action_id: 动作标识。
 ## [br]
@@ -86,6 +89,14 @@ enum Priority {
 }
 
 
+# --- 常量 ---
+
+## 限制活动通知数量，使每帧倒计时与批量完成回调的规模有上界。
+## [br]
+## @api private
+const _MAX_ACTIVE_NOTIFICATIONS: int = 32
+
+
 # --- 公共变量 ---
 
 ## 默认展示时长。
@@ -93,10 +104,26 @@ enum Priority {
 ## @api public
 var default_duration_seconds: float = 3.0
 
-## 最大排队数量。设为 0 时只允许当前通知，不保留等待队列。
+## 最大等待数量。设为 0 时只保留活动通知。
 ## [br]
 ## @api public
+## [br]
+## @since 3.17.0
 var max_queue_size: int = 32
+
+## 活动通知的准入上限，默认 1，范围 1 至 32。提高上限会补入等待通知。降低上限时已有活动通知自然结束。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+var max_active_notifications: int = 1:
+	set(value):
+		max_active_notifications = clampi(
+			value,
+			1,
+			_MAX_ACTIVE_NOTIFICATIONS
+		)
+		_process_queue()
 
 ## 是否抑制重复入队。有显式 key 时按 key 去重，否则按消息文本去重。
 ## [br]
@@ -106,25 +133,25 @@ var suppress_duplicates: bool = true
 
 # --- 私有变量 ---
 
-## 等待开始展示的通知记录，按优先级及入队顺序排列；当前通知单独保存在 _active_notification。
+## 尚未开始展示的记录，按优先级降序和入队顺序排列。
 ## [br]
 ## @api private
 var _queue: Array[Dictionary] = []
 
-## 当前正在展示的通知记录；结束或清空时会移除。
+## 活动通知按 ID 查找，并按 Dictionary 的插入顺序遍历，供单条入口选取最早仍活动的通知。
 ## [br]
 ## @api private
-var _active_notification: Dictionary = {}
+var _active_notifications: Dictionary[int, _ActiveNotification] = {}
 
-## 当前通知尚余展示秒数，由 tick 递减；暂停或 sticky 通知不递减。
+## 队列处理和生命周期信号交付期间暂缓再次补位，直到最外层操作结束。
 ## [br]
 ## @api private
-var _active_remaining_seconds: float = 0.0
+var _queue_update_depth: int = 0
 
-## 是否暂停当前通知的倒计时。
+## 清空和释放期间拒绝回调重新入队，使清空的通知批次具有确定终态。
 ## [br]
 ## @api private
-var _active_paused: bool = false
+var _clearing_notifications: bool = false
 
 ## 下一个新通知记录使用的递增 id。
 ## [br]
@@ -140,15 +167,21 @@ var _next_notification_id: int = 1
 ## [br]
 ## @param delta: 本帧时间增量（秒）。
 func tick(delta: float) -> void:
-	if _active_notification.is_empty():
-		_start_next_notification()
-		return
-	if _active_paused or GFVariantData.get_option_bool(_active_notification, "sticky"):
+	if _active_notifications.is_empty():
+		_process_queue()
 		return
 
-	_active_remaining_seconds -= maxf(delta, 0.0)
-	if _active_remaining_seconds <= 0.0:
-		dismiss_active("timeout")
+	var elapsed: float = maxf(delta, 0.0)
+	var expired_ids: Array[int] = []
+	for notification_id: int in _active_notifications:
+		var active: _ActiveNotification = _active_notifications[notification_id]
+		if active._paused or GFVariantData.get_option_bool(active._record, "sticky"):
+			continue
+		active._remaining_seconds -= elapsed
+		if active._remaining_seconds <= 0.0:
+			expired_ids.append(notification_id)
+	if not expired_ids.is_empty():
+		_finish_active_notifications(expired_ids, "timeout")
 
 
 ## 释放通知队列状态。
@@ -164,6 +197,8 @@ func dispose() -> void:
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param message: 通知正文。
 ## [br]
 ## @param title: 通知标题。
@@ -172,7 +207,7 @@ func dispose() -> void:
 ## [br]
 ## @param options: 可选参数，支持 duration_seconds、key、metadata、priority、sticky、actions。
 ## [br]
-## @return 通知 id；被去重抑制时返回已有通知 id。
+## @return 接纳时返回通知 ID。重复通知返回已有 ID，空通知和清空期间的请求返回 0。
 ## [br]
 ## @schema options: Dictionary，支持 duration_seconds、key、metadata、priority、sticky 和 actions。actions 为 Array[StringName|String|Dictionary]，Dictionary action 包含 id、可选 label、dismiss 和 metadata；label 为空时由项目 UI 决定展示文案。
 func push_notification(
@@ -181,6 +216,8 @@ func push_notification(
 	level: Level = Level.INFO,
 	options: Dictionary = {}
 ) -> int:
+	if _clearing_notifications:
+		return 0
 	if message.is_empty() and title.is_empty():
 		return 0
 
@@ -195,10 +232,11 @@ func push_notification(
 		options
 	)
 	_queue.append(notification_record)
+	_sort_queue_by_priority()
+	_queue_update_depth += 1
 	notification_queued.emit(notification_record.duplicate(true))
-	if _active_notification.is_empty():
-		_start_next_notification()
-	_trim_queue()
+	_queue_update_depth -= 1
+	_process_queue()
 	return GFVariantData.to_int(notification_record["id"])
 
 
@@ -208,31 +246,46 @@ func push_notification(
 ## [br]
 ## @param reason: 结束原因。
 func dismiss_active(reason: String = "dismissed") -> void:
-	if _active_notification.is_empty():
-		return
-
-	var finished: Dictionary = _active_notification.duplicate(true)
-	_active_notification.clear()
-	_active_remaining_seconds = 0.0
-	_active_paused = false
-	notification_finished.emit(finished, reason)
-	_start_next_notification()
+	var active_id: int = _get_oldest_active_id()
+	var _dismissed: bool = dismiss_notification(active_id, reason)
 
 
-## 清空当前通知和等待队列。
+## 按 ID 结束一条活动通知并处理腾出的名额。
 ## [br]
 ## @api public
 ## [br]
+## @since unreleased
+## [br]
+## @param notification_id: push_notification() 返回的通知 ID。
+## [br]
+## @param reason: 交给 notification_finished 的结束原因。
+## [br]
+## @return 该 ID 处于活动状态并已结束时返回 true。
+func dismiss_notification(notification_id: int, reason: String = "dismissed") -> bool:
+	if not _active_notifications.has(notification_id):
+		return false
+	var finished_ids: Array[int] = [notification_id]
+	_finish_active_notifications(finished_ids, reason)
+	return true
+
+
+## 先撤下全部活动通知并清空等待队列，再为每条原先活动的通知发出结束信号。
+## [br]
+## @api public
+## [br]
+## @since 3.17.0
+## [br]
 ## @param reason: 结束原因。
 func clear_notifications(reason: String = "cleared") -> void:
-	var finished: Dictionary = _active_notification.duplicate(true)
-	_active_notification.clear()
-	if not finished.is_empty():
-		notification_finished.emit(finished, reason)
-	_active_notification.clear()
-	_active_remaining_seconds = 0.0
-	_active_paused = false
+	if _clearing_notifications:
+		return
+
+	_clearing_notifications = true
 	_queue.clear()
+	var finished_ids: Array[int] = []
+	finished_ids.assign(_active_notifications.keys())
+	_finish_active_notifications(finished_ids, reason)
+	_clearing_notifications = false
 
 
 ## 获取当前通知。
@@ -243,22 +296,48 @@ func clear_notifications(reason: String = "cleared") -> void:
 ## [br]
 ## @schema return: Dictionary，当前通知记录；无当前通知时为空。字段同 notification_queued 的 notification。
 func get_active_notification() -> Dictionary:
-	return _active_notification.duplicate(true)
+	var active_id: int = _get_oldest_active_id()
+	if active_id == 0:
+		return {}
+	var active: _ActiveNotification = _active_notifications[active_id]
+	return active._record.duplicate(true)
+
+
+## 按开始展示的顺序获取所有活动通知的副本。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 活动通知记录数组。
+## [br]
+## @schema return: Array，元素为通知记录 Dictionary，字段同 notification_queued 的 notification。
+func get_active_notifications() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for notification_id: int in _active_notifications:
+		var active: _ActiveNotification = _active_notifications[notification_id]
+		result.append(active._record.duplicate(true))
+	return result
 
 
 ## 暂停当前通知倒计时。
 ## [br]
 ## @api public
 func pause_active() -> void:
-	if not _active_notification.is_empty():
-		_active_paused = true
+	var active_id: int = _get_oldest_active_id()
+	if active_id != 0:
+		var active: _ActiveNotification = _active_notifications[active_id]
+		active._paused = true
 
 
 ## 恢复当前通知倒计时。
 ## [br]
 ## @api public
 func resume_active() -> void:
-	_active_paused = false
+	var active_id: int = _get_oldest_active_id()
+	if active_id != 0:
+		var active: _ActiveNotification = _active_notifications[active_id]
+		active._paused = false
 
 
 ## 当前通知是否处于暂停状态。
@@ -267,7 +346,11 @@ func resume_active() -> void:
 ## [br]
 ## @return 暂停时返回 true。
 func is_active_paused() -> bool:
-	return _active_paused
+	var active_id: int = _get_oldest_active_id()
+	if active_id == 0:
+		return false
+	var active: _ActiveNotification = _active_notifications[active_id]
+	return active._paused
 
 
 ## 触发当前通知的一个动作。
@@ -278,19 +361,39 @@ func is_active_paused() -> bool:
 ## [br]
 ## @return 当前通知包含该动作时返回 true。
 func invoke_active_action(action_id: StringName) -> bool:
-	if _active_notification.is_empty() or action_id == &"":
+	var active_id: int = _get_oldest_active_id()
+	return invoke_notification_action(active_id, action_id)
+
+
+## 按 ID 触发活动通知的动作。动作要求结束时，只结束发出该动作的通知。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param notification_id: push_notification() 返回的通知 ID。
+## [br]
+## @param action_id: 动作标识。
+## [br]
+## @return 该 ID 处于活动状态且包含该动作时返回 true。
+func invoke_notification_action(notification_id: int, action_id: StringName) -> bool:
+	if action_id == &"" or not _active_notifications.has(notification_id):
 		return false
 
-	var actions: Array = GFVariantData.get_option_array(_active_notification, "actions")
+	var active: _ActiveNotification = _active_notifications[notification_id]
+	var actions: Array = GFVariantData.get_option_array(active._record, "actions")
 	for action_value: Variant in actions:
 		var action: Dictionary = GFVariantData.as_dictionary(action_value)
 		if GFVariantData.get_option_string_name(action, "id") == action_id:
 			notification_action_invoked.emit(
-				_active_notification.duplicate(true),
+				active._record.duplicate(true),
 				action_id
 			)
 			if GFVariantData.get_option_bool(action, "dismiss"):
-				dismiss_active("action:%s" % action_id)
+				var _dismissed: bool = dismiss_notification(
+					notification_id,
+					"action:%s" % action_id
+				)
 			return true
 	return false
 
@@ -317,12 +420,19 @@ func get_queue() -> Array[Dictionary]:
 ## [br]
 ## @schema return: Dictionary，包含 active、queue、queue_size、active_remaining_seconds、active_paused 和 max_queue_size。
 func get_debug_snapshot() -> Dictionary:
+	var active_id: int = _get_oldest_active_id()
+	var remaining_seconds: float = 0.0
+	var paused: bool = false
+	if active_id != 0:
+		var active: _ActiveNotification = _active_notifications[active_id]
+		remaining_seconds = active._remaining_seconds
+		paused = active._paused
 	return {
 		"active": get_active_notification(),
 		"queue": get_queue(),
 		"queue_size": _queue.size(),
-		"active_remaining_seconds": _active_remaining_seconds,
-		"active_paused": _active_paused,
+		"active_remaining_seconds": remaining_seconds,
+		"active_paused": paused,
 		"max_queue_size": max_queue_size,
 	}
 
@@ -385,37 +495,74 @@ func _make_notification(
 	return notification_record
 
 
-## 队列有待处理记录且当前没有活动通知时，启动队首记录并初始化其倒计时。
+## 获取最早开始展示且仍活动的通知 ID，供单条通知入口使用。空集合返回 0。
+## [br]
+## @api private
+func _get_oldest_active_id() -> int:
+	for notification_id: int in _active_notifications:
+		return notification_id
+	return 0
+
+
+## 填满活动名额后执行等待容量限制。回调产生的请求由当前循环继续处理。
+## [br]
+## @api private
+func _process_queue() -> void:
+	if _queue_update_depth > 0 or _clearing_notifications:
+		return
+
+	_queue_update_depth += 1
+	while not _queue.is_empty():
+		if _active_notifications.size() < max_active_notifications:
+			_start_next_notification()
+		elif _queue.size() > maxi(max_queue_size, 0):
+			var dropped: Dictionary = GFVariantData.as_dictionary(_queue.pop_back())
+			notification_finished.emit(
+				dropped.duplicate(true),
+				"dropped"
+			)
+		else:
+			break
+	_queue_update_depth -= 1
+
+
+## 激活队首记录并启动独立倒计时。开始回调可能已经结束这条通知。
 ## [br]
 ## @api private
 func _start_next_notification() -> void:
-	if not _active_notification.is_empty() or _queue.is_empty():
-		return
-
-	_active_notification = GFVariantData.as_dictionary(_queue.pop_front())
-	_active_paused = false
-	_active_remaining_seconds = GFVariantData.get_option_float(
-		_active_notification,
+	var record: Dictionary = GFVariantData.as_dictionary(_queue.pop_front())
+	var notification_id: int = GFVariantData.get_option_int(record, "id")
+	var active: _ActiveNotification = _ActiveNotification.new()
+	active._record = record
+	active._remaining_seconds = GFVariantData.get_option_float(
+		record,
 		"duration_seconds",
 		default_duration_seconds
 	)
-	notification_started.emit(_active_notification.duplicate(true))
-	if _active_remaining_seconds <= 0.0 and not GFVariantData.get_option_bool(_active_notification, "sticky"):
-		dismiss_active("timeout")
+	_active_notifications[notification_id] = active
+	notification_started.emit(record.duplicate(true))
+	if active._remaining_seconds <= 0.0 and not GFVariantData.get_option_bool(record, "sticky"):
+		var _dismissed: bool = dismiss_notification(notification_id, "timeout")
 
 
-## 按优先级整理等待队列，并丢弃超出容量的末尾记录。
+## 先撤下本批结束的全部活动记录，再发送完成信号并补位，避免回调重复结束或误关补入的记录。
 ## [br]
 ## @api private
-func _trim_queue() -> void:
-	_sort_queue_by_priority()
-	var max_size: int = maxi(max_queue_size, 0)
-	while _queue.size() > max_size:
-		var dropped: Dictionary = GFVariantData.as_dictionary(_queue.pop_back())
+func _finish_active_notifications(notification_ids: Array[int], reason: String) -> void:
+	var finished: Array[Dictionary] = []
+	for notification_id: int in notification_ids:
+		var active: _ActiveNotification = _active_notifications[notification_id]
+		finished.append(active._record)
+		var _removed: bool = _active_notifications.erase(notification_id)
+
+	_queue_update_depth += 1
+	for record: Dictionary in finished:
 		notification_finished.emit(
-			dropped.duplicate(true),
-			"dropped"
+			record.duplicate(true),
+			reason
 		)
+	_queue_update_depth -= 1
+	_process_queue()
 
 
 ## 在活动通知和等待队列中查找首个去重匹配项；没有匹配时返回 0。
@@ -423,12 +570,14 @@ func _trim_queue() -> void:
 ## @api private
 func _find_duplicate_notification_id(message: String, options: Dictionary) -> int:
 	var key: String = GFVariantData.get_option_string(options, "key")
-	if _matches_notification(
-		_active_notification,
-		key,
-		message
-	):
-		return GFVariantData.get_option_int(_active_notification, "id")
+	for notification_id: int in _active_notifications:
+		var active: _ActiveNotification = _active_notifications[notification_id]
+		if _matches_notification(
+			active._record,
+			key,
+			message
+		):
+			return notification_id
 
 	for notification_record: Dictionary in _queue:
 		if _matches_notification(
@@ -518,3 +667,29 @@ func _normalize_actions(actions_variant: Variant) -> Array[Dictionary]:
 			}
 		)
 	return result
+
+
+# --- 内部类 ---
+
+## 保存单条活动通知的计时状态，公开快照只复制通知记录。
+## [br]
+## @api private
+class _ActiveNotification extends RefCounted:
+
+
+	# --- 私有变量 ---
+
+	## 从等待队列移入的通知记录，在活动期间由通知工具持有。
+	## [br]
+	## @api private
+	var _record: Dictionary = {}
+
+	## 这条通知余下的展示时间，由通知工具推进。
+	## [br]
+	## @api private
+	var _remaining_seconds: float = 0.0
+
+	## 暂停当前记录的倒计时，直到通过单条通知入口恢复。
+	## [br]
+	## @api private
+	var _paused: bool = false

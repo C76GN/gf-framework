@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "792ff1db8709366c40996013025d57b9ac0344cb9b85137edf69fb1bcdc284d2",
+  "source_digest": "f8b5ed72e16dc1708211581e5ce4c757bc7e0e75e6fcc618610e5b3e56d02523",
   "class_count": 915,
   "autoload_count": 1,
   "package_count": 62,
@@ -57785,7 +57785,7 @@
       "module": "standard",
       "package_id": "gf.standard.ui",
       "path": "addons/gf/standard/utilities/ui/gf_notification_utility.gd",
-      "summary": "GFNotificationUtility: 通用运行时通知队列。 只管理通知数据、队列、去重和生命周期信号，不规定 Toast、HUD 或编辑器 UI 样式。",
+      "summary": "GFNotificationUtility: 通用运行时通知队列。 管理通知数据、队列、去重和生命周期信号。默认串行展示，可配置多个活动通知。 单条活动通知接口面向最早开始展示且仍在活动的记录。项目决定展示布局和样式。",
       "visibility": "public",
       "category": "runtime_service",
       "since": "3.17.0",
@@ -57815,7 +57815,7 @@
           "kind": "signal",
           "name": "notification_action_invoked",
           "signature": "signal notification_action_invoked(notification: Dictionary, action_id: StringName)",
-          "summary": "当前通知动作被触发时发出。",
+          "summary": "活动通知的动作被触发时发出。",
           "visibility": "public"
         },
         {
@@ -57843,7 +57843,14 @@
           "kind": "var",
           "name": "max_queue_size",
           "signature": "var max_queue_size: int = 32",
-          "summary": "最大排队数量。设为 0 时只允许当前通知，不保留等待队列。",
+          "summary": "最大等待数量。设为 0 时只保留活动通知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "max_active_notifications",
+          "signature": "var max_active_notifications: int = 1",
+          "summary": "活动通知的准入上限，默认 1，范围 1 至 32。提高上限会补入等待通知。降低上限时已有活动通知自然结束。",
           "visibility": "public"
         },
         {
@@ -57883,9 +57890,16 @@
         },
         {
           "kind": "func",
+          "name": "dismiss_notification",
+          "signature": "func dismiss_notification(notification_id: int, reason: String = \"dismissed\") -> bool",
+          "summary": "按 ID 结束一条活动通知并处理腾出的名额。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "clear_notifications",
           "signature": "func clear_notifications(reason: String = \"cleared\") -> void",
-          "summary": "清空当前通知和等待队列。",
+          "summary": "先撤下全部活动通知并清空等待队列，再为每条原先活动的通知发出结束信号。",
           "visibility": "public"
         },
         {
@@ -57893,6 +57907,13 @@
           "name": "get_active_notification",
           "signature": "func get_active_notification() -> Dictionary",
           "summary": "获取当前通知。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_active_notifications",
+          "signature": "func get_active_notifications() -> Array[Dictionary]",
+          "summary": "按开始展示的顺序获取所有活动通知的副本。",
           "visibility": "public"
         },
         {
@@ -57921,6 +57942,13 @@
           "name": "invoke_active_action",
           "signature": "func invoke_active_action(action_id: StringName) -> bool",
           "summary": "触发当前通知的一个动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "invoke_notification_action",
+          "signature": "func invoke_notification_action(notification_id: int, action_id: StringName) -> bool",
+          "summary": "按 ID 触发活动通知的动作。动作要求结束时，只结束发出该动作的通知。",
           "visibility": "public"
         },
         {
