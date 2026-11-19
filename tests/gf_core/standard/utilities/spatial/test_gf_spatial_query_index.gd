@@ -114,6 +114,244 @@ func test_spatial_query_index_2d_quadtree_expands_configured_bounds_to_records()
 	)
 
 
+func test_spatial_query_index_2d_warm_results_match_linear_after_replacement_and_removal() -> void:
+	var index: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	index.auto_quadtree_threshold = 2
+	index.quadtree_max_entities = 1
+	var linear: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	linear.strategy = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_LINEAR
+	var overlap: Rect2 = Rect2(
+		Vector2.ZERO,
+		Vector2(10.0, 10.0)
+	)
+	var extreme: Rect2 = Rect2(
+		Vector2(100.0, 100.0),
+		Vector2(4.0, 4.0)
+	)
+
+	for backend: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT in [index, linear]:
+		assert_true(
+			backend.upsert(
+				10,
+				overlap,
+				{ "label": "ten" }
+			)
+		)
+		assert_true(
+			backend.upsert(
+				2,
+				overlap,
+				{ "label": "two" }
+			)
+		)
+		assert_true(backend.upsert(&"extreme", extreme))
+
+	assert_eq(
+		index.query_point(overlap.end),
+		[2, 10]
+	)
+	assert_eq(
+		index.query_records_radius(overlap.end, 0.0),
+		linear.query_records_radius(overlap.end, 0.0)
+	)
+	assert_eq(
+		index.query_records_radius(
+			overlap.get_center(),
+			1.0
+		),
+		linear.query_records_radius(
+			overlap.get_center(),
+			1.0
+		)
+	)
+	assert_eq(
+		index.query_records_rect(overlap),
+		linear.query_records_rect(overlap)
+	)
+
+	var moved: Rect2 = Rect2(
+		Vector2(-20.0, -20.0),
+		overlap.size
+	)
+	for backend: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT in [index, linear]:
+		assert_true(
+			backend.upsert(
+				10,
+				moved,
+				{ "label": "moved" }
+			)
+		)
+		assert_true(backend.remove(&"extreme"))
+
+	assert_eq(
+		index.query_point(overlap.end),
+		[2]
+	)
+	assert_eq(
+		index.query_point(moved.end),
+		[10]
+	)
+	assert_eq(
+		index.query_point(extreme.get_center()),
+		[]
+	)
+	assert_eq(
+		index.query_records_rect(moved.merge(overlap)),
+		linear.query_records_rect(moved.merge(overlap))
+	)
+
+
+func test_spatial_query_index_2d_fallback_recovers_and_rechecks_shrinking_bounds() -> void:
+	var index: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	index.strategy = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_QUADTREE
+	var point: Vector2 = Vector2(30.0, 30.0)
+	assert_true(index.upsert_point(&"point", point))
+	assert_eq(
+		index.query_point(point),
+		[&"point"]
+	)
+
+	var unavailable: Dictionary = index.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_string_name(unavailable, "active_strategy"),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_LINEAR
+	)
+	assert_true(GFVariantData.get_option_bool(unavailable, "index_dirty"))
+	assert_false(GFVariantData.get_option_bool(unavailable, "backend_build_failed"))
+
+	var extent: Rect2 = Rect2(
+		Vector2.ZERO,
+		Vector2(10.0, 10.0)
+	)
+	index.bounds = extent
+	assert_eq(
+		index.query_point(point),
+		[&"point"]
+	)
+	var failed: Dictionary = index.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_string_name(failed, "active_strategy"),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_LINEAR
+	)
+	assert_false(GFVariantData.get_option_bool(failed, "index_dirty"))
+	assert_true(GFVariantData.get_option_bool(failed, "backend_build_failed"))
+	assert_eq(
+		index.get_debug_snapshot(),
+		failed
+	)
+
+	index.bounds = Rect2(
+		Vector2.ZERO,
+		Vector2(40.0, 40.0)
+	)
+	assert_eq(
+		index.query_point(point),
+		[&"point"]
+	)
+	var recovered: Dictionary = index.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_string_name(recovered, "active_strategy"),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_QUADTREE
+	)
+	assert_false(GFVariantData.get_option_bool(recovered, "index_dirty"))
+	assert_false(GFVariantData.get_option_bool(recovered, "backend_build_failed"))
+
+	index.bounds = Rect2()
+	assert_true(index.upsert(&"extent", extent))
+	assert_eq(
+		index.query_point(point),
+		[&"point"]
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			index.get_debug_snapshot(),
+			"active_strategy"
+		),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_QUADTREE
+	)
+	assert_true(index.remove(&"extent"))
+	assert_eq(
+		index.query_point(point),
+		[&"point"]
+	)
+	assert_eq(
+		index.get_debug_snapshot(),
+		unavailable
+	)
+
+
+func test_spatial_query_index_2d_prunes_weak_records_before_choosing_strategy() -> void:
+	var index: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
+	index.auto_quadtree_threshold = 3
+	var anchor: Rect2 = Rect2(
+		Vector2.ZERO,
+		Vector2(4.0, 4.0)
+	)
+	var distant: Rect2 = Rect2(
+		Vector2(40.0, 40.0),
+		anchor.size
+	)
+	var node: Node = Node.new()
+	var counted: RefCounted = RefCounted.new()
+	var counted_observer: WeakRef = weakref(counted)
+	assert_true(index.upsert(&"anchor", anchor))
+	assert_true(index.upsert(node, anchor))
+	assert_true(index.upsert(node, distant))
+	assert_true(index.upsert(counted, distant))
+	assert_true(index.remove(counted))
+	assert_eq(
+		index.get_entity_count(),
+		2
+	)
+	assert_true(index.upsert(counted, distant))
+
+	assert_eq(
+		index.query_point(anchor.get_center()),
+		[&"anchor"]
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(
+			index.get_debug_snapshot(),
+			"active_strategy"
+		),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_QUADTREE
+	)
+	node.free()
+	counted = null
+	assert_true(counted_observer.get_ref() == null)
+
+	assert_eq(
+		index.query_point(anchor.get_center()),
+		[&"anchor"]
+	)
+	assert_eq(
+		index.query_point(distant.get_center()),
+		[]
+	)
+	var pruned: Dictionary = index.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(pruned, "entity_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(pruned, "active_strategy"),
+		GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.STRATEGY_LINEAR
+	)
+
+	var cleared: RefCounted = RefCounted.new()
+	assert_true(index.upsert(cleared, anchor))
+	index.clear()
+	cleared = null
+	assert_eq(
+		index.query_point(anchor.get_center()),
+		[]
+	)
+	assert_eq(
+		index.get_entity_count(),
+		0
+	)
+
+
 func test_spatial_query_index_2d_into_queries_reuse_outputs_and_snapshot_records() -> void:
 	var index: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = GF_SPATIAL_QUERY_INDEX_2D_SCRIPT.new()
 	var _configured: GF_SPATIAL_QUERY_INDEX_2D_SCRIPT = index.configure(
