@@ -2087,6 +2087,266 @@ func test_wheel_uses_bounded_smooth_event_factor() -> void:
 	)
 
 
+func test_wheel_target_matches_immediate_zoom_without_publishing_view() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	assert_true(
+		canvas.set_view(
+			Vector2(25.0, -40.0),
+			1.5
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"selected",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		)
+	)
+	var selected_ids: PackedStringArray = PackedStringArray(["selected"])
+	assert_eq(
+		canvas.set_selection(selected_ids),
+		selected_ids
+	)
+	var wheel: InputEventMouseButton = _mouse_button(
+		MOUSE_BUTTON_WHEEL_UP,
+		Vector2(680.0, 110.0),
+		true
+	)
+	wheel.factor = 0.5
+	var world_anchor: Vector2 = canvas.canvas_to_world(wheel.position)
+	var snapshot: Dictionary = canvas.get_debug_snapshot()
+	var content_transform: Transform2D = canvas.get_content_root().transform
+	watch_signals(canvas)
+
+	var result: Dictionary = _resolve_wheel_from_current_view(canvas, wheel)
+	var disposition: int = GFVariantData.get_option_int(result, "disposition")
+	var target: Dictionary = GFVariantData.get_option_dictionary(result, "target")
+
+	assert_eq(disposition, GFSpatialCanvas2D.InputDisposition.CONSUMED)
+	assert_eq(
+		canvas.get_debug_snapshot(),
+		snapshot
+	)
+	assert_eq(
+		canvas.get_content_root().transform,
+		content_transform
+	)
+	assert_eq(
+		canvas.get_selection(),
+		selected_ids
+	)
+	assert_signal_not_emitted(canvas, "view_changed")
+	assert_signal_not_emitted(canvas, "selection_changed")
+	assert_eq(
+		canvas.handle_input_event(wheel),
+		disposition
+	)
+	assert_eq(
+		canvas.get_world_center(),
+		GFVariantData.get_option_vector2(target, "world_center")
+	)
+	assert_eq(
+		canvas.get_zoom(),
+		GFVariantData.get_option_float(target, "zoom")
+	)
+	assert_true(canvas.canvas_to_world(wheel.position).is_equal_approx(world_anchor))
+	assert_signal_emit_count(
+		canvas,
+		"view_changed",
+		1
+	)
+
+
+func test_wheel_targets_compose_while_the_displayed_view_interpolates() -> void:
+	var animated_canvas: GFSpatialCanvas2D = _make_canvas()
+	var immediate_canvas: GFSpatialCanvas2D = _make_canvas()
+	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+	policy.wheel_zoom_factor = 4.0
+	var source_center: Vector2 = Vector2(300.0, 300.0)
+	var bounds: Rect2 = Rect2(
+		Vector2.ZERO,
+		Vector2(600.0, 600.0)
+	)
+	for canvas: GFSpatialCanvas2D in [animated_canvas, immediate_canvas]:
+		assert_true(canvas.set_input_policy(policy))
+		assert_true(canvas.set_zoom_limits(1.0, 4.0))
+		assert_true(canvas.set_view(source_center, 2.0))
+		assert_true(canvas.set_world_bounds(bounds))
+
+	var wheel_up: InputEventMouseButton = _mouse_button(
+		MOUSE_BUTTON_WHEEL_UP,
+		Vector2(640.0, 240.0),
+		true
+	)
+	wheel_up.factor = 0.5
+	var first_result: Dictionary = _resolve_wheel_from_current_view(animated_canvas, wheel_up)
+	assert_eq(
+		immediate_canvas.handle_input_event(wheel_up),
+		GFVariantData.get_option_int(first_result, "disposition")
+	)
+	var first_target: Dictionary = GFVariantData.get_option_dictionary(first_result, "target")
+	var first_center: Vector2 = GFVariantData.get_option_vector2(first_target, "world_center")
+	var first_zoom: float = GFVariantData.get_option_float(first_target, "zoom")
+	assert_eq(
+		first_center,
+		immediate_canvas.get_world_center()
+	)
+	assert_eq(first_zoom, 4.0)
+	assert_true(
+		animated_canvas.set_view(
+			source_center.lerp(first_center, 0.25),
+			2.5
+		)
+	)
+	var displayed_view: Dictionary = animated_canvas.get_debug_snapshot()
+	watch_signals(animated_canvas)
+
+	var wheel_down: InputEventMouseButton = _mouse_button(
+		MOUSE_BUTTON_WHEEL_DOWN,
+		Vector2(5.0, 590.0),
+		true
+	)
+	wheel_down.factor = 0.5
+	var second_result: Dictionary = animated_canvas.resolve_wheel_zoom_target(
+		wheel_down,
+		first_center,
+		first_zoom
+	)
+	var second_target: Dictionary = GFVariantData.get_option_dictionary(second_result, "target")
+	assert_eq(
+		immediate_canvas.handle_input_event(wheel_down),
+		GFVariantData.get_option_int(second_result, "disposition")
+	)
+	assert_eq(
+		GFVariantData.get_option_vector2(second_target, "world_center"),
+		immediate_canvas.get_world_center()
+	)
+	assert_eq(
+		GFVariantData.get_option_float(second_target, "zoom"),
+		immediate_canvas.get_zoom()
+	)
+	assert_eq(
+		immediate_canvas.get_world_center(),
+		Vector2(400.0, 212.5)
+	)
+	assert_eq(
+		immediate_canvas.get_zoom(),
+		2.0
+	)
+	assert_eq(
+		animated_canvas.get_debug_snapshot(),
+		displayed_view
+	)
+	assert_signal_not_emitted(animated_canvas, "view_changed")
+
+
+func test_wheel_targets_follow_axis_modifier_routing_and_no_op_limits() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var policy: GFSpatialCanvasInputPolicy = GFSpatialCanvasInputPolicy.new()
+	policy.wheel_routing = GFSpatialCanvasInputPolicy.WheelRouting.PARENT_ONLY
+	policy.wheel_axis = GFSpatialCanvasInputPolicy.WheelAxis.HORIZONTAL
+	policy.consume_wheel_events = false
+	assert_true(canvas.set_input_policy(policy))
+	assert_true(canvas.set_zoom_limits(1.0, 1.0))
+	var wheel: InputEventMouseButton = _mouse_button(
+		MOUSE_BUTTON_WHEEL_LEFT,
+		Vector2(400.0, 300.0),
+		true
+	)
+	var ignored: Dictionary = { "disposition": GFSpatialCanvas2D.InputDisposition.IGNORED, "target": {} }
+	watch_signals(canvas)
+	assert_eq(
+		_resolve_wheel_from_current_view(canvas, wheel),
+		ignored
+	)
+
+	policy.wheel_routing = GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED
+	policy.wheel_modifier_mask = GFSpatialCanvasInputPolicy.ModifierMask.CTRL
+	assert_true(canvas.set_input_policy(policy))
+	assert_eq(
+		_resolve_wheel_from_current_view(canvas, wheel),
+		ignored
+	)
+	wheel.ctrl_pressed = true
+	wheel.shift_pressed = true
+	assert_eq(
+		_resolve_wheel_from_current_view(canvas, wheel),
+		ignored
+	)
+	wheel.shift_pressed = false
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	assert_eq(
+		_resolve_wheel_from_current_view(canvas, wheel),
+		ignored
+	)
+	wheel.button_index = MOUSE_BUTTON_WHEEL_LEFT
+
+	var result: Dictionary = _resolve_wheel_from_current_view(canvas, wheel)
+	var disposition: int = GFVariantData.get_option_int(result, "disposition")
+	assert_eq(disposition, GFSpatialCanvas2D.InputDisposition.HANDLED)
+	assert_eq(
+		GFVariantData.get_option_dictionary(result, "target"),
+		{ "world_center": canvas.get_world_center(), "zoom": 1.0 }
+	)
+	assert_eq(
+		canvas.handle_input_event(wheel),
+		disposition
+	)
+	assert_signal_not_emitted(canvas, "view_changed")
+
+
+func test_wheel_targets_reject_invalid_input_and_source_views() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var wheel: InputEventMouseButton = _mouse_button(
+		MOUSE_BUTTON_WHEEL_UP,
+		Vector2(400.0, 300.0),
+		true
+	)
+	var ignored: Dictionary = { "disposition": GFSpatialCanvas2D.InputDisposition.IGNORED, "target": {} }
+	watch_signals(canvas)
+	canvas.set_input_enabled(false)
+	assert_eq(
+		_resolve_wheel_from_current_view(canvas, wheel),
+		ignored
+	)
+	canvas.set_input_enabled(true)
+	wheel.canceled = true
+	assert_eq(
+		_resolve_wheel_from_current_view(canvas, wheel),
+		ignored
+	)
+	wheel.canceled = false
+	for factor: float in [
+		0.0,
+		65.0,
+		NAN,
+	]:
+		wheel.factor = factor
+		assert_eq(
+			_resolve_wheel_from_current_view(canvas, wheel),
+			ignored
+		)
+	wheel.factor = 1.0
+	for source_zoom: float in [
+		0.0,
+		-1.0,
+		INF,
+		NAN,
+	]:
+		var result: Dictionary = canvas.resolve_wheel_zoom_target(
+			wheel,
+			Vector2.ZERO,
+			source_zoom
+		)
+		assert_eq(result, ignored)
+	var invalid_center_result: Dictionary = canvas.resolve_wheel_zoom_target(
+		wheel,
+		Vector2.INF,
+		1.0
+	)
+	assert_eq(invalid_center_result, ignored)
+	assert_signal_not_emitted(canvas, "view_changed")
+
+
 func test_cancel_uses_input_map_action_instead_of_raw_escape() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	_add_key_action(_CANCEL_ACTION, KEY_Q)
@@ -2857,6 +3117,10 @@ func test_raw_touch_capture_excludes_mouse_without_polluting_selection_or_view()
 		target_position,
 		true
 	)
+
+	var result: Dictionary = _resolve_wheel_from_current_view(canvas, wheel)
+	var ignored: Dictionary = { "disposition": GFSpatialCanvas2D.InputDisposition.IGNORED, "target": {} }
+	assert_eq(result, ignored)
 
 	for conflicting_event: InputEvent in [
 		mouse_press,
@@ -3771,6 +4035,14 @@ func _make_canvas(canvas_size: Vector2 = Vector2(800.0, 600.0)) -> GFSpatialCanv
 	add_child_autofree(canvas)
 	canvas.size = canvas_size
 	return canvas
+
+
+func _resolve_wheel_from_current_view(canvas: GFSpatialCanvas2D, event: InputEventMouseButton) -> Dictionary:
+	return canvas.resolve_wheel_zoom_target(
+		event,
+		canvas.get_world_center(),
+		canvas.get_zoom()
+	)
 
 
 func _mouse_button(

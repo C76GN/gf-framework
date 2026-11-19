@@ -7,6 +7,7 @@
 ### 🚀 新增特性 (Added)
 
 - 通知队列可配置多个活动名额。每条通知独立计时，结束后按等待优先级补位。项目负责通知的布局和动画。
+- 2D 空间画布可从指定视图计算滚轮缩放目标，供项目累积滚轮输入并驱动缩放动画。
 
 ### 🐛 Bug 修复 (Fixed)
 
@@ -15,6 +16,7 @@
 ### 🔧 API 变动说明 (API Changes)
 
 - `GFNotificationUtility` 新增 `max_active_notifications`、`get_active_notifications()`、`dismiss_notification()` 和 `invoke_notification_action()`。
+- `GFSpatialCanvas2D` 新增 `resolve_wheel_zoom_target()`，返回输入路由结果和受画布约束的缩放目标。
 
 ### 📘 升级指南 (Migration Guide)
 

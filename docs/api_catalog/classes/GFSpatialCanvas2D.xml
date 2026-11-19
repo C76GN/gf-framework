@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="1f62fbb29fbd6484e84d76053f095db9d6cfe74ce53d46c2addd1ce95c9c2b76">
+<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="f5413bfd6e0d44a83486aab819986d9cd051572c7ebae02cdc2d99c53352483d">
 	<description>GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。
 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的
 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。</description>
@@ -231,6 +231,21 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 				<tag name="param">factor: 相对缩放因子。</tag>
 				<tag name="return">输入有限且 factor 为正时返回 true。</tag>
 				<tag name="since">10.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resolve_wheel_zoom_target">
+			<signature>func resolve_wheel_zoom_target( event: InputEventMouseButton, source_world_center: Vector2, source_zoom: float ) -&gt; Dictionary:</signature>
+			<description>从显式起始视图计算滚轮缩放目标。使用当前画布尺寸、输入策略、缩放范围和世界边界。
+此计算不应用视图、不发送 [signal view_changed]，也不接管输入或改变选择。
+连续滚轮事件可使用上一次返回的目标作为下一次计算的起始视图。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">event: 使用画布局部坐标的鼠标滚轮事件。</tag>
+				<tag name="param">source_world_center: 起始视图的世界中心。</tag>
+				<tag name="param">source_zoom: 起始视图的有限正缩放值。</tag>
+				<tag name="return">滚轮路由结果与可交给 [method set_view] 的目标。</tag>
+				<tag name="schema">return: Dictionary，包含 disposition: InputDisposition 和 target: Dictionary。IGNORED 时 target 为空，否则 target 包含 world_center: Vector2 和 zoom: float。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="focus_world_rect">
