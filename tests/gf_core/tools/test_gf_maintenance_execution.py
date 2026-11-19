@@ -107,6 +107,8 @@ class BranchWorkflowTests(unittest.TestCase):
 		self.history.branch_commit.side_effect = {"main": self.main, "develop": self.develop}.__getitem__
 		self.history.find_branch_commit.return_value = self.develop
 		self.history.version.side_effect = self.versions.__getitem__
+		self.history.development_baseline.side_effect = lambda commit: self.baselines.get(commit)
+		self.baselines = {self.develop: dict(self.policy["development_api_baseline"])}
 		self.history.has_tag.return_value = False
 		self.history.merge_bases.return_value = [self.main]
 		self.parents = {self.develop: {self.main}, self.head: {self.main, self.develop}}
@@ -140,6 +142,8 @@ class BranchWorkflowTests(unittest.TestCase):
 		self.assertEqual(self.route("main", "release/12.0.0", "12.0.0"), "12.0.0")
 
 		self.versions[self.main] = "12.0.0"
+		self.baselines.clear()
+		self.policy["development_api_baseline"]["commit"] = self.main
 		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Unpublished"):
 			self.route("develop", "fix/too-early", "13.0.0-dev.0")
 		self.assertEqual(self.route("main", "release/12.0.0", "12.0.0"), "12.0.0")
@@ -149,7 +153,7 @@ class BranchWorkflowTests(unittest.TestCase):
 
 	def test_develop_targets_exactly_the_next_major(self) -> None:
 		self.assertIsNone(self.route("develop", "feat/next-major", "13.0.0-dev.1", internal=False))
-		self.history.require_tag_at.assert_called_once_with("12.0.0", self.main)
+		self.require_published.assert_not_called()
 		for version in ("12.1.0-dev.0", "13.0.1-dev.0", "14.0.0-dev.0", "13.0.0"):
 			with self.subTest(version=version), self.assertRaisesRegex(
 				gf_branch_workflow.BranchWorkflowError, "develop must target 13.0.0",
@@ -176,27 +180,59 @@ class BranchWorkflowTests(unittest.TestCase):
 				self.route("main", ref, version)
 
 		self.versions[self.head] = "13.0.0"
+		# Only the release topic branch must contain both long-lived tips.
+		self.parents[self.develop] = set()
 		self.assertEqual(self.route("main", "release/13.0.0", "13.0.0"), "13.0.0")
 		self.parents[self.head] = {self.main}
-		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "current, synchronized develop"):
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "current develop tip"):
+			self.route("main", "release/13.0.0", "13.0.0")
+		self.parents[self.head] = {self.develop}
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "include the current main"):
 			self.route("main", "release/13.0.0", "13.0.0")
 
-	def test_sync_preserves_release_ancestry_and_advances_a_major(self) -> None:
-		self.versions[self.main] = "13.0.0"
-		self.published_versions.add("13.0.0")
-		self.versions[self.head] = "14.0.0-dev.0"
-		self.parents[self.develop] = set()
-		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "via sync/13.0.0"):
-			self.route("develop", "fix/before-sync", "14.0.0-dev.0")
-		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "develop must target 14.0.0"):
-			self.route("develop", "sync/13.0.0", "13.0.0-dev.0")
-		self.assertIsNone(self.route("develop", "sync/13.0.0", "14.0.0-dev.0"))
+	def test_develop_continues_after_patch_without_importing_main(self) -> None:
+		self.versions[self.main] = "12.0.1"
+		shared = "d" * 40
+		self.history.merge_bases.return_value = [shared]
+		self.parents[self.develop] = {shared}
+		self.parents[self.head] = {self.develop, shared}
+		self.assertIsNone(self.route("develop", "fix/development-fix", self.versions[self.head]))
 		gf_branch_workflow.validate_branch_push(
 			self.policy, self.history, "develop", self.develop, self.head, self.require_published,
 		)
-		self.parents[self.head] = {self.develop}
-		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "both branch tips"):
-			self.route("develop", "sync/13.0.0", "14.0.0-dev.0")
+		self.require_published.assert_not_called()
+		self.policy["development_api_baseline"] = {"tag": "12.0.1", "commit": self.main}
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "baseline is fixed"):
+			self.route("develop", "fix/development-fix", self.versions[self.head])
+		self.policy["development_api_baseline"] = self.baselines[self.develop]
+		self.history.merge_bases.return_value = [self.main]
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "must not import"):
+			self.route("develop", "fix/imported-stable", self.versions[self.head])
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "development topic branch"):
+			self.route("develop", "sync/12.0.1", self.versions[self.head])
+
+	def test_major_rollover_pins_the_release_without_merging_it(self) -> None:
+		self.versions[self.main] = "13.0.0"
+		self.versions[self.head] = "14.0.0-dev.0"
+		shared = "d" * 40
+		self.history.merge_bases.return_value = [shared]
+		self.parents[self.develop] = {shared}
+		self.parents[self.head] = {self.develop, shared}
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "via chore/start-14.0.0"):
+			self.route("develop", "fix/before-rollover", "14.0.0-dev.0")
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "develop must target 14.0.0"):
+			self.route("develop", "chore/start-14.0.0", "13.0.0-dev.0")
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Pin the next"):
+			self.route("develop", "chore/start-14.0.0", "14.0.0-dev.0")
+		self.policy["development_api_baseline"] = {"tag": "13.0.0", "commit": self.main}
+		with self.assertRaisesRegex(gf_branch_workflow.UnpublishedReleaseError, "Unpublished"):
+			self.route("develop", "chore/start-14.0.0", "14.0.0-dev.0")
+		self.published_versions.add("13.0.0")
+		self.assertIsNone(self.route("develop", "chore/start-14.0.0", "14.0.0-dev.0"))
+		gf_branch_workflow.validate_branch_push(
+			self.policy, self.history, "develop", self.develop, self.head, self.require_published,
+		)
+		self.parents[self.head] = {shared}
 		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "preserve prior history"):
 			gf_branch_workflow.validate_branch_push(
 				self.policy, self.history, "develop", self.develop, self.head, self.require_published,
@@ -236,10 +272,24 @@ class BranchWorkflowTests(unittest.TestCase):
 
 		failed = gf_maintenance.ApiBaselineRef("12.0.0", self.main)
 		official = gf_maintenance.ApiBaselineRef("11.0.0", self.develop)
-		with mock.patch.object(gf_maintenance, "read_annotated_ancestor_semver_tags", return_value=(failed, official)):
+		with mock.patch.object(gf_maintenance, "read_annotated_semver_tags", return_value=(failed, official)):
 			with mock.patch.object(gf_maintenance.gf_repository_policy, "load_repository_policy", return_value=(self.policy, [])):
 				self.assertEqual(gf_maintenance.resolve_api_baseline_ref("12.0.1"), (official, ""))
 				self.assertIsNone(gf_maintenance.resolve_api_baseline_ref("12.0.1", "12.0.0")[0])
+
+	def test_develop_uses_its_own_abandoned_tag_history(self) -> None:
+		self.baselines.clear()
+		self.policy["abandoned_release_tags"] = {}
+		self.history.git.return_value = '{"abandoned_release_tags": {}}'
+		gf_maintenance.gf_repository_policy.audit_abandoned_tag_update(
+			self.policy, self.history, "develop", self.develop,
+		)
+		self.history.git.assert_called_once_with("show", f"{self.develop}:.github/repository-policy.json")
+		self.policy["abandoned_release_tags"] = {"12.0.1": self.main}
+		with self.assertRaisesRegex(gf_branch_workflow.BranchWorkflowError, "Only the recovery PR"):
+			gf_maintenance.gf_repository_policy.audit_abandoned_tag_update(
+				self.policy, self.history, "develop", self.develop,
+			)
 
 	def test_develop_protection_requires_its_own_push_on_the_shared_sha(self) -> None:
 		policy_tool = gf_maintenance.gf_repository_policy
@@ -23507,11 +23557,41 @@ class ChangelogBaselinePolicyTests(unittest.TestCase):
 				)
 
 			api_baseline.assert_called_once_with(
-				version=gf_maintenance.changelog_release_target_version(version),
+				version=version,
 				enforce_version=True,
 				allow_breaking=allow_breaking_api,
 			)
 			return report
+
+	def test_pinned_development_baseline_can_live_outside_develop_history(self) -> None:
+		policy, issues = gf_maintenance.gf_repository_policy.load_repository_policy()
+		self.assertEqual(issues, [])
+		tag = policy["development_api_baseline"]["tag"]
+		commit = policy["development_api_baseline"]["commit"]
+		target = gf_branch_workflow.next_release_versions(tag)[0]
+		latest_patch = gf_branch_workflow.next_release_versions(tag)[1]
+		with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git") as git:
+			git.return_value = self._git_result(f"{tag}\ttag\tcommit\t{commit}\n")
+			ref, error = gf_maintenance.resolve_api_baseline_ref(f"{target}-dev.0")
+			self.assertEqual((ref, error), (gf_maintenance.ApiBaselineRef(tag, commit), ""))
+			command = git.call_args.args[0]
+			self.assertEqual(command[-1], f"refs/tags/{tag}")
+			self.assertNotIn("--merged=HEAD", command)
+			self.assertIsNone(gf_maintenance.resolve_api_baseline_ref(f"{target}-dev.0", latest_patch)[0])
+			self.assertEqual(git.call_count, 1)
+			for inventory in ("", f"{tag}\tcommit\t\t\n", f"{tag}\ttag\tcommit\t{'e' * 40}\n"):
+				git.return_value = self._git_result(inventory)
+				self.assertIsNone(gf_maintenance.resolve_api_baseline_ref(f"{target}-dev.0")[0])
+
+	def test_stable_candidate_can_check_the_current_main_patch(self) -> None:
+		commit = "e" * 40
+		with mock.patch.object(gf_maintenance, "run_frozen_maintenance_git") as git:
+			git.return_value = self._git_result(f"12.0.1\ttag\tcommit\t{commit}\n")
+			self.assertEqual(
+				gf_maintenance.resolve_api_baseline_ref("13.0.0", "12.0.1"),
+				(gf_maintenance.ApiBaselineRef("12.0.1", commit), ""),
+			)
+			self.assertIn("--merged=HEAD", git.call_args.args[0])
 
 	def test_api_baseline_reads_captured_oid_for_automatic_and_explicit_tags(self) -> None:
 		captured_kwargs: list[dict[str, object]] = []

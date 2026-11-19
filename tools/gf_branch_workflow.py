@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import configparser
+import json
 import os
 import re
 from collections.abc import Callable
@@ -17,6 +18,7 @@ STABLE_SEMVER_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]
 COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 NEW_BRANCH_BEFORE_SHA = "0" * 40
 PLUGIN_CONFIG = "addons/gf/plugin.cfg"
+REPOSITORY_POLICY_CONFIG = ".github/repository-policy.json"
 
 
 class BranchWorkflowError(ValueError):
@@ -51,6 +53,10 @@ class BranchHistory:
 
 	def version(self, commit_sha: str) -> str:
 		return parse_plugin_version(self.git("show", f"{require_commit_sha(commit_sha)}:{PLUGIN_CONFIG}"))
+
+	def development_baseline(self, commit_sha: str) -> dict[str, str] | None:
+		policy = json.loads(self.git("show", f"{require_commit_sha(commit_sha)}:{REPOSITORY_POLICY_CONFIG}"))
+		return policy.get("development_api_baseline")
 
 	def contains(self, descendant: str, ancestor: str) -> bool:
 		return self.git("merge-base", require_commit_sha(descendant), require_commit_sha(ancestor)) == ancestor
@@ -154,9 +160,9 @@ def validate_pull_route(
 		require_stable_ancestry(history, development_branch, head_sha, main_sha)
 		return require_release_candidate(history, head_sha, main_sha, main_version, require_published)
 
-	require_published(main_version)
-	history.require_tag_at(main_version, main_sha)
 	if base_ref == main_branch:
+		require_published(main_version)
+		history.require_tag_at(main_version, main_sha)
 		if not internal:
 			raise BranchWorkflowError(f"Release and hotfix PRs to {main_branch} must come from this repository.")
 		if head_ref == f"hotfix/{next_patch}" and merged_version == next_patch:
@@ -169,27 +175,59 @@ def validate_pull_route(
 		development_sha = history.branch_commit(development_branch)
 		if not development_version_of(history.version(development_sha), next_major):
 			raise BranchWorkflowError(f"{development_branch} must target {next_major} before promotion.")
-		if not history.contains(development_sha, main_sha) or not history.contains(head_sha, development_sha):
-			raise BranchWorkflowError(f"Prepare release/{next_major} from current, synchronized {development_branch}.")
+		if not history.contains(head_sha, development_sha):
+			raise BranchWorkflowError(f"Prepare release/{next_major} from the current {development_branch} tip.")
 		return require_release_candidate(history, head_sha, main_sha, next_major, require_published)
 
-	if not development_version_of(merged_version, next_major):
-		raise BranchWorkflowError(f"{development_branch} must target {next_major}-dev.N.")
-	if history.contains(base_sha, main_sha):
-		if internal and head_ref.startswith(("release/", "hotfix/", "sync/")):
-			raise BranchWorkflowError(f"Use a development topic branch for work targeting {development_branch}.")
-		return None
-	if not internal or head_ref != f"sync/{main_version}":
-		raise BranchWorkflowError(f"Merge {main_branch} into {development_branch} via sync/{main_version} first.")
-	if (
-		not history.contains(head_sha, main_sha)
-		or not history.contains(head_sha, base_sha)
-		or history.version(head_sha) != merged_version
-	):
-		raise BranchWorkflowError(
-			f"sync/{main_version} must contain both branch tips and carry {next_major}-dev.N on its own head."
-		)
+	if internal and head_ref.startswith(("release/", "hotfix/", "sync/")):
+		raise BranchWorkflowError(f"Use a development topic branch for work targeting {development_branch}.")
+	validate_development_update(
+		policy, history, base_sha, head_sha, main_sha, main_version, merged_version, require_published,
+		starts_cycle=internal and head_ref == f"chore/start-{next_major}",
+	)
 	return None
+
+
+def validate_development_update(
+	policy: dict[str, Any],
+	history: BranchHistory,
+	base_sha: str,
+	head_sha: str,
+	main_sha: str,
+	main_version: str,
+	version: str,
+	require_published: Callable[[str], None],
+	*,
+	starts_cycle: bool,
+) -> None:
+	development_branch = policy["development_branch"]
+	next_major, _ = next_release_versions(main_version)
+	if not development_version_of(version, next_major):
+		raise BranchWorkflowError(f"{development_branch} must target {next_major}-dev.N.")
+	if any(not history.contains(base_sha, shared) for shared in history.merge_bases(head_sha, main_sha)):
+		raise BranchWorkflowError(f"{development_branch} must not import new stable-line history.")
+
+	baseline = policy["development_api_baseline"]
+	if development_version_of(history.version(base_sha), next_major):
+		previous_baseline = history.development_baseline(base_sha)
+		if previous_baseline is not None:
+			if baseline != previous_baseline:
+				raise BranchWorkflowError("The development API baseline is fixed for the current major cycle.")
+			return
+		# Adopt the initial baseline on an existing development branch created under the old policy.
+		cutover = policy["cutover_release"]
+		if baseline["tag"] != cutover or not history.contains(main_sha, baseline["commit"]):
+			raise BranchWorkflowError(f"Pin the initial development API baseline to the {cutover} release.")
+		history.require_tag_at(cutover, baseline["commit"])
+		require_published(cutover)
+		return
+
+	if not starts_cycle or version != f"{next_major}-dev.0":
+		raise BranchWorkflowError(f"Start the next major cycle via chore/start-{next_major} at {next_major}-dev.0.")
+	if baseline != {"tag": main_version, "commit": main_sha}:
+		raise BranchWorkflowError(f"Pin the next development API baseline to the published {main_version} commit.")
+	history.require_tag_at(main_version, main_sha)
+	require_published(main_version)
 
 
 def require_stable_ancestry(
@@ -274,17 +312,18 @@ def validate_branch_push(
 	main_version = history.version(main_sha)
 	if not stable_main_version(policy, main_version):
 		raise BranchWorkflowError(f"Publish {policy['cutover_release']} before creating {branch}.")
-	require_published(main_version)
-	history.require_tag_at(main_version, main_sha)
 	if before_sha == NEW_BRANCH_BEFORE_SHA:
+		require_published(main_version)
+		history.require_tag_at(main_version, main_sha)
 		if head_sha != main_sha:
 			raise BranchWorkflowError(f"Create {branch} at the published {main_version} commit.")
 		return
-	next_major, _ = next_release_versions(main_version)
-	if not history.contains(head_sha, before_sha) or not history.contains(head_sha, main_sha):
-		raise BranchWorkflowError(f"{branch} must preserve prior history and the published {main_version} commit.")
-	if not development_version_of(version, next_major):
-		raise BranchWorkflowError(f"{branch} must carry {next_major}-dev.N, got {version!r}.")
+	if not history.contains(head_sha, before_sha):
+		raise BranchWorkflowError(f"{branch} must preserve prior history.")
+	validate_development_update(
+		policy, history, before_sha, head_sha, main_sha, main_version, version, require_published,
+		starts_cycle=True,
+	)
 
 
 def validate_release_tag(policy: dict[str, Any], history: BranchHistory, version: str) -> None:

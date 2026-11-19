@@ -3289,16 +3289,36 @@ def resolve_api_baseline_ref(
 	release_parts = parse_semver(release_target)
 	if release_parts is None:
 		return None, f"Release target {release_target!r} is not a governed stable SemVer."
-	eligible_refs = read_annotated_ancestor_semver_tags()
-	if eligible_refs is None:
-		return None, "Could not read a complete annotated SemVer tag inventory from Git."
+	abandoned = {}
 	policy_path = ROOT / ".github/repository-policy.json"
 	if policy_path.is_file():
 		repository_policy, issues = gf_repository_policy.load_repository_policy(policy_path)
 		if issues:
 			return None, "Could not validate the repository release policy: " + " ".join(issues)
 		abandoned = repository_policy["abandoned_release_tags"]
-		eligible_refs = tuple(ref for ref in eligible_refs if abandoned.get(ref.tag) != ref.commit_oid)
+		cutover = parse_semver(repository_policy["cutover_release"])
+		if release_version != release_target and cutover is not None and release_parts[0] > cutover[0]:
+			baseline = repository_policy["development_api_baseline"]
+			tag, commit = baseline["tag"], baseline["commit"]
+			tag_parts = parse_semver(tag)
+			if (
+				tag_parts is None
+				or release_parts != (tag_parts[0] + 1, 0, 0)
+				or tag in abandoned
+			):
+				return None, f"Development API baseline {tag!r} must belong to the preceding stable major."
+			if explicit_tag and explicit_tag != tag:
+				return None, f"Development API comparison requires the configured baseline {tag!r}."
+			pinned_ref = ApiBaselineRef(tag, commit)
+			refs = read_annotated_semver_tags(pinned_tag=tag)
+			if refs is None or pinned_ref not in refs:
+				return None, f"Development API baseline requires annotated tag {tag!r} at {commit}."
+			return pinned_ref, ""
+
+	eligible_refs = read_annotated_semver_tags()
+	if eligible_refs is None:
+		return None, "Could not read a complete annotated SemVer tag inventory from Git."
+	eligible_refs = tuple(ref for ref in eligible_refs if abandoned.get(ref.tag) != ref.commit_oid)
 	if explicit_tag:
 		tag_parts = parse_semver(explicit_tag)
 		matching_ref = next(
@@ -3326,14 +3346,14 @@ def resolve_api_baseline_ref(
 	), ""
 
 
-def read_annotated_ancestor_semver_tags() -> tuple[ApiBaselineRef, ...] | None:
-	"""Read annotated SemVer tags whose peeled commits are ancestors of HEAD."""
+def read_annotated_semver_tags(*, pinned_tag: str = "") -> tuple[ApiBaselineRef, ...] | None:
+	"""Read annotated SemVer tags reachable from HEAD, or one configured tag."""
 
 	result = run_frozen_maintenance_git([
 		"for-each-ref",
-		"--merged=HEAD",
+		*([] if pinned_tag else ["--merged=HEAD"]),
 		"--format=%(refname:strip=2)%09%(objecttype)%09%(*objecttype)%09%(*objectname)",
-		"refs/tags",
+		f"refs/tags/{pinned_tag}" if pinned_tag else "refs/tags",
 	],
 		max_stdout_characters=API_BASELINE_TAG_INVENTORY_STDOUT_MAX_CHARS,
 		max_stderr_characters=API_BASELINE_TAG_INVENTORY_STDERR_MAX_CHARS,
@@ -3354,6 +3374,8 @@ def read_annotated_ancestor_semver_tags() -> tuple[ApiBaselineRef, ...] | None:
 		if len(fields) != 4:
 			return None
 		tag, object_type, peeled_type, peeled_object_id = fields
+		if pinned_tag and tag != pinned_tag:
+			continue
 		is_annotated_commit = (
 			object_type == "tag"
 			and peeled_type == "commit"
@@ -21684,7 +21706,7 @@ def changelog_policy(*, allow_breaking_api: bool = False) -> dict[str, Any]:
 	]
 	api_report = (
 		api_baseline_diff(
-			version=release_target_version,
+			version=framework_version,
 			enforce_version=True,
 			allow_breaking=allow_breaking_api,
 		)

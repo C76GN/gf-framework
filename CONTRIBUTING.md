@@ -33,7 +33,6 @@ ci/         CI or repository-governance change
 chore/      Narrow maintenance change
 hotfix/     Compatible patch from the current published tag
 release/    Major release candidate
-sync/       Bring a published main commit into develop
 codex/      Codex-owned short-lived work
 ```
 
@@ -63,9 +62,8 @@ Draft and Ready PRs have different contracts:
   conversations are resolved, and the branch is current with its PR base.
 
 Use squash merge for release and ordinary topic PRs. Rebase merge suits a
-structured series whose individual commits are independently valid. Use
-**Create a merge commit** for `sync/<version>` PRs so `develop` retains the
-published release commit as an ancestor. `main` requires linear history.
+structured series whose individual commits are independently valid.
+`main` requires linear history.
 
 Editing only PR metadata such as the title or description does not cancel Full
 validation already running for the same commit. It reruns repository policy and
@@ -201,12 +199,14 @@ use the same manifest and archive bytes.
 ## Hotfixes and Releases
 
 - Create a compatible hotfix from the current published tag and propose the
-  next patch through a PR to `main`. A fix needed only by unreleased work
-  uses a normal PR to `develop`.
+  next patch through a PR to `main`. When both lines need the fix, open
+  one PR per line and validate each against its own compatibility contract.
+  Patch publication leaves the ongoing development cycle in progress.
 - Promote the next major through an internal release candidate based on
-  `develop`. Wait for Full CI on the merged `main` commit before tagging.
-- After publication, bring the actual tagged commit into `develop` through
-  `sync/<version>`. Resolve conflicts against the development design at that
-  point. If both lines already have the same fix, the sync preserves the
-  released commit in their shared history.
+  `develop`. Include the current `main` tip on that release branch and review
+  stability fixes before squash-merging. Wait for Full CI on the merged
+  `main` commit before tagging.
+- After a major publication, open the following cycle on `develop` through
+  `chore/start-<version>`. Pin its API baseline to the published tag and
+  commit in `.github/repository-policy.json`.
 - Correct a published problem with a forward commit and a new release.
