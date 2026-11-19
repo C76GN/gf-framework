@@ -389,3 +389,321 @@ func test_notification_actions_emit_signal_and_can_dismiss() -> void:
 		"notification_finished",
 		"被丢弃通知应发出 finished 信号。"
 	)
+
+
+func test_concurrent_notifications_expire_independently_and_refill_by_priority() -> void:
+	var notifications: GFNotificationUtility = GFNotificationUtility.new()
+	notifications.max_active_notifications = 2
+	var first_id: int = _push_timed_notification(
+		notifications,
+		"Long",
+		2.0
+	)
+	var second_id: int = _push_timed_notification(
+		notifications,
+		"Short",
+		0.5
+	)
+	var waiting_id: int = _push_timed_notification(
+		notifications,
+		"Waiting",
+		0.25
+	)
+	var high_priority_id: int = _push_timed_notification(
+		notifications,
+		"Important",
+		0.25,
+		GFNotificationUtility.Priority.HIGH
+	)
+
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id, second_id]
+	)
+	assert_eq(
+		_notification_ids(notifications.get_queue()),
+		[high_priority_id, waiting_id]
+	)
+
+	notifications.pause_active()
+	notifications.tick(0.5)
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id, high_priority_id]
+	)
+	assert_true(notifications.is_active_paused())
+
+	notifications.tick(0.25)
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id, waiting_id]
+	)
+	notifications.tick(0.25)
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id]
+	)
+	assert_eq(
+		GFVariantData.get_option_float(
+			notifications.get_debug_snapshot(),
+			"active_remaining_seconds"
+		),
+		2.0
+	)
+
+
+func test_active_limit_changes_fill_slots_and_let_existing_records_finish() -> void:
+	var notifications: GFNotificationUtility = GFNotificationUtility.new()
+	assert_eq(notifications.max_active_notifications, 1)
+	notifications.max_active_notifications = 0
+	assert_eq(notifications.max_active_notifications, 1)
+	notifications.max_active_notifications = 100
+	assert_eq(notifications.max_active_notifications, 32)
+	notifications.max_active_notifications = 1
+
+	var first_id: int = notifications.push_notification("First")
+	var second_id: int = notifications.push_notification("Second")
+	notifications.max_active_notifications = 2
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id, second_id]
+	)
+
+	notifications.max_active_notifications = 1
+	var waiting_id: int = notifications.push_notification("Waiting")
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id, second_id]
+	)
+	assert_false(notifications.dismiss_notification(waiting_id))
+	assert_true(notifications.dismiss_notification(second_id))
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id]
+	)
+
+	notifications.dismiss_active()
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[waiting_id]
+	)
+
+
+func test_concurrent_records_are_copied_and_deduplicate_across_all_active_slots() -> void:
+	var notifications: GFNotificationUtility = GFNotificationUtility.new()
+	notifications.max_active_notifications = 2
+	var first_id: int = notifications.push_notification("First")
+	var second_id: int = notifications.push_notification(
+		"Second",
+		"",
+		GFNotificationUtility.Level.INFO,
+		{
+			"key": "progress",
+			"metadata": { "progress": 1, },
+		}
+	)
+	var duplicate_id: int = notifications.push_notification(
+		"Duplicate",
+		"",
+		GFNotificationUtility.Level.INFO,
+		{ "key": "progress" }
+	)
+	assert_eq(duplicate_id, second_id)
+	assert_true(notifications.get_queue().is_empty())
+
+	var snapshot: Array[Dictionary] = notifications.get_active_notifications()
+	var metadata: Dictionary = GFVariantData.as_dictionary(snapshot[1]["metadata"])
+	metadata["progress"] = 99
+	snapshot[0]["id"] = -1
+	snapshot.clear()
+
+	var fresh: Array[Dictionary] = notifications.get_active_notifications()
+	assert_eq(
+		_notification_ids(fresh),
+		[first_id, second_id]
+	)
+	var fresh_metadata: Dictionary = GFVariantData.as_dictionary(fresh[1]["metadata"])
+	assert_eq(
+		GFVariantData.get_option_int(fresh_metadata, "progress"),
+		1
+	)
+
+
+func test_action_closes_only_its_notification_under_reentry() -> void:
+	var notifications: GFNotificationUtility = GFNotificationUtility.new()
+	notifications.max_active_notifications = 2
+	var first_id: int = notifications.push_notification("First")
+	var action_id: int = notifications.push_notification(
+		"Actionable",
+		"",
+		GFNotificationUtility.Level.INFO,
+		{
+			"actions": [
+				{ "id": &"ack", "dismiss": true, },
+			],
+		}
+	)
+	var waiting_id: int = notifications.push_notification("Waiting")
+	var invoked_ids: Array[int] = []
+	var on_action: Callable = func(record: Dictionary, _action: StringName) -> void:
+		var notification_id: int = GFVariantData.get_option_int(record, "id")
+		invoked_ids.append(notification_id)
+		var _dismissed: bool = notifications.dismiss_notification(notification_id, "handled")
+	var _connected: int = notifications.notification_action_invoked.connect(on_action)
+
+	assert_false(notifications.invoke_active_action(&"ack"))
+	assert_true(notifications.invoke_notification_action(action_id, &"ack"))
+	assert_eq(
+		invoked_ids,
+		[action_id]
+	)
+	assert_false(notifications.dismiss_notification(action_id))
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[first_id, waiting_id]
+	)
+	notifications.notification_action_invoked.disconnect(on_action)
+
+
+func test_same_tick_expirations_detach_before_callbacks_and_refill() -> void:
+	var notifications: GFNotificationUtility = GFNotificationUtility.new()
+	notifications.max_active_notifications = 2
+	var first_id: int = _push_timed_notification(
+		notifications,
+		"Short one",
+		0.5
+	)
+	var second_id: int = _push_timed_notification(
+		notifications,
+		"Short two",
+		0.5
+	)
+	var waiting_id: int = _push_timed_notification(
+		notifications,
+		"Waiting",
+		0.25
+	)
+	var finished_ids: Array[int] = []
+	var completion_reasons: Array[String] = []
+	var active_counts: Array[int] = []
+	var on_finished: Callable = func(record: Dictionary, reason: String) -> void:
+		finished_ids.append(GFVariantData.get_option_int(record, "id"))
+		completion_reasons.append(reason)
+		active_counts.append(notifications.get_active_notifications().size())
+		if finished_ids.size() == 1:
+			var _dismissed: bool = notifications.dismiss_notification(second_id)
+	var _connected: int = notifications.notification_finished.connect(on_finished)
+
+	notifications.tick(0.5)
+	assert_eq(
+		finished_ids,
+		[first_id, second_id]
+	)
+	assert_eq(
+		completion_reasons,
+		["timeout", "timeout"]
+	)
+	assert_eq(
+		active_counts,
+		[0, 0]
+	)
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[waiting_id]
+	)
+	notifications.notification_finished.disconnect(on_finished)
+
+
+func test_zero_waiting_capacity_fills_slots_after_started_callbacks() -> void:
+	var notifications: GFNotificationUtility = GFNotificationUtility.new()
+	notifications.max_active_notifications = 2
+	notifications.max_queue_size = 0
+	var reentrant_ids: Array[int] = []
+	var on_started: Callable = func(record: Dictionary) -> void:
+		if GFVariantData.get_option_string(record, "message") != "Instant":
+			return
+		var notification_id: int = GFVariantData.get_option_int(record, "id")
+		var _dismissed: bool = notifications.dismiss_notification(notification_id, "handled")
+		reentrant_ids.append(notifications.push_notification("Replacement"))
+	var _connected: int = notifications.notification_started.connect(on_started)
+
+	var anchor_id: int = notifications.push_notification("Anchor")
+	var instant_id: int = _push_timed_notification(
+		notifications,
+		"Instant",
+		0.0
+	)
+	assert_eq(
+		reentrant_ids.size(),
+		1
+	)
+	assert_false(notifications.dismiss_notification(instant_id))
+	assert_eq(
+		_notification_ids(notifications.get_active_notifications()),
+		[anchor_id, reentrant_ids[0]]
+	)
+	assert_true(notifications.get_queue().is_empty())
+	notifications.notification_started.disconnect(on_started)
+
+
+func test_concurrent_clear_and_dispose_finish_only_detached_active_records() -> void:
+	for disposing: bool in [false, true]:
+		var notifications: GFNotificationUtility = GFNotificationUtility.new()
+		notifications.max_active_notifications = 2
+		var first_id: int = notifications.push_notification("First")
+		var second_id: int = notifications.push_notification("Second")
+		var _waiting_id: int = notifications.push_notification("Waiting")
+		var finished_ids: Array[int] = []
+		var pushed_ids: Array[int] = []
+		var completion_reasons: Array[String] = []
+		var on_finished: Callable = func(record: Dictionary, reason: String) -> void:
+			finished_ids.append(GFVariantData.get_option_int(record, "id"))
+			completion_reasons.append(reason)
+			notifications.dismiss_active()
+			pushed_ids.append(notifications.push_notification("Reentrant"))
+		var _connected: int = notifications.notification_finished.connect(on_finished)
+
+		if disposing:
+			notifications.dispose()
+		else:
+			notifications.clear_notifications()
+
+		var expected_reason: String = "disposed" if disposing else "cleared"
+		assert_eq(
+			finished_ids,
+			[first_id, second_id]
+		)
+		assert_eq(
+			completion_reasons,
+			[expected_reason, expected_reason]
+		)
+		assert_eq(
+			pushed_ids,
+			[0, 0]
+		)
+		assert_true(notifications.get_active_notifications().is_empty())
+		assert_true(notifications.get_queue().is_empty())
+		notifications.notification_finished.disconnect(on_finished)
+
+
+# --- 私有/辅助方法 ---
+
+func _push_timed_notification(
+	notifications: GFNotificationUtility,
+	message: String,
+	seconds: float,
+	priority: GFNotificationUtility.Priority = GFNotificationUtility.Priority.NORMAL
+) -> int:
+	return notifications.push_notification(
+		message,
+		"",
+		GFNotificationUtility.Level.INFO,
+		{ "duration_seconds": seconds, "priority": priority, }
+	)
+
+
+func _notification_ids(records: Array[Dictionary]) -> Array[int]:
+	var result: Array[int] = []
+	for record: Dictionary in records:
+		result.append(GFVariantData.get_option_int(record, "id"))
+	return result

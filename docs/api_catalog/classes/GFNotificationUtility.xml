@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNotificationUtility" path="addons/gf/standard/utilities/ui/gf_notification_utility.gd" module="standard" extends="GFUtility" classDigest="7b0777d500efb3334142f69646afdc946e3219c68e1561539e815d71dc2788f3">
+<class name="GFNotificationUtility" path="addons/gf/standard/utilities/ui/gf_notification_utility.gd" module="standard" extends="GFUtility" classDigest="9bfe6f7b5169e7b541dc38d1a0d62797575ff5fd98d94930fefcdee86d589e91">
 	<description>GFNotificationUtility: 通用运行时通知队列。
-只管理通知数据、队列、去重和生命周期信号，不规定 Toast、HUD 或编辑器 UI 样式。</description>
+管理通知数据、队列、去重和生命周期信号。默认串行展示，可配置多个活动通知。
+单条活动通知接口面向最早开始展示且仍在活动的记录。项目决定展示布局和样式。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>
@@ -38,12 +39,13 @@
 		</member>
 		<member kind="signal" name="notification_action_invoked">
 			<signature>signal notification_action_invoked(notification: Dictionary, action_id: StringName)</signature>
-			<description>当前通知动作被触发时发出。</description>
+			<description>活动通知的动作被触发时发出。</description>
 			<tags>
 				<tag name="api">public</tag>
-				<tag name="param">notification: 当前通知副本。</tag>
+				<tag name="param">notification: 触发动作的通知副本。</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="schema">notification: Dictionary，字段同 notification_queued 的 notification。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 	</signals>
@@ -92,9 +94,18 @@
 		</member>
 		<member kind="property" name="max_queue_size">
 			<signature>var max_queue_size: int = 32</signature>
-			<description>最大排队数量。设为 0 时只允许当前通知，不保留等待队列。</description>
+			<description>最大等待数量。设为 0 时只保留活动通知。</description>
 			<tags>
 				<tag name="api">public</tag>
+				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="property" name="max_active_notifications">
+			<signature>var max_active_notifications: int = 1:</signature>
+			<description>活动通知的准入上限，默认 1，范围 1 至 32。提高上限会补入等待通知。降低上限时已有活动通知自然结束。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="property" name="suppress_duplicates">
@@ -130,8 +141,9 @@
 				<tag name="param">title: 通知标题。</tag>
 				<tag name="param">level: 通知等级。</tag>
 				<tag name="param">options: 可选参数，支持 duration_seconds、key、metadata、priority、sticky、actions。</tag>
-				<tag name="return">通知 id；被去重抑制时返回已有通知 id。</tag>
+				<tag name="return">接纳时返回通知 ID。重复通知返回已有 ID，空通知和清空期间的请求返回 0。</tag>
 				<tag name="schema">options: Dictionary，支持 duration_seconds、key、metadata、priority、sticky 和 actions。actions 为 Array[StringName|String|Dictionary]，Dictionary action 包含 id、可选 label、dismiss 和 metadata；label 为空时由项目 UI 决定展示文案。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="dismiss_active">
@@ -142,12 +154,24 @@
 				<tag name="param">reason: 结束原因。</tag>
 			</tags>
 		</member>
+		<member kind="method" name="dismiss_notification">
+			<signature>func dismiss_notification(notification_id: int, reason: String = "dismissed") -&gt; bool:</signature>
+			<description>按 ID 结束一条活动通知并处理腾出的名额。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">notification_id: push_notification() 返回的通知 ID。</tag>
+				<tag name="param">reason: 交给 notification_finished 的结束原因。</tag>
+				<tag name="return">该 ID 处于活动状态并已结束时返回 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="clear_notifications">
 			<signature>func clear_notifications(reason: String = "cleared") -&gt; void:</signature>
-			<description>清空当前通知和等待队列。</description>
+			<description>先撤下全部活动通知并清空等待队列，再为每条原先活动的通知发出结束信号。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">reason: 结束原因。</tag>
+				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_notification">
@@ -157,6 +181,16 @@
 				<tag name="api">public</tag>
 				<tag name="return">当前通知副本。</tag>
 				<tag name="schema">return: Dictionary，当前通知记录；无当前通知时为空。字段同 notification_queued 的 notification。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_active_notifications">
+			<signature>func get_active_notifications() -&gt; Array[Dictionary]:</signature>
+			<description>按开始展示的顺序获取所有活动通知的副本。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">活动通知记录数组。</tag>
+				<tag name="schema">return: Array，元素为通知记录 Dictionary，字段同 notification_queued 的 notification。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="pause_active">
@@ -188,6 +222,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">action_id: 动作标识。</tag>
 				<tag name="return">当前通知包含该动作时返回 true。</tag>
+			</tags>
+		</member>
+		<member kind="method" name="invoke_notification_action">
+			<signature>func invoke_notification_action(notification_id: int, action_id: StringName) -&gt; bool:</signature>
+			<description>按 ID 触发活动通知的动作。动作要求结束时，只结束发出该动作的通知。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">notification_id: push_notification() 返回的通知 ID。</tag>
+				<tag name="param">action_id: 动作标识。</tag>
+				<tag name="return">该 ID 处于活动状态且包含该动作时返回 true。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_queue">

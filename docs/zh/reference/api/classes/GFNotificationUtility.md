@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`3.17.0`
 
-通用运行时通知队列。 只管理通知数据、队列、去重和生命周期信号，不规定 Toast、HUD 或编辑器 UI 样式。
+通用运行时通知队列。 管理通知数据、队列、去重和生命周期信号。默认串行展示，可配置多个活动通知。 单条活动通知接口面向最早开始展示且仍在活动的记录。项目决定展示布局和样式。
 
 ## 成员概览
 
@@ -23,17 +23,21 @@
 | 枚举 | [`Priority`](#member-gfnotificationutility-enums-priority) | `enum Priority` |
 | 属性 | [`default_duration_seconds`](#member-gfnotificationutility-properties-default_duration_seconds) | `var default_duration_seconds: float = 3.0` |
 | 属性 | [`max_queue_size`](#member-gfnotificationutility-properties-max_queue_size) | `var max_queue_size: int = 32` |
+| 属性 | [`max_active_notifications`](#member-gfnotificationutility-properties-max_active_notifications) | `var max_active_notifications: int = 1:` |
 | 属性 | [`suppress_duplicates`](#member-gfnotificationutility-properties-suppress_duplicates) | `var suppress_duplicates: bool = true` |
 | 方法 | [`tick`](#member-gfnotificationutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfnotificationutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`push_notification`](#member-gfnotificationutility-methods-push_notification) | `func push_notification( message: String, title: String = "", level: Level = Level.INFO, options: Dictionary = {} ) -> int:` |
 | 方法 | [`dismiss_active`](#member-gfnotificationutility-methods-dismiss_active) | `func dismiss_active(reason: String = "dismissed") -> void:` |
+| 方法 | [`dismiss_notification`](#member-gfnotificationutility-methods-dismiss_notification) | `func dismiss_notification(notification_id: int, reason: String = "dismissed") -> bool:` |
 | 方法 | [`clear_notifications`](#member-gfnotificationutility-methods-clear_notifications) | `func clear_notifications(reason: String = "cleared") -> void:` |
 | 方法 | [`get_active_notification`](#member-gfnotificationutility-methods-get_active_notification) | `func get_active_notification() -> Dictionary:` |
+| 方法 | [`get_active_notifications`](#member-gfnotificationutility-methods-get_active_notifications) | `func get_active_notifications() -> Array[Dictionary]:` |
 | 方法 | [`pause_active`](#member-gfnotificationutility-methods-pause_active) | `func pause_active() -> void:` |
 | 方法 | [`resume_active`](#member-gfnotificationutility-methods-resume_active) | `func resume_active() -> void:` |
 | 方法 | [`is_active_paused`](#member-gfnotificationutility-methods-is_active_paused) | `func is_active_paused() -> bool:` |
 | 方法 | [`invoke_active_action`](#member-gfnotificationutility-methods-invoke_active_action) | `func invoke_active_action(action_id: StringName) -> bool:` |
+| 方法 | [`invoke_notification_action`](#member-gfnotificationutility-methods-invoke_notification_action) | `func invoke_notification_action(notification_id: int, action_id: StringName) -> bool:` |
 | 方法 | [`get_queue`](#member-gfnotificationutility-methods-get_queue) | `func get_queue() -> Array[Dictionary]:` |
 | 方法 | [`get_debug_snapshot`](#member-gfnotificationutility-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
 
@@ -111,18 +115,19 @@ signal notification_finished(notification: Dictionary, reason: String)
 ### `notification_action_invoked`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 signal notification_action_invoked(notification: Dictionary, action_id: StringName)
 ```
 
-当前通知动作被触发时发出。
+活动通知的动作被触发时发出。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
-| `notification` | 当前通知副本。 |
+| `notification` | 触发动作的通知副本。 |
 | `action_id` | 动作标识。 |
 
 结构：
@@ -192,12 +197,26 @@ var default_duration_seconds: float = 3.0
 ### `max_queue_size`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 var max_queue_size: int = 32
 ```
 
-最大排队数量。设为 0 时只允许当前通知，不保留等待队列。
+最大等待数量。设为 0 时只保留活动通知。
+
+<a id="member-gfnotificationutility-properties-max_active_notifications"></a>
+
+### `max_active_notifications`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+var max_active_notifications: int = 1:
+```
+
+活动通知的准入上限，默认 1，范围 1 至 32。提高上限会补入等待通知。降低上限时已有活动通知自然结束。
 
 <a id="member-gfnotificationutility-properties-suppress_duplicates"></a>
 
@@ -248,6 +267,7 @@ func dispose() -> void:
 ### `push_notification`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func push_notification( message: String, title: String = "", level: Level = Level.INFO, options: Dictionary = {} ) -> int:
@@ -264,7 +284,7 @@ func push_notification( message: String, title: String = "", level: Level = Leve
 | `level` | 通知等级。 |
 | `options` | 可选参数，支持 duration_seconds、key、metadata、priority、sticky、actions。 |
 
-返回：通知 id；被去重抑制时返回已有通知 id。
+返回：接纳时返回通知 ID。重复通知返回已有 ID，空通知和清空期间的请求返回 0。
 
 结构：
 
@@ -288,17 +308,40 @@ func dismiss_active(reason: String = "dismissed") -> void:
 |---|---|
 | `reason` | 结束原因。 |
 
+<a id="member-gfnotificationutility-methods-dismiss_notification"></a>
+
+### `dismiss_notification`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func dismiss_notification(notification_id: int, reason: String = "dismissed") -> bool:
+```
+
+按 ID 结束一条活动通知并处理腾出的名额。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `notification_id` | push_notification() 返回的通知 ID。 |
+| `reason` | 交给 notification_finished 的结束原因。 |
+
+返回：该 ID 处于活动状态并已结束时返回 true。
+
 <a id="member-gfnotificationutility-methods-clear_notifications"></a>
 
 ### `clear_notifications`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func clear_notifications(reason: String = "cleared") -> void:
 ```
 
-清空当前通知和等待队列。
+先撤下全部活动通知并清空等待队列，再为每条原先活动的通知发出结束信号。
 
 参数：
 
@@ -323,6 +366,25 @@ func get_active_notification() -> Dictionary:
 结构：
 
 - `return`: Dictionary，当前通知记录；无当前通知时为空。字段同 notification_queued 的 notification。
+
+<a id="member-gfnotificationutility-methods-get_active_notifications"></a>
+
+### `get_active_notifications`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_active_notifications() -> Array[Dictionary]:
+```
+
+按开始展示的顺序获取所有活动通知的副本。
+
+返回：活动通知记录数组。
+
+结构：
+
+- `return`: Array，元素为通知记录 Dictionary，字段同 notification_queued 的 notification。
 
 <a id="member-gfnotificationutility-methods-pause_active"></a>
 
@@ -381,6 +443,28 @@ func invoke_active_action(action_id: StringName) -> bool:
 | `action_id` | 动作标识。 |
 
 返回：当前通知包含该动作时返回 true。
+
+<a id="member-gfnotificationutility-methods-invoke_notification_action"></a>
+
+### `invoke_notification_action`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func invoke_notification_action(notification_id: int, action_id: StringName) -> bool:
+```
+
+按 ID 触发活动通知的动作。动作要求结束时，只结束发出该动作的通知。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `notification_id` | push_notification() 返回的通知 ID。 |
+| `action_id` | 动作标识。 |
+
+返回：该 ID 处于活动状态且包含该动作时返回 true。
 
 <a id="member-gfnotificationutility-methods-get_queue"></a>
 
