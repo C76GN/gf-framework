@@ -40,6 +40,7 @@ POLICY_FIELDS = {
 	"default_branch",
 	"development_branch",
 	"cutover_release",
+	"development_api_baseline",
 	"abandoned_release_tags",
 	"internal_branch_pattern",
 	"bot_branch_patterns",
@@ -370,18 +371,17 @@ def audit_abandoned_tag_update(
 	policy: dict[str, Any], history: BranchHistory, base_ref: str, base_sha: str,
 ) -> None:
 	main_branch = policy["default_branch"]
-	main_sha = base_sha if base_ref == main_branch else history.branch_commit(main_branch)
-	prior_policy = json.loads(history.git("show", f"{main_sha}:.github/repository-policy.json"))
+	prior_policy = json.loads(history.git("show", f"{base_sha}:.github/repository-policy.json"))
 	prior = prior_policy.get("abandoned_release_tags", {})
 	proposed = policy["abandoned_release_tags"]
 	if prior == proposed:
 		return
-	version = history.version(main_sha)
+	version = history.version(base_sha)
 	if (
 		base_ref != main_branch
 		or STABLE_SEMVER_RE.fullmatch(version) is None
 		or version in prior
-		or proposed != {**prior, version: main_sha}
+		or proposed != {**prior, version: base_sha}
 	):
 		raise BranchWorkflowError("Only the recovery PR may record the current tagged, unpublished main commit.")
 
@@ -432,8 +432,8 @@ def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 def audit_policy_data(policy: dict[str, Any]) -> list[str]:
 	issues: list[str] = []
 	audit_exact_fields(policy, POLICY_FIELDS, "policy", issues)
-	if policy.get("schema_version") != 3:
-		issues.append("Repository policy schema_version must be the integer 3.")
+	if policy.get("schema_version") != 4:
+		issues.append("Repository policy schema_version must be the integer 4.")
 	repository = policy.get("repository")
 	if not isinstance(repository, str) or REPOSITORY_RE.fullmatch(repository) is None:
 		issues.append("Repository policy repository must use owner/name syntax.")
@@ -449,6 +449,17 @@ def audit_policy_data(policy: dict[str, Any]) -> list[str]:
 	cutover = policy.get("cutover_release")
 	if not isinstance(cutover, str) or re.fullmatch(r"[1-9][0-9]*\.0\.0", cutover) is None:
 		issues.append("Repository policy cutover_release must name a stable major release.")
+	baseline = policy.get("development_api_baseline")
+	if (
+		not isinstance(baseline, dict)
+		or set(baseline) != {"tag", "commit"}
+		or not isinstance(baseline["tag"], str)
+		or STABLE_SEMVER_RE.fullmatch(baseline["tag"]) is None
+		or not isinstance(baseline["commit"], str)
+		or COMMIT_SHA_RE.fullmatch(baseline["commit"]) is None
+		or baseline["commit"] == "0" * 40
+	):
+		issues.append("Repository policy development_api_baseline must pin a stable tag and full commit SHA.")
 	abandoned = policy.get("abandoned_release_tags")
 	if not isinstance(abandoned, dict) or any(
 		not isinstance(version, str)
@@ -593,9 +604,10 @@ def audit_maintenance_skill_contracts(sources: dict[str, str]) -> list[str]:
 	framework_skill = ".codex/skills/gf-framework-maintenance/SKILL.md"
 	framework_checks = ".codex/skills/gf-framework-maintenance/references/checks.md"
 
-	require(release_skill, "major candidates from synchronized `develop`", "major release branch rule")
+	require(release_skill, "merge the current `main` tip on the internal", "major release branch rule")
 	require(release_skill, "current immutable stable tag", "hotfix tag-origin rule")
-	require(release_skill, "bring the actual tagged `main` commit into `develop`", "release synchronization rule")
+	require(release_skill, "a separate PR against each line", "independent fixes rule")
+	require(release_skill, "Update `development_api_baseline`", "development API baseline rule")
 	require(
 		release_checks,
 		"check --suite release --artifact-manifest",

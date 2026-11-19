@@ -27,7 +27,7 @@
 - 已发布历史只由不可变 Git tag 和 GitHub Release 保存，不建立平行 Markdown 归档，也不重写已发布 tag。
 - 版本概述和分类正文写消费者可观察的能力、修复、行为变化与迁移义务；内部重构只有影响这些结果时才记录。
 - API 破坏、删除或改名必须同时进入 `API Changes` 与 `Migration Guide`，并服从 API baseline 的 SemVer 门禁。
-- API baseline 的自动选择与显式 `--base-tag` 使用同一资格规则：只接受低于目标版本、能 peel 到 commit、且其 commit 是当前 `HEAD` 祖先的 annotated 稳定 SemVer tag。工具以有界 tag 清单捕获的对象 OID 为根；旧 Git 只展开一层 tag 时，再用一次有界批处理递归 peel，并始终以最终 commit OID 读取基线。Git 查询失败、输出被截断、stderr 非空、格式异常或没有合格 tag 时失败关闭，不能退回 lightweight、分叉或未来版本 tag。
+- 开发线使用本周期配置的 annotated 稳定 tag 和固定提交 SHA。显式 `--base-tag` 必须匹配该配置。正式候选只接受低于目标版本且从 `HEAD` 可达的 annotated 稳定 tag，发布 PR 与当前正式版本比较。工具从有界 tag 清单捕获对象 OID，必要时用有界批处理递归 peel，并按最终提交 OID 读取基线。Git 查询失败、输出截断、stderr 非空、格式异常或基线不匹配都会阻断检查。
 - [发布恢复](branch-workflow.md#发布失败后的恢复)中明确记录的未发布失败 tag 和对应提交不参与基线选择。
 
 ## 验证

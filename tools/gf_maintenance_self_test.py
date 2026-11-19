@@ -9574,7 +9574,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			raise AssertionError(f"Unexpected Git command: {arguments}")
 
 		run_frozen_maintenance_git = run_tag_inventory_fixture
-		annotated_ancestor_tags = read_annotated_ancestor_semver_tags()
+		annotated_ancestor_tags = read_annotated_semver_tags()
 		annotated_ancestor_tag_pairs = tuple(
 			(ref.tag, ref.commit_oid)
 			for ref in annotated_ancestor_tags or ()
@@ -9586,19 +9586,19 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			return_code=1,
 			stderr="fixture failure",
 		)
-		nonzero_tag_inventory = read_annotated_ancestor_semver_tags()
+		nonzero_tag_inventory = read_annotated_semver_tags()
 
 		active_tag_inventory_result = make_tag_inventory_result(
 			"10.0.0\ttag\tcommit\t" + "a" * 40 + "\n",
 			stderr="warning: ignoring broken ref\n",
 		)
-		warning_tag_inventory = read_annotated_ancestor_semver_tags()
+		warning_tag_inventory = read_annotated_semver_tags()
 
 		active_tag_inventory_result = make_tag_inventory_result(
 			"10.0.0\ttag\tcommit\tdeadbeef\n"
 			+ "9.0.0\ttag\tcommit\t" + "b" * 40 + "\n",
 		)
-		malformed_tag_inventory = read_annotated_ancestor_semver_tags()
+		malformed_tag_inventory = read_annotated_semver_tags()
 
 		active_tag_inventory_result = make_tag_inventory_result(
 			"10.1.0\ttag\ttag\t" + "d" * 40 + "\n"
@@ -9608,7 +9608,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 			f"{'d' * 40} {'e' * 40} commit\n",
 			stderr="fixture warning",
 		)
-		untrusted_tag_peel = read_annotated_ancestor_semver_tags()
+		untrusted_tag_peel = read_annotated_semver_tags()
 	finally:
 		run_frozen_maintenance_git = original_run_frozen_maintenance_git
 	record_result(

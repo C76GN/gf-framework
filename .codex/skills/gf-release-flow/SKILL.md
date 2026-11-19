@@ -12,8 +12,8 @@ Use this skill only when the user has explicitly moved the task into release, co
 - Follow `AI_MAINTENANCE.md` release rules exactly.
 - Before finalizing commit, PR or release descriptions, apply [产品化交付](../../../AI_MAINTENANCE.md#产品化交付): explain the resulting behavior, limits and migration impact for a reader without the conversation, using stable product terminology rather than discussion labels.
 - Use tag names without `v`, for example `4.2.0`.
-- Follow the [branch workflow](../../../docs/maintainers/branch-workflow.md). Prepare the `12.0.0` cutover from `main` and later major candidates from synchronized `develop`, using an internal `release/<version>` PR to `main`. Freeze development merges during promotion. Start `hotfix/<version>` at the current immutable stable tag and publish the next compatible patch.
-- After publishing a major or patch, use a `sync/<version>` PR and a merge commit to bring the actual tagged `main` commit into `develop`. Advance `develop` to the following major after a major release.
+- Follow the [branch workflow](../../../docs/maintainers/branch-workflow.md). Prepare major candidates from the current `develop` tip and merge the current `main` tip on the internal `release/<version>` branch. Review stable-only fixes, freeze merges during promotion, and squash through a PR to `main`. Start `hotfix/<version>` at the current immutable stable tag and publish the next compatible patch.
+- Treat `main` and `develop` as independent lines. A fix affecting both lines takes a separate PR against each line. Patch publication leaves the development cycle in progress. After a major publication, use a development-cycle PR to update its version and API baseline.
 - Do not commit, tag, or push unless the user explicitly asks for that action.
 - If a release commit was already pushed and fixes are needed, create a new forward commit. Do not rewrite remote history unless the user explicitly requests it and accepts the risk.
 - Release packages must come from one `tools/build_gf_release_artifacts.py` invocation and its SHA-256 manifest, not GitHub source archives or independently rebuilt outputs.
@@ -23,7 +23,7 @@ Use this skill only when the user has explicitly moved the task into release, co
 ## Flow
 
 1. Determine SemVer from the consumer contract, including APIs, ProjectSettings, extension/content-package schemas, persisted data, protocols, platform support, defaults, errors, ordering, and lifecycle behavior: patch for compatible fixes without new public capability, minor for backward-compatible public API/features, major only for approved migration-requiring changes.
-2. Run `python tools/gf_maintenance.py api-baseline-diff --version <version> --enforce-version --json` before finalizing metadata. Patch releases must fail when compatible public classes, members, or signature expansions were added; real stable-contract breaks require a major version. A waiver is limited to an evidenced baseline false positive or a historical surface already excluded from the stable contract.
+2. Run `python tools/gf_maintenance.py api-baseline-diff --version <version> --base-tag <current-stable-tag> --enforce-version --json` before finalizing metadata. Use the latest published stable tag from `main`, including for major candidates. Patch releases must fail when compatible public classes, members, or signature expansions were added; real stable-contract breaks require a major version. A waiver is limited to an evidenced baseline false positive or a historical surface already excluded from the stable contract.
 3. Replace the development identity with the final stable SemVer and verify or update release metadata:
    - `addons/gf/plugin.cfg`
    - `ASSET_LIBRARY.md`
@@ -40,7 +40,7 @@ Use this skill only when the user has explicitly moved the task into release, co
 7. After the release PR merges and Full push CI passes, check out its final `main` commit in a clean worktree. Build the immutable artifacts once and run [release-checks.md](references/release-checks.md) on that exact commit. Any subsequent source commit invalidates this artifact set and requires a new candidate build and release gate.
 8. If the user requested a tag, create the local annotated SemVer tag only after the release gate passes for that same `HEAD`. Never replace a published tag.
 9. Push branch and tag only when requested. After pushing, verify the remote tag's peeled commit points at the intended commit.
-10. After a major release, use an explicitly requested PR to open the following major on `develop`. Synchronize the framework, bundled extension and tool versions, shipped compatibility profile, and generated AI API index to `X.0.0-dev.0`. Patch synchronization keeps the current development version and prerelease counter.
+10. After a major release, use an authorized `chore/start-<version>` PR from `develop` to open the next cycle. Synchronize the framework, bundled extension and tool versions, shipped compatibility profile, and generated AI API index to `X.0.0-dev.0`. Update `development_api_baseline` to the actual published tag and its full commit SHA.
 
 ## Reporting
 
