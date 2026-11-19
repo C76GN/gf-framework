@@ -36,6 +36,7 @@
 | 方法 | [`set_world_bounds`](#member-gfspatialcanvas2d-methods-set_world_bounds) | `func set_world_bounds(bounds: Rect2, enabled: bool = true) -> bool:` |
 | 方法 | [`pan_by_canvas_delta`](#member-gfspatialcanvas2d-methods-pan_by_canvas_delta) | `func pan_by_canvas_delta(canvas_delta: Vector2) -> bool:` |
 | 方法 | [`zoom_at`](#member-gfspatialcanvas2d-methods-zoom_at) | `func zoom_at(canvas_position: Vector2, factor: float) -> bool:` |
+| 方法 | [`resolve_wheel_zoom_target`](#member-gfspatialcanvas2d-methods-resolve_wheel_zoom_target) | `func resolve_wheel_zoom_target( event: InputEventMouseButton, source_world_center: Vector2, source_zoom: float ) -> Dictionary:` |
 | 方法 | [`focus_world_rect`](#member-gfspatialcanvas2d-methods-focus_world_rect) | `func focus_world_rect(world_rect: Rect2, canvas_margin: float = 0.0) -> bool:` |
 | 方法 | [`world_to_canvas`](#member-gfspatialcanvas2d-methods-world_to_canvas) | `func world_to_canvas(world_position: Vector2) -> Vector2:` |
 | 方法 | [`canvas_to_world`](#member-gfspatialcanvas2d-methods-canvas_to_world) | `func canvas_to_world(canvas_position: Vector2) -> Vector2:` |
@@ -490,6 +491,33 @@ func zoom_at(canvas_position: Vector2, factor: float) -> bool:
 | `factor` | 相对缩放因子。 |
 
 返回：输入有限且 factor 为正时返回 true。
+
+<a id="member-gfspatialcanvas2d-methods-resolve_wheel_zoom_target"></a>
+
+### `resolve_wheel_zoom_target`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func resolve_wheel_zoom_target( event: InputEventMouseButton, source_world_center: Vector2, source_zoom: float ) -> Dictionary:
+```
+
+从显式起始视图计算滚轮缩放目标。使用当前画布尺寸、输入策略、缩放范围和世界边界。 此计算不应用视图、不发送 [signal view_changed]，也不接管输入或改变选择。 连续滚轮事件可使用上一次返回的目标作为下一次计算的起始视图。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `event` | 使用画布局部坐标的鼠标滚轮事件。 |
+| `source_world_center` | 起始视图的世界中心。 |
+| `source_zoom` | 起始视图的有限正缩放值。 |
+
+返回：滚轮路由结果与可交给 [method set_view] 的目标。
+
+结构：
+
+- `return`: Dictionary，包含 disposition: InputDisposition 和 target: Dictionary。IGNORED 时 target 为空，否则 target 包含 world_center: Vector2 和 zoom: float。
 
 <a id="member-gfspatialcanvas2d-methods-focus_world_rect"></a>
 

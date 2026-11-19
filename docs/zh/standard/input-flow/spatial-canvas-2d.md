@@ -76,6 +76,27 @@ if not canvas.set_input_policy(policy):
 
 原始触摸可整体关闭，单指主行为可独立设为 `NONE`、pan 或 select，多指 pan 与 pinch zoom 也各自显式开关；系统 `PanGesture` 与 `MagnifyGesture` 继续使用各自开关。单指为 `NONE` 且两个多指行为都关闭时，raw touch 全程 `IGNORED`，不会暗中建立捕获；只要任一多指行为启用，首触点必须先被捕获以确定性等待第二触点，但单指移动仍不修改视图或选择。第二触点进入允许的多指手势时会结束尚未提交的单指选择捕获，但不会取消活动 placement。禁用输入、成功替换策略、Control 失焦、应用失焦或暂停、Canvas 变为不可见以及退出场景树都会释放鼠标和触摸的瞬态捕获，同时保留条目、当前选择和 placement 会话；清理后的迟到 release 不会复活旧 owner。
 
+### 滚轮缩放动画
+
+在画布子类中覆盖 `_gui_input()`，即可用 `resolve_wheel_zoom_target(event, source_world_center, source_zoom)` 为滚轮计算动画终点。其他类型的输入可以继续交给 `super._gui_input(event)`。目标计算是只读操作，沿用画布的滚轮轴、修饰键、输入捕获、缩放范围和世界边界。
+
+`event` 使用画布局部坐标。`_gui_input()` 已提供局部事件，从 `_input()` 转发时先调用 `canvas.make_input_local(event)` 并取其中的 `InputEventMouseButton`。用 `get_world_center()` 和 `get_zoom()` 初始化目标，之后每次滚动都以上一次目标为起点。
+
+```gdscript
+var result: Dictionary = canvas.resolve_wheel_zoom_target(
+	local_wheel_event,
+	pending_center,
+	pending_zoom
+)
+var disposition: int = GFVariantData.get_option_int(result, "disposition")
+if disposition != GFSpatialCanvas2D.InputDisposition.IGNORED:
+	var target: Dictionary = GFVariantData.get_option_dictionary(result, "target")
+	pending_center = GFVariantData.get_option_vector2(target, "world_center")
+	pending_zoom = GFVariantData.get_option_float(target, "zoom")
+```
+
+`IGNORED` 的 `target` 为空。`HANDLED` 和 `CONSUMED` 都带有目标，到达缩放上限或下限时，目标可能等于起始视图。在输入边界按 `disposition` 决定是否消费事件，动画每帧通过 `set_view()` 应用插值并发布视图变化。需要即时缩放时继续走 `handle_input_event()`。
+
 ## 候选、命中与选择
 
 `upsert_item()` 只登记稳定 `StringName`、世界空间 `Rect2` 和少量通用选项。它不会跟踪项目节点；节点移动、销毁或模型变化后，由项目显式更新或移除记录。

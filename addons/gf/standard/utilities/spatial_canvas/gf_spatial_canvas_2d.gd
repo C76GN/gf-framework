@@ -611,19 +611,15 @@ func get_content_root() -> Node2D:
 ## [br]
 ## @return 输入有限且缩放有效时返回 true。
 func set_view(world_center: Vector2, zoom: float) -> bool:
-	if (
-		not _is_finite_vector2(world_center)
-		or not _is_finite_float(zoom)
-		or zoom <= 0.0
-	):
+	if not _is_finite_float(zoom) or zoom <= 0.0:
 		return false
 	var resolved_zoom: float = clampf(
 		zoom,
 		_min_zoom,
 		_max_zoom
 	)
-	var resolved_center: Vector2 = _clamp_world_center(world_center, resolved_zoom)
-	if not _is_view_state_finite(resolved_center, resolved_zoom):
+	var resolved_center: Vector2 = _resolve_view_center(world_center, resolved_zoom)
+	if not _is_finite_vector2(resolved_center):
 		return false
 	var changed: bool = (not resolved_center.is_equal_approx(_world_center) or not is_equal_approx(resolved_zoom, _zoom))
 	_world_center = resolved_center
@@ -752,26 +748,72 @@ func pan_by_canvas_delta(canvas_delta: Vector2) -> bool:
 ## [br]
 ## @return 输入有限且 factor 为正时返回 true。
 func zoom_at(canvas_position: Vector2, factor: float) -> bool:
-	if (
-		not _is_finite_vector2(canvas_position)
-		or not _is_finite_float(factor)
-		or factor <= 0.0
-	):
-		return false
-	var world_focus_result: Dictionary = _try_canvas_to_world(canvas_position)
-	if not GFVariantData.get_option_bool(world_focus_result, "ok"):
-		return false
-	var world_focus: Vector2 = GFVariantData.get_option_vector2(world_focus_result, "value")
-	var resolved_zoom: float = clampf(
-		_zoom * factor,
-		_min_zoom,
-		_max_zoom
+	var target: Dictionary = _calculate_focal_zoom(
+		canvas_position,
+		factor,
+		_world_center,
+		_zoom
 	)
-	if not _is_finite_float(resolved_zoom):
+	if target.is_empty():
 		return false
-	var viewport_center: Vector2 = size * 0.5
-	var resolved_center: Vector2 = world_focus - (canvas_position - viewport_center) / resolved_zoom
-	return set_view(resolved_center, resolved_zoom)
+	return set_view(
+		GFVariantData.get_option_vector2(target, "world_center"),
+		GFVariantData.get_option_float(target, "zoom")
+	)
+
+
+## 从显式起始视图计算滚轮缩放目标。使用当前画布尺寸、输入策略、缩放范围和世界边界。
+##
+## 此计算不应用视图、不发送 [signal view_changed]，也不接管输入或改变选择。
+## 连续滚轮事件可使用上一次返回的目标作为下一次计算的起始视图。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param event: 使用画布局部坐标的鼠标滚轮事件。
+## [br]
+## @param source_world_center: 起始视图的世界中心。
+## [br]
+## @param source_zoom: 起始视图的有限正缩放值。
+## [br]
+## @return 滚轮路由结果与可交给 [method set_view] 的目标。
+## [br]
+## @schema return: Dictionary，包含 disposition: InputDisposition 和 target: Dictionary。IGNORED 时 target 为空，否则 target 包含 world_center: Vector2 和 zoom: float。
+func resolve_wheel_zoom_target(
+	event: InputEventMouseButton,
+	source_world_center: Vector2,
+	source_zoom: float
+) -> Dictionary:
+	var result: Dictionary = { "disposition": InputDisposition.IGNORED, "target": {} }
+	if (
+		not _input_enabled
+		or event == null
+		or event.is_canceled()
+		or _input_capture_conflicts_with_event(event)
+	):
+		return result
+	var factor: float = _wheel_zoom_multiplier(event)
+	if factor <= 0.0 or not _is_view_state_finite(source_world_center, source_zoom):
+		return result
+	var target: Dictionary = _calculate_focal_zoom(
+		event.position,
+		factor,
+		source_world_center,
+		source_zoom
+	)
+	if target.is_empty():
+		return result
+	var resolved_center: Vector2 = _resolve_view_center(
+		GFVariantData.get_option_vector2(target, "world_center"),
+		GFVariantData.get_option_float(target, "zoom")
+	)
+	if not _is_finite_vector2(resolved_center):
+		return result
+	target["world_center"] = resolved_center
+	result["disposition"] = _wheel_disposition()
+	result["target"] = target
+	return result
 
 
 ## 让世界矩形适配当前画布。
@@ -2036,6 +2078,51 @@ func _make_view_snapshot() -> Dictionary:
 	}
 
 
+## 计算围绕画布焦点缩放后的未钳位中心和受缩放范围约束的缩放值。
+## [br]
+## @api private
+## [br]
+func _calculate_focal_zoom(
+	canvas_position: Vector2,
+	factor: float,
+	source_world_center: Vector2,
+	source_zoom: float
+) -> Dictionary:
+	if not _is_finite_float(factor) or factor <= 0.0:
+		return {}
+	var world_focus_result: Dictionary = _try_canvas_to_world_in_view(
+		canvas_position,
+		source_world_center,
+		source_zoom
+	)
+	if not GFVariantData.get_option_bool(world_focus_result, "ok"):
+		return {}
+	var world_focus: Vector2 = GFVariantData.get_option_vector2(world_focus_result, "value")
+	var resolved_zoom: float = clampf(
+		source_zoom * factor,
+		_min_zoom,
+		_max_zoom
+	)
+	if not _is_finite_float(resolved_zoom):
+		return {}
+	var viewport_center: Vector2 = size * 0.5
+	var resolved_center: Vector2 = world_focus - (canvas_position - viewport_center) / resolved_zoom
+	return { "world_center": resolved_center, "zoom": resolved_zoom }
+
+
+## 对有限候选中心应用边界，并以 Vector2.INF 表示无法生成有效视图。
+## [br]
+## @api private
+## [br]
+func _resolve_view_center(candidate: Vector2, candidate_zoom: float) -> Vector2:
+	if not _is_finite_vector2(candidate):
+		return Vector2.INF
+	var resolved_center: Vector2 = _clamp_world_center(candidate, candidate_zoom)
+	if not _is_view_state_finite(resolved_center, candidate_zoom):
+		return Vector2.INF
+	return resolved_center
+
+
 ## 按可见世界尺寸把视图中心限制在边界内；视口过大时将该轴置于边界中心。
 ## [br]
 ## @api private
@@ -2124,15 +2211,31 @@ func _try_world_to_canvas(world_position: Vector2) -> Dictionary:
 ## @api private
 ## [br]
 func _try_canvas_to_world(canvas_position: Vector2) -> Dictionary:
+	return _try_canvas_to_world_in_view(
+		canvas_position,
+		_world_center,
+		_zoom
+	)
+
+
+## 以给定视图转换画布坐标，非法推导以 ok=false 返回。
+## [br]
+## @api private
+## [br]
+func _try_canvas_to_world_in_view(
+	canvas_position: Vector2,
+	source_world_center: Vector2,
+	source_zoom: float
+) -> Dictionary:
 	if (
 		not _is_finite_vector2(canvas_position)
-		or not _is_finite_float(_zoom)
-		or _zoom <= 0.0
+		or not _is_finite_float(source_zoom)
+		or source_zoom <= 0.0
 	):
 		return { "ok": false, "value": Vector2.ZERO }
 	var canvas_offset: Vector2 = canvas_position - size * 0.5
-	var world_offset: Vector2 = canvas_offset / _zoom
-	var world_position: Vector2 = _world_center + world_offset
+	var world_offset: Vector2 = canvas_offset / source_zoom
+	var world_position: Vector2 = source_world_center + world_offset
 	if (
 		not _is_finite_vector2(canvas_offset)
 		or not _is_finite_vector2(world_offset)
@@ -2733,6 +2836,17 @@ func _handle_mouse_motion_input(event: InputEventMouseMotion) -> InputDispositio
 ## @api private
 ## [br]
 func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
+	var factor: float = _wheel_zoom_multiplier(event)
+	if factor <= 0.0 or not zoom_at(event.position, factor):
+		return InputDisposition.IGNORED
+	return _wheel_disposition()
+
+
+## 计算输入策略允许的滚轮倍率，拒绝路由或非法事件返回零。
+## [br]
+## @api private
+## [br]
+func _wheel_zoom_multiplier(event: InputEventMouseButton) -> float:
 	if (
 		not event.pressed
 		or not _is_finite_vector2(event.position)
@@ -2740,21 +2854,19 @@ func _handle_wheel_input(event: InputEventMouseButton) -> InputDisposition:
 		or event.factor <= 0.0
 		or event.factor > _ABSOLUTE_MAX_WHEEL_EVENT_FACTOR
 	):
-		return InputDisposition.IGNORED
+		return 0.0
 	if _input_policy.wheel_routing == GFSpatialCanvasInputPolicy.WheelRouting.PARENT_ONLY:
-		return InputDisposition.IGNORED
+		return 0.0
 	if not _wheel_button_matches_axis(event.button_index):
-		return InputDisposition.IGNORED
+		return 0.0
 	if (_input_policy.wheel_routing == GFSpatialCanvasInputPolicy.WheelRouting.MODIFIER_GATED and _modifier_mask_from_mouse_event(event) != _input_policy.wheel_modifier_mask):
-		return InputDisposition.IGNORED
+		return 0.0
 	var factor: float = pow(_input_policy.wheel_zoom_factor, event.factor)
 	if not _is_finite_float(factor) or factor <= 0.0:
-		return InputDisposition.IGNORED
+		return 0.0
 	if (event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_RIGHT):
 		factor = 1.0 / factor
-	if not zoom_at(event.position, factor):
-		return InputDisposition.IGNORED
-	return _wheel_disposition()
+	return factor
 
 
 ## 按触摸策略建立指针捕获、选择状态并转发事件到手势工具。
