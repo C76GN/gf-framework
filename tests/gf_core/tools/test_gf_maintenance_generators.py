@@ -22,6 +22,7 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import check_docs_quality
+import build_gf_ai_developer_kit
 import generate_ai_api
 import generate_api_coverage_matrix
 import generate_api_reference
@@ -1012,7 +1013,7 @@ class ApiParseSnapshotTests(unittest.TestCase):
 		self.path = self.write_source("addons/gf/extensions/cache/nested.gd", NESTED_PUBLIC_API_SOURCE)
 		self.manifest = {
 			"schema_version": 1,
-			"id": "gf.cache",
+			"id": "gf.extension.cache",
 			"kind": "extension",
 			"gf_extension_id": "cache",
 			"dependencies": [],
@@ -1040,7 +1041,7 @@ class ApiParseSnapshotTests(unittest.TestCase):
 
 	def render(self, script: gdscript_api_parser.ApiScript) -> tuple[dict, dict, dict]:
 		owners = [
-			gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.cache")
+			gf_api_owners.ApiOwner(owner.kind, owner.name, owner.script, "gf.extension.cache")
 			for owner in gf_api_owners.select_api_owners([script], ())
 		]
 		classes = generate_api_reference.api_classes_from_owners(owners)
@@ -1198,7 +1199,7 @@ class ApiParseSnapshotTests(unittest.TestCase):
 			mock.patch.object(gdscript_api_parser, "parse_gdscript_source", wraps=gdscript_api_parser.parse_gdscript_source) as parse,
 			gdscript_api_parser.api_parse_snapshot(WorkspaceSnapshot(self.root)),
 		):
-			self.assertEqual(gf_api_owners.collect_api_owners(self.source_root, self.root)[0].package_id, "gf.cache")
+			self.assertEqual(gf_api_owners.collect_api_owners(self.source_root, self.root)[0].package_id, "gf.extension.cache")
 			for change, error in (
 				({"dependencies": ["gf.missing"]}, "dependency module is not declared"),
 				({"exclude_paths": ["addons/gf/extensions/cache/nested.gd"]}, "exactly one package"),
@@ -1207,9 +1208,23 @@ class ApiParseSnapshotTests(unittest.TestCase):
 					self.manifest_path.write_bytes(json.dumps({**self.manifest, **change}).encode("utf-8"))
 					with self.assertRaisesRegex(ValueError, error):
 						gf_api_owners.collect_api_owners(self.source_root, self.root)
-			self.manifest_path.write_bytes(json.dumps({**self.manifest, "id": "gf.changed"}).encode("utf-8"))
-			self.assertEqual(gf_api_owners.collect_api_owners(self.source_root, self.root)[0].package_id, "gf.changed")
+			self.manifest_path.write_bytes(json.dumps({**self.manifest, "id": "gf.extension.changed"}).encode("utf-8"))
+			self.assertEqual(gf_api_owners.collect_api_owners(self.source_root, self.root)[0].package_id, "gf.extension.changed")
 			self.assertEqual(parse.call_count, 1)
+
+	def test_ai_index_uses_one_filesystem_inventory_for_packages_and_classes(self) -> None:
+		package = gf_api_owners.build_gf_package
+		with (
+			mock.patch.object(build_gf_ai_developer_kit, "ROOT", self.root),
+			mock.patch.object(build_gf_ai_developer_kit, "API_INDEX_PATH", self.root / "addons/gf/api_index.json"),
+			mock.patch.object(build_gf_ai_developer_kit, "read_plugin_version", return_value="1.0.0"),
+			mock.patch.object(gf_api_owners, "CONTROLLED_AUTOLOAD_CONTRACTS", ()),
+			mock.patch.object(package, "collect_package_files", wraps=package.collect_package_files) as expand,
+		):
+			index = build_gf_ai_developer_kit.render_api_index()
+		expand.assert_called_once()
+		self.assertEqual(index["classes"]["GFNested"]["package_id"], "gf.extension.cache")
+		self.assertEqual(index["packages"][0]["representative_path"], index["classes"]["GFNested"]["path"])
 
 	def test_autoload_support_outside_source_root_remains_live(self) -> None:
 		contract = gf_api_owners.GF_AUTOLOAD_CONTRACT
@@ -2120,17 +2135,13 @@ class MarkdownGenerationTests(unittest.TestCase):
 			"plugin.add_autoload_singleton(OTHER_NAME, AUTOLOAD_PATH)\n"
 		))
 
+		path = gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path
 		package_records = [
-			{"id": "gf.kernel", "kind": "kernel"},
-			{"id": "gf.duplicate", "kind": "extension"},
+			{"id": "gf.kernel", "kind": "kernel", "paths": [path]},
+			{"id": "gf.extension.duplicate", "kind": "extension", "paths": [path]},
 		]
-		with mock.patch.object(
-			gf_api_owners.build_gf_package,
-			"collect_package_files",
-			return_value=[ROOT / gf_api_owners.GF_AUTOLOAD_CONTRACT.source_path],
-		):
-			with self.assertRaisesRegex(ValueError, "exactly one package"):
-				gf_api_owners.resolve_api_owner_packages(owners, package_records, ROOT)
+		with self.assertRaisesRegex(ValueError, "exactly one package"):
+			gf_api_owners.resolve_api_owner_packages(owners, package_records, ROOT)
 
 	def test_class_and_autoload_owner_names_cannot_collide(self) -> None:
 		autoload_script = gdscript_api_parser.parse_gdscript_file(

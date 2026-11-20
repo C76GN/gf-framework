@@ -519,17 +519,16 @@ def render_api_index() -> dict[str, Any]:
 	if manifest_load.get("issues"):
 		raise ValueError("Package manifests are invalid: " + "; ".join(manifest_load["issues"][:10]))
 	records = [record for record in manifest_load["records"] if record.get("kind") != "preset"]
+	file_owners = build_gf_package.collect_file_owners(records, ROOT)
+	files_by_module: dict[str, list[str]] = {}
+	for path, module_id in file_owners.items():
+		files_by_module.setdefault(module_id, []).append(path)
 	package_payload: list[dict[str, Any]] = []
 	for record in records:
-		file_issues: list[str] = []
-		files = build_gf_package.collect_package_files(record, file_issues)
-		if file_issues:
-			raise ValueError(f"Package {record['id']} is invalid: " + "; ".join(file_issues[:10]))
-		relative_files = [path.relative_to(ROOT).as_posix() for path in files]
 		# The generated API index belongs to this package but must not influence its
 		# own deterministic package summary when bootstrapping from a clean tree.
 		representative_candidates = [
-			path for path in relative_files
+			path for path in files_by_module.get(record["id"], [])
 			if path != API_INDEX_PATH.relative_to(ROOT).as_posix()
 		]
 		representative = _representative_path(representative_candidates)
@@ -542,7 +541,7 @@ def render_api_index() -> dict[str, Any]:
 
 	classes: dict[str, Any] = {}
 	autoloads: dict[str, Any] = {}
-	for owner in collect_api_owners(ROOT / "addons/gf", ROOT, records):
+	for owner in collect_api_owners(ROOT / "addons/gf", ROOT, file_owners=file_owners):
 		target = classes if owner.kind == OWNER_KIND_CLASS else autoloads
 		target[owner.name] = _api_owner_record(owner)
 	payload = {

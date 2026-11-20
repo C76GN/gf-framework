@@ -14,18 +14,95 @@ if str(TOOLS) not in sys.path:
 	sys.path.insert(0, str(TOOLS))
 
 import build_gf_package  # noqa: E402
+import gf_maintenance  # noqa: E402
+import gf_module_descriptors as descriptors  # noqa: E402
 
 
 class ModuleDescriptorTests(unittest.TestCase):
+	def test_maintenance_and_generator_reject_the_same_invalid_descriptors(self) -> None:
+		base = {
+			"schema_version": 1, "id": "gf.kernel", "kind": "kernel",
+			"dependencies": [], "paths": ["addons/gf/kernel/**"],
+		}
+		for change in (
+			{"id": "gf.tool.wrong"},
+			{"paths": ["docs/**"]},
+			{"paths": ["addons/gf/kernel/**", "addons/gf/KERNEL/**"]},
+			{"exclude_paths": None},
+			{"dependencies": ["gf.standard.base", "gf.standard.base"]},
+		):
+			with self.subTest(change=change):
+				data = {**base, **change}
+				path = "packages/gf.kernel.json"
+				self.assertTrue(build_gf_package.audit_manifest_fields(data, path))
+				self.assertTrue(gf_maintenance.audit_package_manifest_data(data, path))
+
 	def test_repository_descriptors_are_valid_and_own_source(self) -> None:
 		result = build_gf_package.load_package_manifests()
 		self.assertFalse(result["issues"], result["issues"])
 		self.assertGreater(len(result["records"]), 1)
-		for record in result["records"]:
-			issues: list[str] = []
-			files = build_gf_package.collect_package_files(record, issues)
-			self.assertFalse(issues, f"{record['id']}: {issues}")
-			self.assertTrue(files, f"{record['id']} must own source files")
+		owners = build_gf_package.collect_file_owners(result["records"], ROOT)
+		self.assertEqual(set(owners.values()), {record["id"] for record in result["records"]})
+		self.assertEqual(owners["addons/gf/extensions/network/runtime/gf_network_request_handle.gd"], "gf.extension.network")
+		self.assertEqual(owners["addons/gf/extensions/network/editor/gf_network_editor_actions.gd"], "gf.tool.network.editor")
+
+	def test_overlapping_scopes_apply_exclusions_per_module(self) -> None:
+		base = "addons/gf/extensions/network"
+		runtime, editor = f"{base}/runtime/a.gd", f"{base}/editor/b.gd"
+		records = [
+			{"id": "gf.extension.network", "paths": [base + "/**", runtime], "exclude_paths": [base + "/editor/**"]},
+			{"id": "gf.tool.network.editor", "paths": [base + "/editor/**"]},
+		]
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			for path in (runtime, editor):
+				(root / path).parent.mkdir(parents=True)
+				(root / path).touch()
+			owners = build_gf_package.collect_file_owners(records, root)
+			self.assertEqual(owners, {runtime: "gf.extension.network", editor: "gf.tool.network.editor"})
+			self.assertEqual(gf_maintenance.audit_package_path_ownership(records, [runtime, editor]), [])
+			index = descriptors.PackageOwnershipIndex(descriptors.collect_package_source_owner_entries(records))
+			self.assertEqual(index.find_owner("res://" + editor)["package_id"], owners[editor])
+			records[0]["exclude_paths"] = []
+			with self.assertRaisesRegex(ValueError, "exactly one package"):
+				build_gf_package.collect_file_owners(records, root)
+			self.assertEqual({item["overlap_path"] for item in gf_maintenance.audit_package_path_ownership(
+				[{**record, "path": f"packages/{record['id']}.json"} for record in records], [runtime, editor],
+			)}, {editor})
+
+	def test_filesystem_and_git_consumers_own_their_discovery_scope(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			(root / "packages").mkdir()
+			for module in ("visible", "ignored"):
+				path = root / "packages" / (module + (".JSON" if module == "visible" else ".json"))
+				path.write_text(json.dumps({
+					"schema_version": 1, "id": "gf.tool." + module, "kind": "tool",
+					"dependencies": [], "paths": ["addons/gf/tools/" + module + "/**"],
+				}), encoding="utf-8")
+			with mock.patch.object(gf_maintenance, "read_git_paths", side_effect=[
+				{"error": "", "paths": ["packages/visible.JSON"]}, {"error": "", "paths": []}, {"error": "", "paths": []},
+			]):
+				self.assertEqual(gf_maintenance.collect_package_manifest_paths(), {"paths": ["packages/visible.JSON"], "errors": []})
+			result = build_gf_package.load_package_manifests(root)
+			self.assertFalse(result["issues"])
+			self.assertEqual({record["id"] for record in result["records"]}, {"gf.tool.ignored", "gf.tool.visible"})
+
+	def test_literal_file_and_glob_anchor_use_actual_case_on_every_platform(self) -> None:
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			relative = "addons/gf/tools/editor/gf_panel.gd"
+			(root / relative).parent.mkdir(parents=True)
+			(root / relative).touch()
+			with mock.patch.object(gf_maintenance, "ROOT", root):
+				for pattern in ("addons/gf/tools/editor/GF_PANEL.gd", "addons/gf/tools/EDITOR/**"):
+					with self.subTest(pattern=pattern):
+						record = {"id": "gf.tool.editor", "paths": [pattern]}
+						self.assertFalse(gf_maintenance.package_manifest_path_exists(pattern))
+						self.assertEqual(build_gf_package.collect_file_owners([record], root), {})
+				self.assertTrue(gf_maintenance.package_manifest_path_exists(relative))
+				self.assertEqual(build_gf_package.collect_file_owners([{"id": "gf.tool.editor", "paths": [relative]}], root),
+								 {relative: "gf.tool.editor"})
 
 	def test_descriptors_have_only_static_boundary_fields(self) -> None:
 		for path in sorted((ROOT / "packages").rglob("*.json")):

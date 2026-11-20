@@ -132,6 +132,8 @@ GF 内置可选扩展默认关闭；每个 `addons/gf/extensions/*/gf_extension.
 
 `GF` 工作区的 `GF Extensions` 页面提供“扫描引用”，导出开始时也会检查禁用扩展引用。发布前可启用“引用禁用扩展时阻止导出”，把这类问题提升为导出错误。
 
+维护工具共用 `packages/` 清单的字段校验、路径排除和唯一归属规则。`package-boundary` 从 Git 已跟踪和未忽略的新文件中发现清单，再在实际的 `addons/gf` 文件树上检查归属重叠。API 文档和 AI 索引直接从生成时的文件树发现清单和源码。每次运行独立获取输入，因此提交前应同时运行模块边界检查与两个生成检查。
+
 分层边界必须按硬规则维护：`kernel` 不认识 `standard` 或任何 extension；`standard` 只认识 `kernel`，不能通过扩展 ID、扩展路径、动态脚本探测或扩展内类名弱联动 GF 内置扩展；GF 内置扩展只能依赖 `kernel` 和稳定的 `standard`，彼此保持互不认识。需要跨 GF 内置扩展协作时，应放到项目 Installer 或 `addons/gf` 外的独立插件中。如果扩展能力需要显示在标准库诊断、Overlay 或工具快照里，应由扩展侧向标准库的通用注册入口贡献能力，而不是在标准库中写扩展探测逻辑。
 
 需要导出阶段能力时，优先通过扩展 `editor/gf_tool_contribution.json` 的 `export_plugin_paths` 声明入口，并让导出逻辑只处理扩展目录、审计结果或平台无关的资源准备。平台 SDK、项目账号、在线服务和私有后端应放在项目 Installer、独立插件或可替换 backend 中；GF 内置扩展最多提供抽象 facade 与空实现 fallback，避免把平台或业务假设写入框架层。

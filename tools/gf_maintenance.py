@@ -54,7 +54,8 @@ from gdscript_api_parser import scan_gdscript_structure
 from gdscript_api_parser import visibility_of
 from gf_api_owners import select_api_owners
 import generated_output_transaction
-import build_gf_package
+import gf_module_descriptors
+from gf_module_descriptors import expected_package_kind_from_id
 from build_gf_release_artifacts import audit_release_artifact_manifest
 from generated_output_transaction import GeneratedOutputTransactionError
 from generated_output_transaction import lexical_absolute_path
@@ -106,9 +107,9 @@ from gf_maintenance_check_graph import make_check_result_fingerprint_from_output
 from gf_maintenance_check_graph import resolve_timeout_budget
 from gf_maintenance_check_graph import stable_fingerprint
 from gf_maintenance_check_graph import workspace_fingerprint
-from gf_package_paths import ManifestPathIndex
+from gf_module_descriptors import PackageOwnershipIndex, collect_package_source_owner_entries
+from gf_module_descriptors import normalize_package_manifest_path
 from gf_package_paths import manifest_path_matches as shared_manifest_path_matches
-from gf_package_paths import portable_manifest_path_identity as shared_portable_manifest_path_identity
 from gf_parallel_validation import CapturedWorkspace
 from gf_parallel_validation import ParallelShard
 from gf_parallel_validation import ParallelShardResult
@@ -553,57 +554,6 @@ PACKAGE_EXTERNAL_COMMAND_AUDIT_ALLOWED_CALLS = (
 		"reason": "Editor-only Workspace links open public documentation and release pages.",
 	},
 )
-PACKAGE_SIGNATURE_POLICY_FIELDS = {
-	"public_key",
-	"public_keys",
-	"registry_signature",
-	"registry_signature_algorithm",
-	"registry_signature_sha256",
-	"registry_signature_size_bytes",
-	"registry_signature_url",
-	"registry_signing_key_id",
-	"signature",
-	"signature_algorithm",
-	"signature_public_key",
-	"signature_sha256",
-	"signature_url",
-	"signing_key",
-	"signing_key_id",
-	"signing_keys",
-}
-PACKAGE_MANIFEST_ALLOWED_FIELDS = {
-	"schema_version",
-	"id",
-	"kind",
-	"dependencies",
-	"exclude_paths",
-	"paths",
-	"gf_extension_id",
-}
-PACKAGE_MANIFEST_FORBIDDEN_FIELDS = {
-	"archive",
-	"checksum",
-	"download",
-	"download_url",
-	"download_urls",
-	"downloads",
-	"install_script",
-	"install_url",
-	"installer",
-	"installer_paths",
-	"installers",
-	"npm",
-	"registry",
-	"repository",
-	"sha256",
-	"size_bytes",
-} | PACKAGE_SIGNATURE_POLICY_FIELDS
-PACKAGE_MANIFEST_KINDS = {"kernel", "standard", "extension", "tool"}
-PACKAGE_MANIFEST_SCHEMA_VERSION = 1
-PACKAGE_MANIFEST_MAX_BYTES = 1024 * 1024
-PACKAGE_MANIFEST_MAX_DEPTH = 32
-PACKAGE_MANIFEST_MAX_NODES = 4096
-PACKAGE_ID_RE = re.compile(r"^(?:gf\.kernel|gf\.(?:standard|extension|tool)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*)$")
 PACKAGE_CLOSURE_EXTENSION_TOTAL_WARNING_THRESHOLD = 8
 PACKAGE_CLOSURE_EXTENSION_STANDARD_WARNING_THRESHOLD = 6
 PACKAGE_CLOSURE_DEBUG_PACKAGE_ID = "gf.standard.debug"
@@ -5008,6 +4958,7 @@ GUT_SHARD_RUNTIME_SOURCE_MODULES = (
 	("tools/gf_maintenance_check_graph.py", "gf_maintenance_check_graph"),
 	("tools/gf_executable_resolution.py", "gf_executable_resolution"),
 	("tools/gf_godot_process.py", "gf_godot_process"),
+	("tools/gf_module_descriptors.py", "gf_module_descriptors"),
 	("tools/gf_package_paths.py", "gf_package_paths"),
 	("tools/gf_maintenance_rendering.py", "gf_maintenance_rendering"),
 )
@@ -12322,290 +12273,14 @@ def should_scan_package_manifest_path(path: str) -> bool:
 
 
 def load_package_manifest_record(path: str) -> dict[str, Any]:
-	issues: list[dict[str, Any]] = []
-	record: dict[str, Any] = {
-		"path": path,
-		"id": "",
-		"kind": "",
-		"dependencies": [],
-		"paths": [],
-		"exclude_paths": [],
-		"gf_extension_id": "",
-		"issues": issues,
-	}
-	source_path = ROOT / path
-	try:
-		manifest_bytes = read_bounded_regular_file_under_root(
-			ROOT,
-			source_path,
-			PACKAGE_MANIFEST_MAX_BYTES,
-			label=f"Package manifest {path!r}",
-		)
-	except (OSError, ValueError) as error:
-		error_text = str(error)
-		if "exceeds the managed size limit" in error_text:
-			issues.append(make_package_issue(
-				"package_manifest_too_large",
-				path,
-				"Package manifest must stay within the bounded source-manifest byte budget.",
-				expected_value=f"<= {PACKAGE_MANIFEST_MAX_BYTES}",
-			))
-		else:
-			issues.append(make_package_issue(
-				"invalid_package_manifest_json",
-				path,
-				"Package manifest must be a stable, contained, readable UTF-8 JSON object.",
-				error=trim_text(error_text, 300),
-			))
-		return record
-	try:
-		data = json.loads(
-			manifest_bytes.decode("utf-8", errors="strict"),
-			parse_constant=reject_non_finite_json_constant,
-			object_pairs_hook=reject_duplicate_json_object_keys,
-		)
-	except RecursionError:
-		issues.append(make_package_issue(
-			"package_manifest_nesting_too_deep",
-			path,
-			"Package manifest JSON nesting exceeds the bounded structural budget.",
-			expected_value=f"<= {PACKAGE_MANIFEST_MAX_DEPTH}",
-		))
-		return record
-	except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
-		issues.append(make_package_issue(
-			"invalid_package_manifest_json",
-			path,
-			"Package manifest must be a readable UTF-8 JSON object.",
-			error=trim_text(str(error), 300),
-		))
-		return record
-
-	if not isinstance(data, dict):
-		issues.append(make_package_issue(
-			"invalid_package_manifest",
-			path,
-			"Package manifest root must be a JSON object.",
-			expected_value="object",
-			actual_value=type(data).__name__,
-		))
-		return record
-
-	record["id"] = package_manifest_string(data, "id")
-	record["kind"] = package_manifest_string(data, "kind")
-	record["dependencies"] = package_manifest_string_array(data, "dependencies")
-	record["paths"] = normalize_package_manifest_paths(
-		[item for item in data.get("paths", []) if isinstance(item, str)]
-		if isinstance(data.get("paths", []), list)
-		else []
-	)
-	record["exclude_paths"] = normalize_package_manifest_paths(
-		[item for item in data.get("exclude_paths", []) if isinstance(item, str)]
-		if isinstance(data.get("exclude_paths", []), list)
-		else []
-	)
-	record["gf_extension_id"] = package_manifest_string(data, "gf_extension_id")
-	issues.extend(audit_package_manifest_data(data, path))
+	record, issues = gf_module_descriptors.read_descriptor(ROOT, path, path_exists=package_manifest_path_exists)
+	record["issues"] = issues
 	return record
 
 
 def audit_package_manifest_data(data: dict[str, Any], path: str) -> list[dict[str, Any]]:
-	issues = audit_package_manifest_shape(data, path)
-	if issues:
-		return issues
-	for field_name in sorted(data.keys()):
-		if field_name in PACKAGE_MANIFEST_FORBIDDEN_FIELDS:
-			issues.append(make_package_issue(
-				"forbidden_package_manifest_field",
-				path,
-				"Retired distribution, installation, and signature fields are not part of internal module descriptors.",
-				field=field_name,
-			))
-		elif field_name not in PACKAGE_MANIFEST_ALLOWED_FIELDS:
-			issues.append(make_package_issue(
-				"unsupported_package_manifest_field",
-				path,
-				"Internal module descriptor fields are whitelisted.",
-				field=field_name,
-			))
-
-	schema_version = data.get("schema_version")
-	if (
-		type(schema_version) is not int
-		or schema_version != PACKAGE_MANIFEST_SCHEMA_VERSION
-	):
-		issues.append(make_package_issue(
-			"invalid_package_schema_version",
-			path,
-			f"schema_version must be {PACKAGE_MANIFEST_SCHEMA_VERSION}.",
-			field="schema_version",
-			expected_value=PACKAGE_MANIFEST_SCHEMA_VERSION,
-			actual_value=schema_version,
-		))
-
-	package_id = package_manifest_string(data, "id")
-	if not package_id:
-		issues.append(make_package_issue(
-			"missing_package_id",
-			path,
-			"Package id is required.",
-			field="id",
-		))
-	elif PACKAGE_ID_RE.match(package_id) is None:
-		issues.append(make_package_issue(
-			"invalid_package_id",
-			path,
-			"Internal module id must use gf.kernel, gf.standard.*, gf.extension.*, or gf.tool.*.",
-			field="id",
-			actual_value=package_id,
-		))
-
-	kind = package_manifest_string(data, "kind")
-	if kind not in PACKAGE_MANIFEST_KINDS:
-		issues.append(make_package_issue(
-			"invalid_package_kind",
-			path,
-			"Internal module kind must be one of kernel, standard, extension, or tool.",
-			field="kind",
-			actual_value=kind,
-		))
-	elif package_id and not package_id_matches_kind(package_id, kind):
-		issues.append(make_package_issue(
-			"package_id_kind_mismatch",
-			path,
-			"Package id prefix must match package kind.",
-			field="kind",
-			actual_value=kind,
-			expected_value=expected_package_kind_from_id(package_id),
-		))
-
-	for field_name in ("gf_extension_id",):
-		if field_name in data and not isinstance(data[field_name], str):
-			issues.append(make_package_issue(
-				f"invalid_package_{field_name}",
-				path,
-				f"{field_name} must be a string when present.",
-				field=field_name,
-				expected_value="string",
-			))
-	validate_package_string_array(data, "dependencies", path, issues)
-	validate_package_string_array(data, "exclude_paths", path, issues)
-	validate_package_string_array(data, "paths", path, issues)
-	if not package_manifest_string_array(data, "paths"):
-		issues.append(make_package_issue(
-			"package_manifest_missing_paths",
-			path,
-			"Internal module descriptors must declare owned paths.",
-			field="paths",
-		))
-
-	if kind != "extension" and "gf_extension_id" in data:
-		issues.append(make_package_issue(
-			"non_extension_gf_extension_id",
-			path,
-			"Only extension packages may declare gf_extension_id.",
-			field="gf_extension_id",
-		))
-	elif kind == "extension" and not package_manifest_string(data, "gf_extension_id"):
-		issues.append(make_package_issue(
-			"extension_package_missing_gf_extension_id",
-			path,
-			"Extension packages must declare the bundled extension id in gf_extension_id.",
-			field="gf_extension_id",
-		))
-
-	for path_index, raw_path in enumerate(data.get("paths", [])):
-		normalized_path = normalize_package_manifest_path_for_matching(raw_path)
-		if not normalized_path:
-			issues.append(make_package_issue(
-				"invalid_package_path",
-				path,
-				"Package paths must be relative addons/gf paths and must not contain '..', protocols, or absolute roots.",
-				field="paths",
-				row_index=path_index,
-				actual_value=raw_path,
-			))
-			continue
-		if not package_path_is_under_addons_gf(normalized_path):
-			issues.append(make_package_issue(
-				"package_path_outside_addons_gf",
-				path,
-				"Package paths must stay under addons/gf.",
-				field="paths",
-				row_index=path_index,
-				actual_value=normalized_path,
-			))
-			continue
-		if not package_manifest_path_exists(normalized_path):
-			issues.append(make_package_issue(
-				"package_path_missing",
-				path,
-				"Package path anchor does not exist in the source tree.",
-				field="paths",
-				row_index=path_index,
-				actual_value=normalized_path,
-			))
-	for path_index, raw_path in enumerate(data.get("exclude_paths", [])):
-		normalized_path = normalize_package_manifest_path_for_matching(raw_path)
-		if not normalized_path:
-			issues.append(make_package_issue(
-				"invalid_package_exclude_path",
-				path,
-				"Package exclude_paths must be relative addons/gf paths and must not contain '..', protocols, or absolute roots.",
-				field="exclude_paths",
-				row_index=path_index,
-				actual_value=raw_path,
-			))
-			continue
-		if not package_path_is_under_addons_gf(normalized_path):
-			issues.append(make_package_issue(
-				"package_exclude_path_outside_addons_gf",
-				path,
-				"Package exclude_paths must stay under addons/gf.",
-				field="exclude_paths",
-				row_index=path_index,
-				actual_value=normalized_path,
-			))
-			continue
-		if not package_manifest_path_exists(normalized_path):
-			issues.append(make_package_issue(
-				"package_exclude_path_missing",
-				path,
-				"Package exclude_paths anchor does not exist in the source tree.",
-				field="exclude_paths",
-				row_index=path_index,
-				actual_value=normalized_path,
-			))
+	_, issues = gf_module_descriptors.descriptor_fields(data, path, path_exists=package_manifest_path_exists)
 	return issues
-
-
-def audit_package_manifest_shape(value: Any, path: str) -> list[dict[str, Any]]:
-	stack: list[tuple[Any, int]] = [(value, 1)]
-	node_count = 0
-	while stack:
-		current, depth = stack.pop()
-		if depth > PACKAGE_MANIFEST_MAX_DEPTH:
-			return [make_package_issue(
-				"package_manifest_nesting_too_deep",
-				path,
-				"Package manifest JSON nesting exceeds the bounded structural budget.",
-				expected_value=f"<= {PACKAGE_MANIFEST_MAX_DEPTH}",
-				actual_value=depth,
-			)]
-		node_count += 1
-		if node_count > PACKAGE_MANIFEST_MAX_NODES:
-			return [make_package_issue(
-				"package_manifest_node_budget_exceeded",
-				path,
-				"Package manifest JSON structure exceeds the bounded value-count budget.",
-				expected_value=f"<= {PACKAGE_MANIFEST_MAX_NODES}",
-				actual_value=node_count,
-			)]
-		if isinstance(current, dict):
-			stack.extend((nested, depth + 1) for nested in reversed(list(current.values())))
-		elif isinstance(current, list):
-			stack.extend((nested, depth + 1) for nested in reversed(current))
-	return []
 
 
 def audit_package_manifest_graph(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -13187,51 +12862,6 @@ def audit_package_source_references(
 	return issues
 
 
-def collect_package_source_owner_entries(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-	entries: list[dict[str, Any]] = []
-	for record in records:
-		if record.get("kind") == "preset":
-			continue
-		package_id = str(record.get("id", ""))
-		if not package_id:
-			continue
-		for path in record.get("paths", []):
-			pattern = normalize_package_manifest_path_for_matching(str(path))
-			if not pattern:
-				continue
-			entries.append({
-				"package_id": package_id,
-				"manifest_path": str(record.get("path", "")),
-				"owned_path": str(path),
-				"pattern": pattern,
-				"exclude_paths": [
-					normalized_path
-					for raw_path in record.get("exclude_paths", [])
-					if (normalized_path := normalize_package_manifest_path_for_matching(str(raw_path)))
-				],
-			})
-	return sorted(entries, key=lambda entry: len(entry["pattern"]), reverse=True)
-
-
-class PackageOwnershipIndex(ManifestPathIndex):
-	def __init__(self, owner_entries: list[dict[str, Any]]) -> None:
-		super().__init__(owner_entries, path_normalizer=normalize_package_manifest_path)
-
-	def find_owner(self, path: str) -> dict[str, Any] | None:
-		matches = self.find_owners(path)
-		return matches[0] if len(matches) == 1 else None
-
-	def find_owners(self, path: str) -> list[dict[str, Any]]:
-		return [
-			entry
-			for entry in self.find_all(path)
-			if not any(
-				shared_manifest_path_matches(path, excluded_path)
-				for excluded_path in entry.get("exclude_paths", [])
-			)
-		]
-
-
 def find_package_source_owner(
 	path: str,
 	owner_entries: list[dict[str, Any]] | PackageOwnershipIndex,
@@ -13369,106 +12999,6 @@ def package_dependency_allowed(kind: str, dependency_id: str) -> bool:
 	return False
 
 
-def package_id_matches_kind(package_id: str, kind: str) -> bool:
-	return expected_package_kind_from_id(package_id) == kind
-
-
-def expected_package_kind_from_id(package_id: str) -> str:
-	if package_id == "gf.kernel":
-		return "kernel"
-	if package_id.startswith("gf.standard."):
-		return "standard"
-	if package_id.startswith("gf.extension."):
-		return "extension"
-	if package_id.startswith("gf.preset."):
-		return "preset"
-	if package_id.startswith("gf.tool."):
-		return "tool"
-	return ""
-
-
-def package_manifest_string(data: dict[str, Any], key: str, fallback: str = "") -> str:
-	value = data.get(key, fallback)
-	if isinstance(value, str):
-		return value.strip()
-	return fallback
-
-
-def package_manifest_string_array(data: dict[str, Any], key: str) -> list[str]:
-	value = data.get(key, [])
-	if isinstance(value, str):
-		return [value.strip()] if value.strip() else []
-	if not isinstance(value, list):
-		return []
-	result: list[str] = []
-	for item in value:
-		if isinstance(item, str) and item.strip():
-			result.append(item.strip())
-	return result
-
-
-def validate_package_string_array(
-	data: dict[str, Any],
-	field_name: str,
-	path: str,
-	issues: list[dict[str, Any]],
-) -> None:
-	if field_name not in data:
-		return
-	value = data[field_name]
-	if not isinstance(value, list):
-		issues.append(make_package_issue(
-			f"invalid_package_{field_name}",
-			path,
-			f"{field_name} must be an array of non-empty strings.",
-			field=field_name,
-			expected_value="array[string]",
-		))
-		return
-	for index, item in enumerate(value):
-		if isinstance(item, str) and item.strip():
-			continue
-		issues.append(make_package_issue(
-			f"invalid_package_{field_name}",
-			path,
-			f"{field_name} entries must be non-empty strings.",
-			field=field_name,
-			row_index=index,
-			expected_value="non-empty string",
-		))
-
-
-def normalize_package_manifest_paths(paths: list[str]) -> list[str]:
-	result: list[str] = []
-	for path in paths:
-		normalized_path = normalize_package_manifest_path_for_matching(path)
-		if normalized_path and normalized_path not in result:
-			result.append(normalized_path)
-	return result
-
-
-def normalize_package_manifest_path(path: str) -> str:
-	normalized_path = path.strip().replace("\\", "/")
-	if normalized_path.startswith("res://"):
-		normalized_path = normalized_path.removeprefix("res://")
-	if normalized_path.startswith("./"):
-		normalized_path = normalized_path[2:]
-	normalized_path = normalized_path.strip("/")
-	if not normalized_path:
-		return ""
-	if normalized_path.startswith("/") or "://" in normalized_path or ":" in normalized_path:
-		return ""
-	parts = [part for part in normalized_path.split("/") if part not in ("", ".")]
-	if any(part == ".." for part in parts):
-		return ""
-	return "/".join(parts)
-
-
-def normalize_package_manifest_path_for_matching(path: str) -> str:
-	"""Return one canonical portable manifest pattern, or ``""`` when invalid."""
-	return path if shared_portable_manifest_path_identity(path) else ""
-
-
 def package_manifest_path_matches(path: str, raw_pattern: str) -> bool:
 	return shared_manifest_path_matches(path, raw_pattern)
 
@@ -13480,9 +13010,8 @@ def package_path_is_under_addons_gf(path: str) -> bool:
 
 def package_manifest_path_exists(path: str) -> bool:
 	anchor = package_path_anchor(path)
-	if not anchor:
-		return False
-	return (ROOT / anchor).exists()
+	actual = gf_module_descriptors.exact_source_path(ROOT, anchor)
+	return actual is not None and not gf_path_security.path_has_reparse_component(actual)
 
 
 def package_path_anchor(path: str) -> str:
