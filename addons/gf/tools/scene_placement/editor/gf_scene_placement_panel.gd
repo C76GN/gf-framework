@@ -83,6 +83,11 @@ var _align: CheckBox = null
 ## [br]
 var _continuous: CheckBox = null
 
+## 显式的整笔拖动模式，与连续点击互斥。
+## [br]
+## @api private
+var _brush: CheckBox = null
+
 ## 按参数名索引的 SpinBox 控件表。
 ## [br]
 ## @api private
@@ -300,6 +305,28 @@ func is_continuous_placement_enabled() -> bool:
 	return _continuous.button_pressed
 
 
+## 当前交互是否按完整拖动提交。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 笔刷开启时为 true。
+func is_brush_enabled() -> bool:
+	return _brush.button_pressed
+
+
+## 获取相邻笔刷样本的世界空间最小距离。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 正的世界单位距离。
+func get_brush_spacing() -> float:
+	return _numbers[&"BrushSpacing"].value
+
+
 ## 获取用户声明的线框代理尺寸。
 ## [br]
 ## @api framework_internal
@@ -381,6 +408,15 @@ func show_placement_failure(report: Dictionary) -> void:
 	var diagnostics: String = "错误码 %s" % error_text
 	if not reason.is_empty():
 		diagnostics += "；原因 %s" % reason
+	var index_value: Variant = report.get("failed_index")
+	if index_value is int and index_value >= 0:
+		var failed_index: int = index_value
+		diagnostics += "。第 %d 个笔刷实例" % (failed_index + 1)
+	var residual_value: Variant = report.get("residuals")
+	if residual_value is PackedStringArray:
+		var residuals: PackedStringArray = residual_value
+		if not residuals.is_empty():
+			diagnostics += "\n未恢复的实例\n" + "\n".join(residuals)
 	show_status(
 		"摆放失败：%s\n建议：%s\n%s"
 		% [
@@ -499,15 +535,34 @@ func _build_ui() -> void:
 		1.0
 	)
 	var note: Label = Label.new()
-	note.text = "线框是尺寸代理。确认会实例化所选场景。\n开始后移动 3D 视口指针，左键确认；Esc / 右键取消。"
+	note.text = "线框预览摆放尺寸。点击摆放时左键确认，笔刷摆放时按住左键拖动、松手提交。\nEsc / 右键取消。"
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fields.add_child(note)
 	_continuous = CheckBox.new()
 	_continuous.name = "ContinuousPlacement"
 	_continuous.text = "连续摆放"
 	_continuous.tooltip_text = "每次确认后继续拾取；每个实例可独立撤销。Esc / 右键结束。"
+	var placement_modes: ButtonGroup = ButtonGroup.new()
+	placement_modes.allow_unpress = true
+	_continuous.button_group = placement_modes
 	_fields.add_child(_continuous)
 	var _continuous_connected: int = _continuous.toggled.connect(_on_configuration_changed.unbind(1))
+	_brush = CheckBox.new()
+	_brush.name = "BrushPlacement"
+	_brush.text = "笔刷摆放"
+	_brush.tooltip_text = "按住左键预览一笔，松手提交，一次撤销整笔。"
+	_brush.button_group = placement_modes
+	_fields.add_child(_brush)
+	_add_number(
+		&"BrushSpacing",
+		"笔刷最小间距（世界单位）",
+		1.0,
+		0.001,
+		100000.0,
+		0.001
+	)
+	_numbers[&"BrushSpacing"].editable = false
+	var _brush_connected: int = _brush.toggled.connect(_on_brush_toggled)
 	_add_button(
 		"StartPlacement",
 		"开始摆放",
@@ -713,4 +768,12 @@ func _on_scene_file_selected(path: String) -> void:
 ## [br]
 ## @api private
 func _on_configuration_changed() -> void:
+	configuration_changed.emit()
+
+
+## 启用笔刷专用间距并停止旧模式的预览。
+## [br]
+## @api private
+func _on_brush_toggled(enabled: bool) -> void:
+	_numbers[&"BrushSpacing"].editable = enabled
 	configuration_changed.emit()

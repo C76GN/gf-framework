@@ -9,6 +9,7 @@ extends GutTest
 const _ASSET_PATH: String = "res://tests/gf_core/tools/scene_placement/fixtures/placement_asset.tscn"
 const _SCRIPTED_ASSET_PATH: String = "res://tests/gf_core/tools/scene_placement/fixtures/placement_scripted_asset.tscn"
 const _CANARY_KEY: StringName = &"gf_placement_canary_instances"
+const _HISTORY_FAILURE: String = "[GFScenePlacementStrokeCommand][scene_placement_stroke_command.history_failed]"
 const _UNDO_ADAPTER_SCRIPT = preload("res://tests/gf_core/tools/scene_placement/fixtures/placement_undo_adapter.gd")
 
 
@@ -1714,7 +1715,385 @@ func test_panel_failure_reports_do_not_invent_codes_for_missing_or_invalid_field
 	assert_true(missing_code_message.contains("错误码 未知"))
 
 
+func test_brush_sampling_uses_world_anchor_spacing_gaps_and_capacity() -> void:
+	var parent: Node3D = _make_parent()
+	var stroke: GFScenePlacementStrokeCommand = GFScenePlacementStrokeCommand.new(
+		_load_scene(_SCRIPTED_ASSET_PATH),
+		parent,
+		parent.get_parent(),
+		2.0
+	)
+	var transform: Transform3D = Transform3D.IDENTITY
+	assert_true(stroke.add_sample(Vector3.ZERO, transform))
+	assert_false(stroke.add_sample(Vector3.ZERO, transform))
+	assert_false(stroke.add_sample(Vector3.RIGHT, transform))
+	stroke.break_segment()
+	assert_true(stroke.add_sample(Vector3.RIGHT, transform))
+	for index: int in range(2, GFScenePlacementStrokeCommand.MAX_SAMPLES):
+		assert_true(
+			stroke.add_sample(
+				Vector3.RIGHT * float(index * 2),
+				transform
+			)
+		)
+	assert_false(
+		stroke.add_sample(
+			Vector3.RIGHT * 999.0,
+			transform
+		)
+	)
+	assert_eq(
+		stroke.get_sample_count(),
+		GFScenePlacementStrokeCommand.MAX_SAMPLES
+	)
+	assert_eq(
+		_canary_count(),
+		0
+	)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+
+
+func test_brush_third_creation_failure_rolls_back_without_history() -> void:
+	var parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	var reject_third: Callable = func(child: Node) -> void:
+		if parent.get_child_count() == 3:
+			child.queue_free()
+	var connected: int = parent.child_entered_tree.connect(reject_third)
+	assert_eq(connected, OK)
+	var report: Dictionary = stroke.commit_stroke(manager, parent.is_inside_tree)
+	parent.child_entered_tree.disconnect(reject_third)
+	assert_false(
+		GFVariantData.get_option_bool(
+			report,
+			"ok",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"creation_failed"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			report,
+			"failed_index",
+			-1
+		),
+		2
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(report, "residuals"),
+		PackedStringArray()
+	)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+	assert_false(manager.undo())
+
+
+func test_interrupted_brush_reports_displaced_instance_and_reverts_other_samples() -> void:
+	var parent: Node3D = _make_parent()
+	var other_parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	var interrupt: Callable = func() -> bool:
+		if parent.get_child_count() == 3:
+			parent.get_child(0).reparent(other_parent)
+			return false
+		return true
+	var report: Dictionary = stroke.commit_stroke(manager, interrupt)
+	assert_false(
+		GFVariantData.get_option_bool(
+			report,
+			"ok",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"operation_interrupted"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			report,
+			"failed_index",
+			-1
+		),
+		2
+	)
+	var residuals: PackedStringArray = GFVariantData.get_option_packed_string_array(report, "residuals")
+	assert_eq(
+		residuals.size(),
+		1
+	)
+	assert_string_contains(
+		residuals[0],
+		str(other_parent.get_child(0).get_instance_id())
+	)
+	assert_eq(
+		other_parent.get_child_count(),
+		1
+	)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+	assert_false(manager.undo())
+
+
+func test_brush_history_rejection_compensates_every_sample() -> void:
+	var parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	manager.foreign_history_target = parent
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	var report: Dictionary = stroke.commit_stroke(manager, parent.is_inside_tree)
+	assert_false(
+		GFVariantData.get_option_bool(
+			report,
+			"ok",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"history_rejected"
+	)
+	assert_eq(
+		GFVariantData.get_option_packed_string_array(report, "residuals"),
+		PackedStringArray()
+	)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+	assert_false(manager.undo())
+
+
+func test_later_creation_moving_an_earlier_brush_node_aborts_the_whole_stroke() -> void:
+	var parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	var adjust_first: Callable = func() -> bool:
+		if parent.get_child_count() == 3:
+			var first: Node3D = parent.get_child(0) as Node3D
+			first.position += Vector3.UP
+		return true
+	var report: Dictionary = stroke.commit_stroke(manager, adjust_first)
+	assert_false(_bool_field(report, "ok"))
+	assert_eq(
+		_int_field(report, "failed_index"),
+		0
+	)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+	assert_false(manager.undo())
+
+
+func test_brush_registration_rollback_reports_a_previous_sample_reattached_during_removal() -> void:
+	var parent: Node3D = _make_parent()
+	var other_parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	manager.foreign_history_target = parent
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	var reattach: Callable = _reattach_first_removed_node(other_parent)
+	assert_eq(
+		parent.child_exiting_tree.connect(reattach),
+		OK
+	)
+	var report: Dictionary = stroke.commit_stroke(manager, parent.is_inside_tree)
+	parent.child_exiting_tree.disconnect(reattach)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "reason"),
+		&"history_rejected"
+	)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+	assert_eq(
+		other_parent.get_child_count(),
+		1
+	)
+	var residuals: PackedStringArray = GFVariantData.get_option_packed_string_array(report, "residuals")
+	assert_eq(
+		residuals.size(),
+		1
+	)
+	assert_string_contains(
+		residuals[0],
+		str(other_parent.get_child(0).get_instance_id())
+	)
+	assert_false(manager.undo())
+
+
+func test_brush_undo_detects_a_reattached_sample_and_restores_other_original_nodes() -> void:
+	var parent: Node3D = _make_parent()
+	var other_parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	assert_true(
+		_bool_field(
+			stroke.commit_stroke(manager, parent.is_inside_tree),
+			"ok"
+		)
+	)
+	var originals: Array[Node] = parent.get_children()
+	var reattach: Callable = _reattach_first_removed_node(other_parent)
+	assert_eq(
+		parent.child_exiting_tree.connect(reattach),
+		OK
+	)
+	assert_true(manager.undo())
+	parent.child_exiting_tree.disconnect(reattach)
+	assert_eq(
+		stroke.get_last_revert_error(),
+		ERR_ALREADY_IN_USE
+	)
+	assert_push_error(
+		"%s Brush history failed at sample 5 (%s). Unrestored samples: sample 5 %s #%d"
+		% [
+			_HISTORY_FAILURE,
+			error_string(ERR_ALREADY_IN_USE),
+			originals[4].get_path(),
+			originals[4].get_instance_id(),
+		]
+	)
+	assert_eq(
+		parent.get_children(),
+		originals.slice(0, 4)
+	)
+	assert_eq(
+		other_parent.get_child(0),
+		originals[4]
+	)
+	manager.clear()
+
+
+func test_dropping_undone_brush_history_releases_all_detached_instances() -> void:
+	var parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	assert_true(
+		_bool_field(
+			stroke.commit_stroke(manager, parent.is_inside_tree),
+			"ok"
+		)
+	)
+	var nodes: Array[WeakRef] = []
+	for child: Node in parent.get_children():
+		nodes.append(weakref(child))
+	assert_eq(
+		nodes.size(),
+		5
+	)
+	stroke = null
+	assert_true(manager.undo())
+	manager.clear()
+	for ref: WeakRef in nodes:
+		assert_true(ref.get_ref() == null)
+
+
+func test_brush_undo_reports_an_original_queued_for_deletion_by_its_exit_callback() -> void:
+	var parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	assert_true(
+		_bool_field(
+			stroke.commit_stroke(manager, parent.is_inside_tree),
+			"ok"
+		)
+	)
+	var originals: Array[Node] = parent.get_children()
+	var last: Node = originals[4]
+	var id: int = last.get_instance_id()
+	assert_eq(
+		last.tree_exiting.connect(last.queue_free, CONNECT_ONE_SHOT),
+		OK
+	)
+	assert_true(manager.undo())
+	assert_eq(
+		stroke.get_last_revert_error(),
+		ERR_UNAVAILABLE
+	)
+	assert_push_error(
+		"%s Brush history failed at sample 5 (%s). Unrestored samples: sample 5 %s #%d"
+		% [
+			_HISTORY_FAILURE,
+			error_string(ERR_UNAVAILABLE),
+			last.name,
+			id,
+		]
+	)
+	assert_eq(
+		parent.get_children(),
+		originals.slice(0, 4)
+	)
+	assert_true(last.is_queued_for_deletion())
+	manager.clear()
+
+
+func test_brush_redo_refuses_to_replace_a_freed_original_with_a_new_instance() -> void:
+	var parent: Node3D = _make_parent()
+	var manager: _UNDO_ADAPTER_SCRIPT = _make_undo_adapter()
+	var stroke: GFScenePlacementStrokeCommand = _five_sample_stroke(parent)
+	assert_true(
+		_bool_field(
+			stroke.commit_stroke(manager, parent.is_inside_tree),
+			"ok"
+		)
+	)
+	var original: Node = parent.get_child(2)
+	assert_true(manager.undo())
+	original.free()
+	assert_true(manager.redo())
+	assert_eq(
+		stroke.get_last_execute_error(),
+		ERR_UNAVAILABLE
+	)
+	assert_push_error("%s Brush history failed at sample 3" % _HISTORY_FAILURE)
+	assert_eq(
+		parent.get_child_count(),
+		0
+	)
+	manager.clear()
+
+
 # --- 私有/辅助方法 ---
+
+func _reattach_first_removed_node(destination: Node3D) -> Callable:
+	var removed: Array[Node] = []
+	return func(child: Node) -> void:
+		if removed.is_empty():
+			removed.append(child)
+		elif removed[0].get_parent() == null:
+			destination.add_child(removed[0])
+
+
+func _five_sample_stroke(parent: Node3D) -> GFScenePlacementStrokeCommand:
+	var stroke: GFScenePlacementStrokeCommand = GFScenePlacementStrokeCommand.new(
+		_load_scene(_ASSET_PATH),
+		parent,
+		parent.get_parent(),
+		1.0
+	)
+	for index: int in range(5):
+		var point: Vector3 = Vector3.RIGHT * float(index)
+		assert_true(
+			stroke.add_sample(
+				point,
+				Transform3D(Basis.IDENTITY, point)
+			)
+		)
+	return stroke
+
 
 func _panel_status_text(panel: GFScenePlacementPanel) -> String:
 	var status_node: Node = panel.get_node_or_null(^"PlacementStatus")

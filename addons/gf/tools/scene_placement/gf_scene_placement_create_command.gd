@@ -205,6 +205,20 @@ func get_instance() -> Node3D:
 	return _instance if is_instance_valid(_instance) else null
 
 
+## 检查后续同步回调是否仍保留本实例的原场景、父节点、owner 及预定世界变换。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @return 当前实例仍处于完整创建结果时为 true。
+func matches_placement() -> bool:
+	return _is_attached_destination_valid(
+		_get_parent_node(),
+		_get_root_node()
+	) and _instance.global_transform.is_equal_approx(_world_transform)
+
+
 # --- 私有/辅助方法 ---
 
 ## 在入树或 owner 赋值回调后复核实例仍归属原父节点和场景根，且目标仍可使用。

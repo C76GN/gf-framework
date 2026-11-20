@@ -6,6 +6,8 @@
 
 ### 🚀 新增特性 (Added)
 
+- 3D 场景摆放新增笔刷模式，按住左键预览多个位置，松手后可一次撤销或重做整笔。
+- 二维曲线支持按给定参数保形切分三次 Bézier 段，并在指定距离误差和计算预算下求最近参数。
 - 通知队列可配置多个活动名额。每条通知独立计时，结束后按等待优先级补位。项目负责通知的布局和动画。
 - 2D 空间画布可从指定视图计算滚轮缩放目标，供项目累积滚轮输入并驱动缩放动画。
 
@@ -16,6 +18,7 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFCurve2DMath` 新增 `split_cubic_bezier()` 和 `project_point_to_cubic_bezier()`。输入采用同一坐标系中的绝对控制点，投影结果包含原始曲线参数和距离误差界。
 - `GFNotificationUtility` 新增 `max_active_notifications`、`get_active_notifications()`、`dismiss_notification()` 和 `invoke_notification_action()`。
 - `GFSpatialCanvas2D` 新增 `resolve_wheel_zoom_target()`，返回输入路由结果和受画布约束的缩放目标。
 

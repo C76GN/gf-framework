@@ -162,6 +162,8 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 				"native_undo_redo_anchor_parent_transform_save_reload",
 				"native_gui_forwarded",
 				"native_pointer_plane_cancel_and_confirm",
+				"brush_preview_native_history_and_reload",
+				"brush_scene_switch_cancels_drag",
 				"continuous_independent_undo_redo_and_cancel",
 				"continuous_configuration_and_parent_invalidation",
 				"continuous_confirmation_reentry",

@@ -874,6 +874,478 @@ func test_ellipse_curve_is_closed_and_centered() -> void:
 	assert_true(curve.get_baked_length() > 0.0)
 
 
+func test_cubic_split_preserves_both_parameterized_subcurves() -> void:
+	var p0: Vector2 = Vector2(-10.0, 30.0)
+	var p1: Vector2 = Vector2(80.0, -45.0)
+	var p2: Vector2 = Vector2(-25.0, 75.0)
+	var p3: Vector2 = Vector2(60.0, 12.0)
+	for t: float in [
+		0.0,
+		0.19,
+		0.5,
+		0.83,
+		1.0,
+	]:
+		var cut: Dictionary = GFCurve2DMath.split_cubic_bezier(
+			p0,
+			p1,
+			p2,
+			p3,
+			t
+		)
+		assert_true(GFVariantData.get_option_bool(cut, "ok"))
+		var left: PackedVector2Array = cut["left"]
+		var right: PackedVector2Array = cut["right"]
+		assert_eq(
+			left.size(),
+			4
+		)
+		assert_eq(
+			right.size(),
+			4
+		)
+		assert_eq(
+			left[0],
+			p0
+		)
+		assert_eq(
+			left[3],
+			right[0]
+		)
+		assert_eq(
+			right[3],
+			p3
+		)
+		for sample: int in range(17):
+			var u: float = float(sample) / 16.0
+			var expected_left: Vector2 = p0.bezier_interpolate(
+				p1,
+				p2,
+				p3,
+				t * u
+			)
+			var expected_right: Vector2 = p0.bezier_interpolate(
+				p1,
+				p2,
+				p3,
+				t + (1.0 - t) * u
+			)
+			assert_lt(
+				expected_left.distance_to(
+					left[0].bezier_interpolate(
+						left[1],
+						left[2],
+						left[3],
+						u
+					)
+				),
+				0.00003
+			)
+			assert_lt(
+				expected_right.distance_to(
+					right[0].bezier_interpolate(
+						right[1],
+						right[2],
+						right[3],
+						u
+					)
+				),
+				0.00003
+			)
+
+
+func test_cubic_projection_returns_parameter_and_distinguishes_exhaustion() -> void:
+	var origin: Vector2 = Vector2.ZERO
+	var end: Vector2 = Vector2(100.0, 0.0)
+	var target: Vector2 = Vector2(50.0, 0.0)
+	var result: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		origin,
+		origin,
+		origin,
+		end,
+		target,
+		0.000001
+	)
+	assert_true(GFVariantData.get_option_bool(result, "converged"))
+	assert_almost_eq(
+		GFVariantData.get_option_float(result, "t"),
+		pow(
+			0.5,
+			1.0 / 3.0
+		),
+		0.000001
+	)
+	assert_lte(
+		GFVariantData.get_option_float(result, "distance"),
+		0.000001
+	)
+	var limited: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		origin,
+		origin,
+		origin,
+		end,
+		target,
+		0.000001,
+		1
+	)
+	assert_true(GFVariantData.get_option_bool(limited, "ok"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			limited,
+			"converged",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_int(limited, "subdivisions"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_vector2(limited, "point"),
+		Vector2(12.5, 0.0)
+	)
+	assert_eq(
+		GFVariantData.get_option_float(limited, "error_bound"),
+		37.5
+	)
+	var endpoint: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		origin,
+		origin,
+		origin,
+		end,
+		end,
+		0.0,
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(endpoint, "t"),
+		1.0
+	)
+	assert_true(GFVariantData.get_option_bool(endpoint, "converged"))
+	var constant: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		end,
+		end,
+		end,
+		end,
+		target,
+		0.0,
+		0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(constant, "t"),
+		0.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(constant, "distance"),
+		50.0
+	)
+	assert_true(GFVariantData.get_option_bool(constant, "converged"))
+
+
+func test_cubic_projection_searches_competing_minima_and_handles_self_intersection() -> void:
+	# y=1-x² 对原点的最小距离为 sqrt(3)/2，最近点分居两侧。
+	var arch: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		Vector2(-1.0, 0.0),
+		Vector2(
+			-1.0 / 3.0,
+			4.0 / 3.0
+		),
+		Vector2(
+			1.0 / 3.0,
+			4.0 / 3.0
+		),
+		Vector2(1.0, 0.0),
+		Vector2.ZERO,
+		0.0001,
+		2048
+	)
+	assert_true(GFVariantData.get_option_bool(arch, "converged"))
+	assert_almost_eq(
+		GFVariantData.get_option_float(arch, "distance"),
+		sqrt(3.0) * 0.5,
+		0.0001
+	)
+	assert_lte(
+		GFVariantData.get_option_float(arch, "error_bound"),
+		0.0001
+	)
+	var target: Vector2 = Vector2.ZERO
+	var loop: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		Vector2(9.0, -18.0),
+		Vector2(-7.0, 26.0),
+		Vector2(-7.0, -26.0),
+		Vector2(9.0, 18.0),
+		target,
+		0.0
+	)
+	assert_true(GFVariantData.get_option_bool(loop, "converged"))
+	assert_eq(
+		GFVariantData.get_option_float(loop, "distance"),
+		0.0
+	)
+	assert_eq(
+		GFVariantData.get_option_float(loop, "t"),
+		0.25
+	)
+
+
+func test_cubic_split_and_projection_keep_a_small_representable_term_after_cancellation() -> void:
+	var large: float = 1152921504606846976.0
+	var p0: Vector2 = Vector2(large, 0.0)
+	var p1: Vector2 = Vector2.RIGHT
+	var p2: Vector2 = Vector2.ZERO
+	var p3: Vector2 = -p0
+	var half: Dictionary = GFCurve2DMath.split_cubic_bezier(
+		p0,
+		p1,
+		p2,
+		p3,
+		0.5
+	)
+	var left: PackedVector2Array = half["left"]
+	var right: PackedVector2Array = half["right"]
+	assert_eq(
+		left[3],
+		Vector2(0.375, 0.0)
+	)
+	assert_eq(
+		left[3],
+		right[0]
+	)
+	var quarter: Dictionary = GFCurve2DMath.split_cubic_bezier(
+		p0,
+		p1,
+		p2,
+		27.0 * p3,
+		0.25
+	)
+	var quarter_left: PackedVector2Array = quarter["left"]
+	assert_eq(
+		quarter_left[3],
+		Vector2(
+			27.0 / 64.0,
+			0.0
+		)
+	)
+	var hit: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		p0,
+		p1,
+		p2,
+		p3,
+		Vector2.ZERO
+	)
+	assert_true(GFVariantData.get_option_bool(hit, "ok"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			hit,
+			"converged",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_float(hit, "t"),
+		0.5
+	)
+	assert_eq(
+		GFVariantData.get_option_float(hit, "distance"),
+		0.375
+	)
+	assert_gte(
+		GFVariantData.get_option_float(hit, "error_bound"),
+		0.375
+	)
+
+
+func test_cubic_split_next_to_an_endpoint_preserves_the_short_remainder() -> void:
+	# 这里的原曲线是 x(t) = 3b(1-t)²t，短子段的两个非零控制点可以独立算出。
+	var b: float = 972556992512.0
+	var offset: float = pow(2.0, -53.0)
+	var t: float = 1.0 - offset
+	var cut: Dictionary = GFCurve2DMath.split_cubic_bezier(
+		Vector2.ZERO,
+		Vector2(b, 0.0),
+		Vector2.ZERO,
+		Vector2.ZERO,
+		t
+	)
+	var left: PackedVector2Array = cut["left"]
+	var right: PackedVector2Array = cut["right"]
+	assert_eq(
+		left[2],
+		Vector2(
+			2.0 * b * offset * t,
+			0.0
+		)
+	)
+	assert_eq(
+		right[0],
+		Vector2(
+			3.0 * b * offset * offset * t,
+			0.0
+		)
+	)
+	assert_eq(
+		right[1],
+		Vector2(
+			b * offset * offset,
+			0.0
+		)
+	)
+
+
+func test_cubic_projection_large_translation_preserves_the_distance_at_the_returned_parameter() -> void:
+	# x=2^60 + 2^42*t³。最接近根的 binary64 参数仍留下可用有理数独立复算的距离。
+	var origin: Vector2 = Vector2(1152921504606846976.0, 0.0)
+	var end: Vector2 = Vector2(1152925902653358080.0, 0.0)
+	var target: Vector2 = Vector2(1152923703630102528.0, 0.0)
+	var hit: Dictionary = GFCurve2DMath.project_point_to_cubic_bezier(
+		origin,
+		origin,
+		origin,
+		end,
+		target,
+		0.0
+	)
+	assert_true(GFVariantData.get_option_bool(hit, "ok"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			hit,
+			"converged",
+			true
+		)
+	)
+	assert_eq(
+		GFVariantData.get_option_float(hit, "t"),
+		0.7937005259840998
+	)
+	assert_almost_eq(
+		GFVariantData.get_option_float(hit, "distance"),
+		0.000451704408678414,
+		1.0e-15
+	)
+	assert_gte(
+		GFVariantData.get_option_float(hit, "error_bound"),
+		0.000451704408678414
+	)
+	assert_eq(
+		GFVariantData.get_option_vector2(hit, "point"),
+		target
+	)
+
+
+func test_cubic_operations_reject_invalid_domains() -> void:
+	var p: Vector2 = Vector2.ZERO
+	for t: float in [
+		-0.01,
+		1.01,
+		INF,
+		NAN,
+	]:
+		var invalid: Dictionary = GFCurve2DMath.split_cubic_bezier(
+			p,
+			p,
+			p,
+			p,
+			t
+		)
+		assert_false(
+			GFVariantData.get_option_bool(
+				invalid,
+				"ok",
+				true
+			)
+		)
+		assert_eq(
+			_option_packed_vector2_array(invalid, "left"),
+			PackedVector2Array()
+		)
+	var bad_point: Vector2 = Vector2(INF, 0.0)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFCurve2DMath.split_cubic_bezier(
+				p,
+				bad_point,
+				p,
+				p,
+				0.5
+			),
+			"ok",
+			true
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFCurve2DMath.project_point_to_cubic_bezier(
+				p,
+				p,
+				p,
+				p,
+				bad_point
+			),
+			"ok",
+			true
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFCurve2DMath.project_point_to_cubic_bezier(
+				p,
+				p,
+				p,
+				p,
+				p,
+				-0.1
+			),
+			"ok",
+			true
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFCurve2DMath.project_point_to_cubic_bezier(
+				p,
+				p,
+				p,
+				p,
+				p,
+				INF
+			),
+			"ok",
+			true
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFCurve2DMath.project_point_to_cubic_bezier(
+				p,
+				p,
+				p,
+				p,
+				p,
+				1.0,
+				-1
+			),
+			"ok",
+			true
+		)
+	)
+	assert_false(
+		GFVariantData.get_option_bool(
+			GFCurve2DMath.project_point_to_cubic_bezier(
+				p,
+				p,
+				p,
+				p,
+				p,
+				1.0,
+				4097
+			),
+			"ok",
+			true
+		)
+	)
+
+
 func _option_vector2(options: Dictionary, key: Variant) -> Vector2:
 	var value: Variant = GFVariantData.get_option_value(options, key)
 	if value is Vector2:

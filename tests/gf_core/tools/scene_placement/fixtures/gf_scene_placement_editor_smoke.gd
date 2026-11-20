@@ -1195,6 +1195,8 @@ func _after_cancel() -> void:
 	):
 		return
 	_results["native_pointer_plane_cancel_and_confirm"] = true
+	if not _check_brush_placement():
+		return
 	if not _check_continuous_placement():
 		return
 	if not _check_continuous_invalidation():
@@ -1213,6 +1215,170 @@ func _after_cancel() -> void:
 		return
 	_phase = &"surface_wait"
 	_frames = 0
+
+
+func _check_brush_placement() -> bool:
+	var toggle: CheckBox = _panel.find_child(
+		"BrushPlacement",
+		true,
+		false
+	) as CheckBox
+	var spacing: SpinBox = _panel.find_child(
+		"BrushSpacing",
+		true,
+		false
+	) as SpinBox
+	if not _require(
+		toggle != null and spacing != null,
+		"The native brush controls are missing."
+	):
+		return false
+	toggle.button_pressed = true
+	spacing.value = 0.001
+	if not _start_placement():
+		return false
+	var before: int = _parent.get_child_count()
+	var version: int = _history.get_version()
+	var first: InputEventMouseButton = _left_click()
+	var _press_response: int = _placement_plugin.process_pointer(_camera, first)
+	for index: int in range(1, 5):
+		var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+		motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+		motion.position = _pointer_position + Vector2(
+			12.0 * index,
+			0.0
+		)
+		var _drag_response: int = _placement_plugin.process_pointer(_camera, motion)
+	if not _require(
+		_int(
+			_placement_plugin.get_snapshot(),
+			"stroke_samples"
+		) == 5
+		and _parent.get_child_count() == before
+		and _history.get_version() == version,
+		"Dragging five hits must preview all five without editing the scene or history."
+	):
+		return false
+	var release: InputEventMouseButton = _left_click()
+	release.pressed = false
+	release.position = _pointer_position + Vector2(48.0, 0.0)
+	var _release_response: int = _placement_plugin.process_pointer(_camera, release)
+	if not _require(
+		_parent.get_child_count() == before + 5,
+		"Mouse release did not publish exactly five samples."
+	):
+		return false
+	var nodes: Array[Node3D] = []
+	var transforms: Array[Transform3D] = []
+	for index: int in range(
+		before,
+		before + 5
+	):
+		var node: Node3D = _node_3d(_parent.get_child(index))
+		nodes.append(node)
+		transforms.append(node.global_transform)
+	first.position += Vector2(60.0, 0.0)
+	release.position = first.position
+	var _second_press_response: int = _placement_plugin.process_pointer(_camera, first)
+	var _second_release_response: int = _placement_plugin.process_pointer(_camera, release)
+	if not _require(
+		_parent.get_child_count() == before + 6,
+		"The next gesture did not start an independent stroke."
+	):
+		return false
+	var before_cancel: int = _history.get_version()
+	var _cancel_press_response: int = _placement_plugin.process_pointer(_camera, first)
+	var _escape_response: int = _placement_plugin.process_pointer(
+		_camera,
+		_key_press(KEY_ESCAPE)
+	)
+	var _late_release_response: int = _placement_plugin.process_pointer(_camera, release)
+	if not _require(
+		_parent.get_child_count() == before + 6
+		and _history.get_version() == before_cancel
+		and not _bool(
+			_placement_plugin.get_snapshot(),
+			"preview_visible"
+		),
+		"A canceled stroke or a late release modified the scene."
+	):
+		return false
+	if not _start_placement():
+		return false
+	var _interrupted_press: int = _placement_plugin.process_pointer(_camera, first)
+	var canceled_release: InputEventMouseButton = _left_click()
+	canceled_release.pressed = false
+	canceled_release.canceled = true
+	var _system_cancel: int = _placement_plugin.process_pointer(_camera, canceled_release)
+	if not _require(
+		_parent.get_child_count() == before + 6
+		and _history.get_version() == before_cancel
+		and not _bool(
+			_placement_plugin.get_snapshot(),
+			"preview_visible"
+		),
+		"A system-canceled mouse release must discard every preview without writing history."
+	):
+		return false
+	if not _require(
+		_history.undo() and _parent.get_child_count() == before + 5,
+		"Undo merged consecutive brush strokes."
+	):
+		return false
+	if not _require(
+		_history.undo() and _parent.get_child_count() == before,
+		"One undo did not remove the five-node stroke."
+	):
+		return false
+	if not _require(
+		_history.redo() and _parent.get_child_count() == before + 5,
+		"Native redo did not restore the full stroke."
+	):
+		return false
+	for index: int in range(nodes.size()):
+		if not _require(
+			_parent.get_child(before + index) == nodes[index]
+			and nodes[index].owner == _scene
+			and nodes[index].global_transform.is_equal_approx(transforms[index]),
+			"Redo lost sample identity, ownership, order, or world transform."
+		):
+			return false
+	if not _brush_survives_reload(nodes):
+		return false
+	if not _require(
+		_history.undo() and _parent.get_child_count() == before,
+		"Could not restore the original scene after brush checks."
+	):
+		return false
+	toggle.button_pressed = false
+	_results["brush_preview_native_history_and_reload"] = true
+	return true
+
+
+func _brush_survives_reload(nodes: Array[Node3D]) -> bool:
+	var saved_path: String = "res://scene_placement_brush_saved.tscn"
+	var packed: PackedScene = PackedScene.new()
+	if not _require(
+		packed.pack(_scene) == OK and ResourceSaver.save(packed, saved_path) == OK,
+		"Could not save the brushed scene."
+	):
+		return false
+	var reloaded: PackedScene = _load_scene(saved_path)
+	if reloaded == null:
+		return false
+	var clone: Node = reloaded.instantiate()
+	var valid: bool = true
+	for node: Node3D in nodes:
+		var restored: Node3D = _node_3d(clone.get_node_or_null(_scene.get_path_to(node)))
+		if (
+			restored == null
+			or restored.owner != clone
+			or not restored.transform.is_equal_approx(node.transform)
+		):
+			valid = false
+			break
+	clone.free()
+	return _require(valid, "Saving and reopening the scene lost a brush instance or its local transform.")
 
 
 func _check_continuous_placement() -> bool:
@@ -1686,6 +1852,28 @@ func _wait_scene_b() -> void:
 		return
 	_results["scene_switch_cancels_stale_pointer"] = true
 	_results["second_scene_history_id"] = second_id
+	var brush_toggle: CheckBox = _panel.find_child(
+		"BrushPlacement",
+		true,
+		false
+	) as CheckBox
+	brush_toggle.button_pressed = true
+	_panel.set_source_scene(_load_scene(_SCRIPTED_ASSET))
+	_panel.set_parent_node(second_parent)
+	if not _start_placement():
+		return
+	var _stroke_started: int = _placement_plugin.process_pointer(
+		second_camera,
+		_left_click()
+	)
+	if not _require(
+		_int(
+			_placement_plugin.get_snapshot(),
+			"stroke_samples"
+		) == 1,
+		"Scene B must have an uncommitted brush preview before switching."
+	):
+		return
 	_phase = &"return_scene_a"
 	EditorInterface.open_scene_from_path(_SCENE_A)
 
@@ -1695,6 +1883,20 @@ func _return_scene_a() -> void:
 	if root == null or root.scene_file_path != _SCENE_A:
 		return
 	_phase = &"running"
+	var late_release: InputEventMouseButton = _left_click()
+	late_release.pressed = false
+	var handled: int = _placement_plugin.process_pointer(_camera, late_release)
+	if not _require(
+		handled == EditorPlugin.AFTER_GUI_INPUT_PASS
+		and not _bool(
+			_placement_plugin.get_snapshot(),
+			"preview_visible"
+		)
+		and _canary_count() == 0,
+		"Switching scenes during a brush gesture left a proxy or instantiated a scripted source."
+	):
+		return
+	_results["brush_scene_switch_cancels_drag"] = true
 	_panel.set_source_scene(_load_scene(_SCRIPTED_ASSET))
 	_panel.set_parent_node(_parent)
 	if (
