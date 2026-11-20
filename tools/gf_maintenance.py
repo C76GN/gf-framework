@@ -211,7 +211,7 @@ MANUAL_CI_WORKFLOW_ACTION_COUNTS = {
 RELEASE_WORKFLOW_ACTION_COUNTS = {
 	"actions/checkout": 3,
 	"actions/setup-python": 3,
-	"actions/upload-artifact": 1,
+	"actions/upload-artifact": 2,
 	"actions/download-artifact": 1,
 }
 GOVERNED_WORKFLOW_ACTION_RE = re.compile(

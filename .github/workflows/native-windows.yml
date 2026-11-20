@@ -5,6 +5,12 @@ on:
     paths:
       - "native/gf_native/**"
       - "addons/gf/extensions/data_batch/**"
+      - "addons/gf/kernel/editor/extension/**"
+      - "addons/gf/kernel/extension/**"
+      - "addons/gf/kernel/core/gf_project_reference_scanner.gd"
+      - "addons/gf/kernel/editor/gf_plugin_inspector_tools.gd"
+      - "addons/gf/extensions/behavior_tree/**"
+      - "tools/gf_extension_export_*.py"
       - "tests/native/**"
       - "tools/gf_native_*.py"
       - "tools/build_gf_release_artifacts.py"
@@ -32,6 +38,14 @@ jobs:
         run: python .github/scripts/setup_gf_native_windows.py
       - name: Verify native installation and exported games
         run: python tools/build_gf_release_artifacts.py --output-dir build/native-preview
+      - name: Retain failed extension export diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: extension-export-diagnostics
+          path: ai_analysis/godot_logs/extension-export-*/
+          if-no-files-found: ignore
+          retention-days: 3
       - uses: actions/upload-artifact@v7
         with:
           name: gf-native-preview

@@ -43,11 +43,11 @@ var _disabled_manifests: Array[GFExtensionManifest] = []
 
 # --- Godot 回调方法 ---
 
-## 返回扩展导出插件的稳定名称，供编辑器识别插件。
+## Godot 按插件名排序。先于内置 GDScript 导出器过滤源码，避免它提前写入字节码和重映射。
 ## [br]
 ## @api private
 func _get_name() -> String:
-	return "GFExtensionExportPlugin"
+	return "0GFExtensionExportPlugin"
 
 
 ## 开始导出时重新收集禁用扩展根目录，并报告项目中仍指向这些扩展的引用。
@@ -59,8 +59,8 @@ func _export_begin(
 	_path: String,
 	_flags: int
 ) -> void:
-	_refresh_disabled_extension_roots()
-	_warn_disabled_extension_references()
+	var allowed: bool = _refresh_disabled_extension_roots() and _check_disabled_extension_references()
+	print("[GFExtensionExportPlugin][extension_export_plugin.policy_result] Export policy %s." % ("passed" if allowed else "rejected"))
 
 
 ## 导出过程中跳过归属于禁用扩展根目录的文件。
@@ -89,10 +89,16 @@ func _export_end() -> void:
 ## 从扩展设置刷新禁用根路径和清单，并在清单图无效时报告错误。
 ## [br]
 ## @api private
-func _refresh_disabled_extension_roots() -> void:
+func _refresh_disabled_extension_roots() -> bool:
 	var graph_report: Dictionary = _collect_disabled_export_state(_disabled_extension_roots, _disabled_manifests)
-	if not _manifest_graph_allows_export(graph_report):
-		push_error("[GFExtensionExportPlugin][extension_export_plugin.manifest_graph_invalid] The extension manifest graph is invalid; export extension filtering stopped.\n%s" % _format_manifest_graph_report(graph_report))
+	if _manifest_graph_allows_export(graph_report):
+		return true
+	get_export_platform().add_message(
+		EditorExportPlatform.EXPORT_MESSAGE_ERROR,
+		"GF Extensions",
+		"[GFExtensionExportPlugin][extension_export_plugin.manifest_graph_invalid] The extension manifest graph is invalid; export extension filtering stopped.\n%s" % _format_manifest_graph_report(graph_report)
+	)
+	return false
 
 
 ## 判断路径是否等于去除末尾斜线的根路径，或位于该根路径的子目录中。
@@ -222,9 +228,9 @@ static func _describe_manifest_issue(issue: Dictionary) -> String:
 ## 审计禁用扩展的项目引用，并按导出设置发出错误或警告。
 ## [br]
 ## @api private
-func _warn_disabled_extension_references() -> void:
+func _check_disabled_extension_references() -> bool:
 	if _disabled_manifests.is_empty():
-		return
+		return true
 
 	var selected_files: Array[String] = []
 	var export_filter: EditorExportPreset.ExportFilter = EditorExportPreset.EXPORT_ALL_RESOURCES
@@ -251,22 +257,25 @@ func _warn_disabled_extension_references() -> void:
 		"ok",
 		true
 	):
-		return
+		return true
 
 	var formatted_report: String = _format_reference_report(report)
 	var reference_count: int = _GF_VARIANT_ACCESS_SCRIPT.get_option_int(report, "reference_count")
 	var reason: String = "Project files still reference disabled extensions." if reference_count > 0 else "Disabled extension reference coverage is incomplete; exclusion safety is unknown."
 	if GFExtensionSettingsBase.should_fail_export_on_disabled_extension_references():
-		push_error(
+		get_export_platform().add_message(
+			EditorExportPlatform.EXPORT_MESSAGE_ERROR,
+			"GF Extensions",
 			"[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_error] %s The export policy requires an error.\n%s"
 			% [reason, formatted_report]
 		)
-		return
+		return false
 
 	push_warning(
 		"[GFExtensionExportPlugin][extension_export_plugin.disabled_extension_referenced_warning] %s Export exclusion may leave missing files.\n%s"
 		% [reason, formatted_report]
 	)
+	return true
 
 
 ## 按项目忽略标记扫描，仅将所选场景或所选资源模式的清单作为额外输入；文件、深度和字节预算沿用审计默认值。

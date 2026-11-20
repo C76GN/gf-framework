@@ -16,6 +16,8 @@ import tomllib
 import zipfile
 
 import build_asset_store_package
+import gf_extension_export_acceptance
+from gf_extension_export_check import export_policy_error
 import gf_native_distribution as dist
 from gf_godot_process import resolve_godot_executable
 from gf_process_supervisor import run_supervised_process
@@ -81,7 +83,8 @@ def source_digest(deadline: float) -> str:
              *CRATE.glob('src/**/*.rs'), *ROOT.glob('addons/gf/extensions/data_batch/runtime/*.gd'),
              *ROOT.glob('tests/native/**/*.gd'),
              *ROOT.glob('tests/native/test_*.py'), ROOT / 'LICENSE.md',
-             ROOT / 'tools/gf_native_acceptance.py', ROOT / 'tools/gf_native_distribution.py']
+             ROOT / 'tools/gf_native_acceptance.py', ROOT / 'tools/gf_native_distribution.py',
+             ROOT / 'tools/gf_extension_export_acceptance.py', ROOT / 'tools/gf_extension_export_check.py']
     digest = hashlib.sha256()
     for path in sorted(paths):
         digest.update(path.relative_to(ROOT).as_posix().encode())
@@ -240,7 +243,9 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
     runtime_report = parse_acceptance(run(command, workspace, 'runtime', 120, logs, deadline))
     verify_upgrade(portable, supplement, fixture / 'upgrade', godot, logs, deadline)
     export_reports = {}
+    extension_exports = {}
     if export:
+        extension_exports = gf_extension_export_acceptance.run_acceptance(godot, portable, deadline=deadline)
         (workspace / 'export_presets.cfg').write_text(
             '[preset.0]\nname="Windows"\nplatform="Windows Desktop"\nrunnable=true\n'
             'export_filter="all_resources"\ninclude_filter=""\nexclude_filter=""\n'
@@ -249,7 +254,11 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
             export_dir = fixture / profile
             export_dir.mkdir()
             executable = export_dir / 'acceptance.exe'
-            run([*command, f'--export-{profile}', 'Windows', str(executable)], workspace, f'export-{profile}', 180, logs, deadline)
+            output = run([*command, f'--export-{profile}', 'Windows', str(executable)],
+                         workspace, f'export-{profile}', 180, logs, deadline)
+            policy_error = export_policy_error(0, output)
+            if policy_error:
+                raise RuntimeError(f'{profile}: {policy_error} See {logs}')
             for name in (dist.DLL, dist.NOTICES, dist.STD_NOTICES):
                 source = workspace / dist.ADDON / name
                 if file_digest(export_dir / Path(name).name, deadline) != file_digest(source, deadline):
@@ -264,7 +273,7 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
                'exports_verified': export, 'source_sha256': initial_digest, 'archives_sha256': archive_digests,
                'fresh_discovery_verified': True, 'relocation_verified': True, 'portable_verified': True,
                'build_verified': not skip_build, 'logs': str(logs),
-               'runtime': runtime_report, 'exports': export_reports}
+               'runtime': runtime_report, 'exports': export_reports, 'extension_exports': extension_exports}
     remove_completed_fixture(fixture)
     (logs / 'acceptance.json').write_text(json.dumps(summary, indent=2), encoding='utf-8')
     return summary

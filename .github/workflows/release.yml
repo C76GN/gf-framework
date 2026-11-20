@@ -60,6 +60,15 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Retain failed extension export diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: extension-export-diagnostics
+          path: ai_analysis/godot_logs/extension-export-*/
+          if-no-files-found: ignore
+          retention-days: 3
+
   release-framework-checks:
     name: GF release framework checks (${{ matrix.name }})
     runs-on: ubuntu-latest

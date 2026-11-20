@@ -11,7 +11,9 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 import gf_native_acceptance as acceptance
 import gf_native_distribution as distribution
-from gf_process_supervisor import SupervisedProcessResult
+import gf_extension_export_acceptance as extension_exports
+from gf_extension_export_check import PASSED, REJECTED, RESULT, export_policy_error, policy_verdict
+from gf_process_supervisor import SupervisedProcessCleanupError, SupervisedProcessResult
 
 
 class NativeAcceptanceTests(unittest.TestCase):
@@ -30,6 +32,29 @@ class NativeAcceptanceTests(unittest.TestCase):
 
     def marker(self, report):
         return 'GF_NATIVE_DATA_BATCH=' + json.dumps(report)
+
+    def test_extension_policy_requires_one_completed_verdict_and_successful_godot_exit(self):
+        self.assertEqual(export_policy_error(0, "WARNING: reference\n" + PASSED), "")
+        self.assertEqual(policy_verdict(PASSED + "\n" + REJECTED), "")
+        for code, output in [(1, PASSED), (0, ""), (0, REJECTED), (0, PASSED + "\n" + REJECTED),
+                             (0, PASSED + "\n" + PASSED), (0, RESULT + "unknown")]:
+            with self.subTest(code=code, output=output):
+                self.assertTrue(export_policy_error(code, output))
+
+    def test_extension_export_fixture_retains_unconfirmed_process_or_replaced_directory(self):
+        with self.assertRaises(SupervisedProcessCleanupError):
+            with extension_exports.owned_projects(self.directory) as retained:
+                raise SupervisedProcessCleanupError("fixture process still active")
+        self.assertTrue(retained.is_dir())
+        with self.assertRaisesRegex(RuntimeError, "identity changed"):
+            with extension_exports.owned_projects(self.directory) as replaced:
+                replaced.rename(replaced.with_suffix(".original"))
+                replaced.mkdir()
+        self.assertTrue(replaced.is_dir())
+        with self.assertRaisesRegex(ValueError, "quiescent failure"):
+            with extension_exports.owned_projects(self.directory) as cleaned:
+                raise ValueError("quiescent failure")
+        self.assertFalse(cleaned.exists())
 
     def test_requires_one_complete_report(self):
         marker = self.marker(self.report())

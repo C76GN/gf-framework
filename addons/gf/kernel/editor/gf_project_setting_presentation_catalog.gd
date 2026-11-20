@@ -474,8 +474,8 @@ func _get_builtin_records() -> Array[Dictionary]:
 		},
 		{
 			"name": _GF_EXTENSION_SETTINGS_SCRIPT.EXPORT_FAIL_ON_DISABLED_REFERENCES_SETTING,
-			"editor_labels": { "en": "Fail Export on Disabled References", "zh_CN": "引用禁用扩展时导出失败", },
-			"editor_descriptions": { "en": "Fails export when project files still reference an extension that is currently disabled.", "zh_CN": "项目文件仍引用当前禁用的扩展时，让导出审计以错误结束。", },
+			"editor_labels": { "en": "Strict Disabled Extension Reference Check", "zh_CN": "严格检查禁用扩展引用", },
+			"editor_descriptions": { "en": "When disabled extensions are excluded from export, confirmed references or incomplete coverage fail the GF check. Godot may still write output.", "zh_CN": "启用导出排除后，确认存在引用或扫描不完整时，GF 检查失败。Godot 仍可能生成文件。", },
 		},
 		{
 			"name": _GF_EXTENSION_SETTINGS_SCRIPT.AUTO_INSTALL_ENABLED_INSTALLERS_SETTING,
