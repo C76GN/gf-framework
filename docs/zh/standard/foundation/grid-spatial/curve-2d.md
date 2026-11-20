@@ -38,6 +38,25 @@ var ellipse_curve := Curve2D.new()
 GFCurve2DMath.set_ellipse_curve(ellipse_curve, Vector2(64, 64), Vector2(32, 32))
 ```
 
+## 在指向处保形切分三次曲线
+
+`project_point_to_cubic_bezier(p0, p1, p2, p3, target, tolerance, max_subdivisions)` 查询同一坐标系中的目标点。`p1` 和 `p2` 是绝对控制点。使用 Godot 的相对控制柄时，分别将出柄加到起点、入柄加到终点。为按像素拾取，可以先把四个点都转换到视口坐标，再将求得的参数传给原坐标系中的切分操作。
+
+```gdscript
+var hit := GFCurve2DMath.project_point_to_cubic_bezier(p0, p1, p2, p3, mouse_position, 0.01, 256)
+if hit.ok and hit.converged:
+    var cut := GFCurve2DMath.split_cubic_bezier(p0, p1, p2, p3, hit.t)
+    var left: PackedVector2Array = cut.left
+    var right: PackedVector2Array = cut.right
+    # left[3] 和 right[0] 是共享锚点，每组四个点保留对应子段的形状。
+```
+
+投影以已求值候选到目标的距离作上界，以剩余子段控制点包围盒到目标的距离作下界。`error_bound` 约束所选参数与全局最优参数之间的距离差，单位与输入坐标相同。`converged` 表示达到了指定容差。预算是整次调用的二分次数，范围为 0 至 4096，默认 256，默认距离容差为 0.01。预算为 0 时比较两端点。预算或浮点参数分辨率用尽时，仍可读取最佳已知的 `point`、`t`、`distance` 和实际 `subdivisions`。
+
+投影在目标的局部坐标系中计算。细分保留双精度运算舍入的低位，随后两项大数相消时仍可还原小偏移。`distance` 按曲线在返回参数处的位置求得，`point` 按 Godot 的 `Vector2` 精度输出。因此在大坐标下，即使输出点舍入到目标坐标，仍可能有可测的距离误差。
+
+`t` 是原始三次多项式参数。直线形状的 `x(t) = 100t³` 在长度一半处对应 `t ≈ 0.7937`。自交曲线可能有多个同距解，固定输入及预算使用稳定搜索顺序。四个点重合时取 `t = 0`。切分接受闭区间 [0, 1] 内的有限参数，两端也可切分。两项操作均以 `ok = false` 和 `error` 报告无效输入。
+
 ## 使用边界
 
 `sample_curve()` 基于 `Curve2D` 的 baked 路径长度采样，适合运行时取点、预览和轻量工具。需要严格曲线拟合、SVG path 完整导入、拓扑清理或碰撞轮廓生成时，应在项目工具层或专门扩展中实现。

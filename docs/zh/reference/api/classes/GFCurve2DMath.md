@@ -20,6 +20,8 @@ Curve2D 与折线的纯算法辅助。 提供路径长度、归一化采样、�
 | 方法 | [`sample_polyline`](#member-gfcurve2dmath-methods-sample_polyline) | `static func sample_polyline( points: PackedVector2Array, ratio: float, total_length: float = -1.0 ) -> Vector2:` |
 | 方法 | [`sample_polyline_pose`](#member-gfcurve2dmath-methods-sample_polyline_pose) | `static func sample_polyline_pose( points: PackedVector2Array, ratio: float, closed: bool = false, total_length: float = -1.0 ) -> Dictionary:` |
 | 方法 | [`project_point_to_polyline`](#member-gfcurve2dmath-methods-project_point_to_polyline) | `static func project_point_to_polyline( points: PackedVector2Array, target: Vector2, closed: bool = false ) -> Dictionary:` |
+| 方法 | [`split_cubic_bezier`](#member-gfcurve2dmath-methods-split_cubic_bezier) | `static func split_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, t: float ) -> Dictionary:` |
+| 方法 | [`project_point_to_cubic_bezier`](#member-gfcurve2dmath-methods-project_point_to_cubic_bezier) | `static func project_point_to_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, target: Vector2, tolerance: float = 0.01, max_subdivisions: int = 256 ) -> Dictionary:` |
 | 方法 | [`sample_curve`](#member-gfcurve2dmath-methods-sample_curve) | `static func sample_curve( curve: Curve2D, ratio: float, cubic: bool = false ) -> Vector2:` |
 | 方法 | [`create_smooth_polyline_curve`](#member-gfcurve2dmath-methods-create_smooth_polyline_curve) | `static func create_smooth_polyline_curve( points: PackedVector2Array, tension: float = 1.0, closed: bool = false ) -> Curve2D:` |
 | 方法 | [`set_smooth_polyline_curve`](#member-gfcurve2dmath-methods-set_smooth_polyline_curve) | `static func set_smooth_polyline_curve( curve: Curve2D, points: PackedVector2Array, tension: float = 1.0, closed: bool = false ) -> Curve2D:` |
@@ -145,6 +147,66 @@ static func project_point_to_polyline( points: PackedVector2Array, target: Vecto
 结构：
 
 - `return`: Dictionary，包含 ok、point、target、offset、ratio、segment_index、segment_ratio、segment_from、segment_to、distance、distance_squared、tangent、normal、total_length 和 closed。
+
+<a id="member-gfcurve2dmath-methods-split_cubic_bezier"></a>
+
+### `split_cubic_bezier`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func split_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, t: float ) -> Dictionary:
+```
+
+按原始 Bézier 参数切分一段二维三次曲线，返回两组绝对控制点。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p0` | 起点。 |
+| `p1` | 起点一侧的绝对控制点。 |
+| `p2` | 终点一侧的绝对控制点。 |
+| `p3` | 终点。 |
+| `t` | 闭区间 [0, 1] 的有限多项式参数。 |
+
+返回：两段共享切点。非法输入返回空点列。
+
+结构：
+
+- `return`: Dictionary，包含 ok: bool、error: String、left/right: PackedVector2Array，各成功点列依次给出四个控制点。
+
+<a id="member-gfcurve2dmath-methods-project_point_to_cubic_bezier"></a>
+
+### `project_point_to_cubic_bezier`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func project_point_to_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, target: Vector2, tolerance: float = 0.01, max_subdivisions: int = 256 ) -> Dictionary:
+```
+
+在整段三次曲线上搜索目标的最近参数，容差与输入坐标同单位。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `p0` | 起点。 |
+| `p1` | 起点一侧的绝对控制点。 |
+| `p2` | 终点一侧的绝对控制点。 |
+| `p3` | 终点。 |
+| `target` | 同坐标系的查询点。 |
+| `tolerance` | 允许的最近距离误差，须有限且非负。 |
+| `max_subdivisions` | 整次搜索最多拆分的区间数，取 0..4096；0 只比较端点和初始下界。 |
+
+返回：成功时给出曲线上实际求值的候选。预算耗尽仍返回候选并通过 converged 标记是否达到容差。
+
+结构：
+
+- `return`: Dictionary，包含 ok/converged: bool、error: String、t/distance/error_bound: float、point: Vector2、subdivisions: int。error_bound 约束距离差；t 是原曲线参数。
 
 <a id="member-gfcurve2dmath-methods-sample_curve"></a>
 

@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 79 | 1155 | [Kernel](#module-kernel) |
-| Standard | 516 | 7910 | [Standard](#module-standard) |
+| Standard | 516 | 7912 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -158,7 +158,7 @@
 | [`GFConsoleUtility`](GFConsoleUtility.md#gfconsoleutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 32 | `addons/gf/standard/utilities/debug/gf_console_utility.gd` |
 | [`GFControlFocusUtility`](GFControlFocusUtility.md#gfcontrolfocusutility) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/utilities/ui/gf_control_focus_utility.gd` |
 | [`GFControlValueAdapter`](GFControlValueAdapter.md#gfcontrolvalueadapter) | 运行时服务 (`runtime_service`) | `RefCounted` | 5 | `addons/gf/standard/utilities/ui/gf_control_value_adapter.gd` |
-| [`GFCurve2DMath`](GFCurve2DMath.md#gfcurve2dmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 17 | `addons/gf/standard/foundation/math/gf_curve_2d_math.gd` |
+| [`GFCurve2DMath`](GFCurve2DMath.md#gfcurve2dmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 19 | `addons/gf/standard/foundation/math/gf_curve_2d_math.gd` |
 | [`GFCurve3DMath`](GFCurve3DMath.md#gfcurve3dmath) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/foundation/math/gf_curve_3d_math.gd` |
 | [`GFDataProjection`](GFDataProjection.md#gfdataprojection) | 运行时服务 (`runtime_service`) | `RefCounted` | 4 | `addons/gf/standard/foundation/variant/gf_data_projection.gd` |
 | [`GFDebugDrawUtility`](GFDebugDrawUtility.md#gfdebugdrawutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 24 | `addons/gf/standard/utilities/debug/gf_debug_draw_utility.gd` |

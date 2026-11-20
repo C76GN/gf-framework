@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "0ae745bdf070c83db2b44bb2b8439b9542e93f559f46a66a56e9602dc1bd50b5",
+  "source_digest": "71ec7483c376a23ee07fb2652d08a1755bad92db13485b4b9241a870eb531d87",
   "class_count": 915,
   "autoload_count": 1,
   "package_count": 62,
@@ -24938,6 +24938,20 @@
           "name": "project_point_to_polyline",
           "signature": "static func project_point_to_polyline( points: PackedVector2Array, target: Vector2, closed: bool = false ) -> Dictionary",
           "summary": "计算目标点到折线的最近投影。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "split_cubic_bezier",
+          "signature": "static func split_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, t: float ) -> Dictionary",
+          "summary": "按原始 Bézier 参数切分一段二维三次曲线，返回两组绝对控制点。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "project_point_to_cubic_bezier",
+          "signature": "static func project_point_to_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, target: Vector2, tolerance: float = 0.01, max_subdivisions: int = 256 ) -> Dictionary",
+          "summary": "在整段三次曲线上搜索目标的最近参数，容差与输入坐标同单位。",
           "visibility": "public"
         },
         {

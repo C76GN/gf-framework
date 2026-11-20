@@ -39,6 +39,11 @@ const _DEFAULT_MAX_MEANDERED_POLYLINE_POINTS: int = 8192
 ## @api private
 const _MAX_INT64: int = 9223372036854775807
 
+## 一次三次曲线投影允许的细分次数硬上限。
+## [br]
+## @api private
+const _MAX_CUBIC_SUBDIVISIONS: int = 4096
+
 
 # --- 公共方法 ---
 
@@ -250,6 +255,228 @@ static func project_point_to_polyline(
 		travelled += segment_length
 
 	return best_report
+
+
+## 按原始 Bézier 参数切分一段二维三次曲线，返回两组绝对控制点。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param p0: 起点。
+## [br]
+## @param p1: 起点一侧的绝对控制点。
+## [br]
+## @param p2: 终点一侧的绝对控制点。
+## [br]
+## @param p3: 终点。
+## [br]
+## @param t: 闭区间 [0, 1] 的有限多项式参数。
+## [br]
+## @return 两段共享切点。非法输入返回空点列。
+## [br]
+## @schema return: Dictionary，包含 ok: bool、error: String、left/right: PackedVector2Array，各成功点列依次给出四个控制点。
+static func split_cubic_bezier(
+	p0: Vector2,
+	p1: Vector2,
+	p2: Vector2,
+	p3: Vector2,
+	t: float
+) -> Dictionary:
+	var left: PackedVector2Array = PackedVector2Array()
+	var right: PackedVector2Array = PackedVector2Array()
+	if (
+		not p0.is_finite()
+		or not p1.is_finite()
+		or not p2.is_finite()
+		or not p3.is_finite()
+		or not is_finite(t)
+		or t < 0.0
+		or t > 1.0
+	):
+		return {
+			"ok": false,
+			"error": "invalid_input",
+			"left": left,
+			"right": right,
+		}
+	var controls: Array[PackedFloat64Array] = _cubic_controls(
+		p0,
+		p1,
+		p2,
+		p3
+	)
+	var split: Array[PackedFloat64Array] = _split_cubic_controls(controls, t)
+	for index: int in range(4):
+		var at: int = index * 2
+		var _left_added: bool = left.append(
+			Vector2(
+				_cubic_coordinate(split[at]),
+				_cubic_coordinate(split[at + 1])
+			)
+		)
+		var _right_added: bool = right.append(
+			Vector2(
+				_cubic_coordinate(split[at + 6]),
+				_cubic_coordinate(split[at + 7])
+			)
+		)
+	return {
+		"ok": true,
+		"error": "",
+		"left": left,
+		"right": right,
+	}
+
+
+## 在整段三次曲线上搜索目标的最近参数，容差与输入坐标同单位。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param p0: 起点。
+## [br]
+## @param p1: 起点一侧的绝对控制点。
+## [br]
+## @param p2: 终点一侧的绝对控制点。
+## [br]
+## @param p3: 终点。
+## [br]
+## @param target: 同坐标系的查询点。
+## [br]
+## @param tolerance: 允许的最近距离误差，须有限且非负。
+## [br]
+## @param max_subdivisions: 整次搜索最多拆分的区间数，取 0..4096；0 只比较端点和初始下界。
+## [br]
+## @return 成功时给出曲线上实际求值的候选。预算耗尽仍返回候选并通过 converged 标记是否达到容差。
+## [br]
+## @schema return: Dictionary，包含 ok/converged: bool、error: String、t/distance/error_bound: float、point: Vector2、subdivisions: int。error_bound 约束距离差；t 是原曲线参数。
+static func project_point_to_cubic_bezier(
+	p0: Vector2,
+	p1: Vector2,
+	p2: Vector2,
+	p3: Vector2,
+	target: Vector2,
+	tolerance: float = 0.01,
+	max_subdivisions: int = 256
+) -> Dictionary:
+	var report: Dictionary = {
+		"ok": false,
+		"error": "invalid_input",
+		"converged": false,
+		"t": 0.0,
+		"point": Vector2.ZERO,
+		"distance": INF,
+		"error_bound": INF,
+		"subdivisions": 0,
+	}
+	if (
+		not p0.is_finite()
+		or not p1.is_finite()
+		or not p2.is_finite()
+		or not p3.is_finite()
+		or not target.is_finite()
+		or not is_finite(tolerance)
+		or tolerance < 0.0
+		or max_subdivisions < 0
+		or max_subdivisions > _MAX_CUBIC_SUBDIVISIONS
+	):
+		return report
+	var controls: Array[PackedFloat64Array] = _cubic_controls(
+		p0,
+		p1,
+		p2,
+		p3,
+		target
+	)
+	var best_x: PackedFloat64Array = controls[0]
+	var best_y: PackedFloat64Array = controls[1]
+	var best_t: float = 0.0
+	var best_upper: float = _cubic_candidate_upper(best_x, best_y)
+	var end_upper: float = _cubic_candidate_upper(
+		controls[6],
+		controls[7]
+	)
+	if end_upper < best_upper:
+		best_t = 1.0
+		best_x = controls[6]
+		best_y = controls[7]
+		best_upper = end_upper
+	var pending: GFPriorityQueue = GFPriorityQueue.new(false)
+	if (
+		p0 != p1
+		or p1 != p2
+		or p2 != p3
+	):
+		_queue_cubic_interval(
+			pending,
+			controls,
+			0.0,
+			1.0,
+			best_upper
+		)
+	var subdivisions: int = 0
+	var error_bound: float = _cubic_search_gap(best_upper, pending)
+	while error_bound > tolerance and subdivisions < max_subdivisions:
+		var interval: Dictionary = GFVariantData.to_dictionary(
+			pending.pop(),
+			{}
+		)
+		var segment: Array[PackedFloat64Array] = interval["controls"]
+		var start: float = interval["start"]
+		var end: float = interval["end"]
+		var mid: float = (start + end) * 0.5
+		if mid == start or mid == end:
+			# 相邻可表示参数不能再分，保留弹出前的全局误差界。
+			break
+		var split: Array[PackedFloat64Array] = _split_cubic_controls(segment, 0.5)
+		var upper: float = _cubic_candidate_upper(
+			split[6],
+			split[7]
+		)
+		if (
+			upper < best_upper
+			or (
+				upper == best_upper
+				and mid < best_t
+			)
+		):
+			best_t = mid
+			best_x = split[6]
+			best_y = split[7]
+			best_upper = upper
+		_queue_cubic_interval(
+			pending,
+			split.slice(0, 8),
+			start,
+			mid,
+			best_upper
+		)
+		_queue_cubic_interval(
+			pending,
+			split.slice(6),
+			mid,
+			end,
+			best_upper
+		)
+		subdivisions += 1
+		error_bound = _cubic_search_gap(best_upper, pending)
+	report["ok"] = true
+	report["error"] = ""
+	report["converged"] = error_bound <= tolerance
+	report["t"] = best_t
+	report["point"] = Vector2(
+		_cubic_coordinate(_cubic_add(best_x, target.x)),
+		_cubic_coordinate(_cubic_add(best_y, target.y))
+	)
+	report["distance"] = _cubic_distance(
+		_cubic_coordinate(best_x),
+		_cubic_coordinate(best_y)
+	)
+	report["error_bound"] = error_bound
+	report["subdivisions"] = subdivisions
+	return report
 
 
 ## 按 0 到 1 的比例采样 Curve2D 的 baked 路径。
@@ -1721,6 +1948,264 @@ static func _get_meander_sign(
 static func _divide_truncated(numerator: int, denominator: int) -> int:
 	@warning_ignore("integer_division")
 	return numerator / denominator
+
+
+## 各坐标使用由小到大、有效位不重叠的浮点展开。投影在目标局部坐标系中进行。
+## [br]
+## @api private
+static func _cubic_controls(
+	p0: Vector2,
+	p1: Vector2,
+	p2: Vector2,
+	p3: Vector2,
+	origin: Vector2 = Vector2.ZERO
+) -> Array[PackedFloat64Array]:
+	var controls: Array[PackedFloat64Array] = []
+	for point: Vector2 in [
+		p0,
+		p1,
+		p2,
+		p3,
+	]:
+		controls.append(
+			_cubic_add(
+				PackedFloat64Array([point.x]),
+				-origin.x
+			)
+		)
+		controls.append(
+			_cubic_add(
+				PackedFloat64Array([point.y]),
+				-origin.y
+			)
+		)
+	return controls
+
+
+## 用 TwoSum 逐项加一个标量；高位舍入掉的低位保留下来，随后发生相消时仍能恢复。
+## [br]
+## @api private
+static func _cubic_add(parts: PackedFloat64Array, term: float) -> PackedFloat64Array:
+	if term == 0.0:
+		return parts
+	var result: PackedFloat64Array = PackedFloat64Array()
+	var carry: float = term
+	for part: float in parts:
+		var total: float = carry + part
+		var virtual_part: float = total - carry
+		var remainder: float = (carry - (total - virtual_part)) + (part - virtual_part)
+		if remainder != 0.0:
+			var _kept: bool = result.append(remainder)
+		carry = total
+	if carry != 0.0 or result.is_empty():
+		var _last: bool = result.append(carry)
+	return result
+
+
+## 中点只需相加后按二的幂缩放。其余参数用 a + t(b-a)，通过 Dekker 乘积分解保留低位。
+## [br]
+## @api private
+static func _cubic_lerp(
+	a: PackedFloat64Array,
+	b: PackedFloat64Array,
+	t: float
+) -> PackedFloat64Array:
+	if t == 0.0:
+		return a
+	if t == 1.0:
+		return b
+	if t > 0.5:
+		return _cubic_lerp(
+			b,
+			a,
+			1.0 - t
+		)
+	if t == 0.5:
+		var added: PackedFloat64Array = a
+		for term: float in b:
+			added = _cubic_add(added, term)
+		var half: PackedFloat64Array = added.duplicate()
+		for index: int in range(half.size()):
+			half[index] *= 0.5
+		return half
+	var delta: PackedFloat64Array = b
+	for term: float in a:
+		delta = _cubic_add(delta, -term)
+	var t_high: float = _cubic_high_part(t)
+	var t_low: float = t - t_high
+	var result: PackedFloat64Array = a
+	for term: float in delta:
+		var term_high: float = _cubic_high_part(term)
+		var term_low: float = term - term_high
+		var product: float = term * t
+		var remainder: float = term_low * t_low - (((product - term_high * t_high) - term_low * t_high) - term_high * t_low)
+		result = _cubic_add(
+			_cubic_add(result, remainder),
+			product
+		)
+	return result
+
+
+## 用 2^27 + 1 将 binary64 尾数拆成两个可精确相乘的部分。
+## [br]
+## @api private
+static func _cubic_high_part(value: float) -> float:
+	var scaled: float = 134217729.0 * value
+	return scaled - (scaled - value)
+
+
+## De Casteljau 三角形的外侧依次给出两段控制点，共享切点只保留一份。
+## [br]
+## @api private
+static func _split_cubic_controls(controls: Array[PackedFloat64Array], t: float) -> Array[PackedFloat64Array]:
+	var split: Array[PackedFloat64Array] = []
+	var _resized: int = split.resize(14)
+	var row: Array[PackedFloat64Array] = controls
+	for level: int in range(4):
+		var last: int = row.size() - 2
+		for axis: int in range(2):
+			split[2 * level + axis] = row[axis]
+			split[12 - 2 * level + axis] = row[last + axis]
+		var next_row: Array[PackedFloat64Array] = []
+		for index: int in range(last):
+			next_row.append(
+				_cubic_lerp(
+					row[index],
+					row[index + 2],
+					t
+				)
+			)
+		row = next_row
+	return split
+
+
+## 从低到高累加展开。默认返回有符号坐标，方向 −1/+1 返回其绝对值的下界/上界。
+## 求界时累积每次 TwoSum 的实际舍入余量，避免大数相消后高位仍含大量尾零。
+## [br]
+## @api private
+static func _cubic_coordinate(parts: PackedFloat64Array, direction: int = 0) -> float:
+	var value: float = parts[0]
+	var uncertainty: float = 0.0
+	for index: int in range(
+		1,
+		parts.size()
+	):
+		var part: float = parts[index]
+		var total: float = part + value
+		if direction != 0:
+			var virtual_value: float = total - part
+			var remainder: float = (part - (total - virtual_value)) + (value - virtual_value)
+			if remainder != 0.0:
+				uncertainty += absf(remainder)
+				uncertainty += uncertainty * 2.220446049250313e-16
+		value = total
+	if direction == 0:
+		return value
+	if uncertainty == 0.0:
+		return absf(value)
+	var bound: float = absf(value) + float(direction) * uncertainty
+	return maxf(
+		0.0,
+		bound + float(direction) * absf(bound) * 2.220446049250313e-16
+	)
+
+
+## 缩放后求二范数；轴上距离精确，其余按 direction 向外覆盖舍入误差。
+## [br]
+## @api private
+static func _cubic_distance(
+	dx: float,
+	dy: float,
+	direction: int = 0
+) -> float:
+	var larger: float = maxf(
+		absf(dx),
+		absf(dy)
+	)
+	var smaller: float = minf(
+		absf(dx),
+		absf(dy)
+	)
+	if smaller == 0.0:
+		return larger
+	var ratio: float = smaller / larger
+	var length: float = larger * sqrt(1.0 + ratio * ratio)
+	return length + float(direction) * length * 8.881784197001252e-16
+
+
+## 已求值参数到目标的距离上界，用来判断何时可以结束搜索。
+## [br]
+## @api private
+static func _cubic_candidate_upper(x: PackedFloat64Array, y: PackedFloat64Array) -> float:
+	return _cubic_distance(
+		_cubic_coordinate(x, 1),
+		_cubic_coordinate(y, 1),
+		1
+	)
+
+
+## 计算原点到控制点包围盒在单个坐标轴上的距离下界。
+## [br]
+## @api private
+static func _cubic_axis_gap(controls: Array[PackedFloat64Array], axis: int) -> float:
+	var side: float = signf(_cubic_coordinate(controls[axis]))
+	var gap: float = INF
+	for index: int in range(
+		axis,
+		controls.size(),
+		2
+	):
+		var parts: PackedFloat64Array = controls[index]
+		if side == 0.0 or signf(_cubic_coordinate(parts)) != side:
+			return 0.0
+		gap = minf(
+			gap,
+			_cubic_coordinate(parts, -1)
+		)
+	return gap
+
+
+## 以未剪枝区间的最小下界估计全局距离差，并将差值向上取界。
+## [br]
+## @api private
+static func _cubic_search_gap(upper: float, pending: GFPriorityQueue) -> float:
+	var lower: float = minf(
+		upper,
+		pending.peek_priority(upper)
+	)
+	return _cubic_coordinate(
+		_cubic_add(
+			PackedFloat64Array([upper]),
+			-lower
+		),
+		1
+	)
+
+
+## 控制点凸包覆盖整段曲线，盒到查询原点的保守距离用于优先遍历和区间剪枝。
+## [br]
+## @api private
+static func _queue_cubic_interval(
+	pending: GFPriorityQueue,
+	controls: Array[PackedFloat64Array],
+	start: float,
+	end: float,
+	best_upper: float
+) -> void:
+	var lower: float = _cubic_distance(
+		_cubic_axis_gap(controls, 0),
+		_cubic_axis_gap(controls, 1),
+		-1
+	)
+	if lower < best_upper:
+		var _queued: bool = pending.push(
+			{
+				"controls": controls,
+				"start": start,
+				"end": end,
+			},
+			lower
+		)
 
 
 ## 当 Vector2 任一分量为 NaN 或无穷大时返回 false。

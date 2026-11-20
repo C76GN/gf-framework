@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFCurve2DMath" path="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" module="standard" extends="RefCounted" classDigest="71b9adb226e9b281705b7a16163e329d9bbc27f7451012b541b69732204d4771">
+<class name="GFCurve2DMath" path="addons/gf/standard/foundation/math/gf_curve_2d_math.gd" module="standard" extends="RefCounted" classDigest="ca525a5a48d9c27f942d60ff6e46be10644eda45aa5a4dee8829e44780c5912a">
 	<description>GFCurve2DMath: Curve2D 与折线的纯算法辅助。
 提供路径长度、归一化采样、点距简化、虚线切分和基础闭合形状生成，
 不持有节点状态，也不解释碰撞、渲染或编辑器交互语义。</description>
@@ -68,6 +68,38 @@
 				<tag name="return">最近投影报告。</tag>
 				<tag name="schema">return: Dictionary，包含 ok、point、target、offset、ratio、segment_index、segment_ratio、segment_from、segment_to、distance、distance_squared、tangent、normal、total_length 和 closed。</tag>
 				<tag name="since">8.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="split_cubic_bezier">
+			<signature>static func split_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, t: float ) -&gt; Dictionary:</signature>
+			<description>按原始 Bézier 参数切分一段二维三次曲线，返回两组绝对控制点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p0: 起点。</tag>
+				<tag name="param">p1: 起点一侧的绝对控制点。</tag>
+				<tag name="param">p2: 终点一侧的绝对控制点。</tag>
+				<tag name="param">p3: 终点。</tag>
+				<tag name="param">t: 闭区间 [0, 1] 的有限多项式参数。</tag>
+				<tag name="return">两段共享切点。非法输入返回空点列。</tag>
+				<tag name="schema">return: Dictionary，包含 ok: bool、error: String、left/right: PackedVector2Array，各成功点列依次给出四个控制点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="project_point_to_cubic_bezier">
+			<signature>static func project_point_to_cubic_bezier( p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, target: Vector2, tolerance: float = 0.01, max_subdivisions: int = 256 ) -&gt; Dictionary:</signature>
+			<description>在整段三次曲线上搜索目标的最近参数，容差与输入坐标同单位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">p0: 起点。</tag>
+				<tag name="param">p1: 起点一侧的绝对控制点。</tag>
+				<tag name="param">p2: 终点一侧的绝对控制点。</tag>
+				<tag name="param">p3: 终点。</tag>
+				<tag name="param">target: 同坐标系的查询点。</tag>
+				<tag name="param">tolerance: 允许的最近距离误差，须有限且非负。</tag>
+				<tag name="param">max_subdivisions: 整次搜索最多拆分的区间数，取 0..4096；0 只比较端点和初始下界。</tag>
+				<tag name="return">成功时给出曲线上实际求值的候选。预算耗尽仍返回候选并通过 converged 标记是否达到容差。</tag>
+				<tag name="schema">return: Dictionary，包含 ok/converged: bool、error: String、t/distance/error_bound: float、point: Vector2、subdivisions: int。error_bound 约束距离差；t 是原曲线参数。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="sample_curve">
