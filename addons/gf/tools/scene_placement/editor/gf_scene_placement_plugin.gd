@@ -57,6 +57,21 @@ var _parent_ref: WeakRef = null
 ## [br]
 var _continuous: bool = false
 
+## 当前会话是否使用笔刷手势。
+## [br]
+## @api private
+var _brush_mode: bool = false
+
+## 按下左键至松手之间的独立笔画，身份同时用于验证同步回调。
+## [br]
+## @api private
+var _stroke: GFScenePlacementStrokeCommand = null
+
+## 拖动中每个已采样位置的线框实例，共享同一来源网格。
+## [br]
+## @api private
+var _stroke_previews: Array[RID] = []
+
 ## 本次会话固定的碰撞查询掩码。
 ## [br]
 ## @api private
@@ -123,6 +138,7 @@ func _enter_tree() -> void:
 	var _close_connected: int = _panel.close_requested.connect(_on_close_requested)
 	var _visibility_connected: int = _panel.visibility_changed.connect(_on_visibility_changed)
 	var _scene_connected: int = scene_changed.connect(_on_scene_changed)
+	var _focus_connected: int = get_window().focus_exited.connect(_on_window_focus_exited)
 	set_input_event_forwarding_always_enabled()
 	set_process(true)
 
@@ -143,6 +159,8 @@ func _process(_delta: float) -> void:
 ## @api private
 func _exit_tree() -> void:
 	GFScenePlacementLauncher.notify_plugin_lifecycle(self, false)
+	if get_window().focus_exited.is_connected(_on_window_focus_exited):
+		get_window().focus_exited.disconnect(_on_window_focus_exited)
 	cancel_placement()
 	if is_instance_valid(_panel):
 		remove_control_from_docks(_panel)
@@ -207,13 +225,16 @@ func process_pointer(camera: Camera3D, event: InputEvent) -> int:
 				cancel_placement()
 				return AFTER_GUI_INPUT_STOP
 			if key_event.keycode == KEY_ENTER or key_event.physical_keycode == KEY_ENTER:
-				_confirm_placement()
+				if not _brush_mode:
+					_confirm_placement()
 				return AFTER_GUI_INPUT_STOP
 	if event is InputEventMouseButton:
 		var button_event: InputEventMouseButton = event
 		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
 			cancel_placement()
 			return AFTER_GUI_INPUT_STOP
+		if _brush_mode:
+			return _brush_button(camera, button_event)
 		if button_event.button_index == MOUSE_BUTTON_LEFT and not button_event.alt_pressed:
 			if button_event.pressed:
 				_update_pointer(camera, button_event.position)
@@ -221,6 +242,14 @@ func process_pointer(camera: Camera3D, event: InputEvent) -> int:
 			return AFTER_GUI_INPUT_STOP
 	if event is InputEventMouseMotion:
 		var motion_event: InputEventMouseMotion = event
+		if _brush_mode and _stroke != null:
+			if _confirming:
+				return AFTER_GUI_INPUT_STOP
+			if motion_event.alt_pressed or motion_event.button_mask != MOUSE_BUTTON_MASK_LEFT:
+				cancel_placement()
+				return AFTER_GUI_INPUT_PASS
+			_update_pointer(camera, motion_event.position)
+			return AFTER_GUI_INPUT_STOP
 		if motion_event.alt_pressed or motion_event.button_mask != 0:
 			return AFTER_GUI_INPUT_PASS
 		_update_pointer(camera, motion_event.position)
@@ -241,6 +270,8 @@ func cancel_placement() -> void:
 	_source = null
 	_parent_ref = null
 	_continuous = false
+	_brush_mode = false
+	_stroke = null
 	_collision_mask = 0
 	_proxy_size = Vector3.ONE
 	_clear_preview()
@@ -258,7 +289,7 @@ func cancel_placement() -> void:
 ## [br]
 ## @return 工具当前状态。
 ## [br]
-## @schema return: Dictionary，包含 active/preview_visible: bool、state/input_count: int、last_error: int。
+## @schema return: Dictionary，包含 active/preview_visible/brush_mode: bool、state/input_count/stroke_samples/last_error: int。
 func get_snapshot() -> Dictionary:
 	var last_error: int = OK
 	var error_value: Variant = _last_report.get("error_code", OK)
@@ -266,7 +297,9 @@ func get_snapshot() -> Dictionary:
 		last_error = error_value
 	return {
 		"active": _operation != null,
-		"preview_visible": _preview_instance.is_valid(),
+		"preview_visible": _preview_instance.is_valid() or not _stroke_previews.is_empty(),
+		"brush_mode": _brush_mode,
+		"stroke_samples": _stroke_previews.size(),
 		"state": _operation.get_state() if _operation != null else GFEditorPickOperation.State.IDLE,
 		"input_count": _input_count,
 		"last_error": last_error,
@@ -275,10 +308,89 @@ func get_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
+## 按下只创建一笔数据，松手才将已采样的位置交给原编辑场景的撤销管理器。
+## [br]
+## @api private
+func _brush_button(camera: Camera3D, event: InputEventMouseButton) -> int:
+	if event.button_index == MOUSE_BUTTON_LEFT and event.is_canceled():
+		cancel_placement()
+		return AFTER_GUI_INPUT_STOP
+	if event.button_index != MOUSE_BUTTON_LEFT or event.alt_pressed:
+		if _stroke != null and event.alt_pressed:
+			cancel_placement()
+		return AFTER_GUI_INPUT_PASS
+	if _confirming:
+		return AFTER_GUI_INPUT_STOP
+	if event.pressed:
+		if _stroke == null:
+			_stroke = GFScenePlacementStrokeCommand.new(
+				_source,
+				_panel.get_parent_node(),
+				_get_scene_root(),
+				_panel.get_brush_spacing()
+			)
+			_update_pointer(camera, event.position)
+	elif _stroke != null:
+		_update_pointer(camera, event.position)
+		_finish_stroke()
+	return AFTER_GUI_INPUT_STOP
+
+
+## 创建期间重新核对笔画、目标与编辑场景，阻止同步回调替换操作后继续创建。
+## [br]
+## @api private
+func _stroke_is_current(stroke: GFScenePlacementStrokeCommand) -> bool:
+	return (
+		_stroke == stroke
+		and _operation != null
+		and _operation.is_destination_valid()
+		and _get_scene_root() == EditorInterface.get_edited_scene_root()
+		and is_instance_valid(_panel)
+		and _panel.is_visible_in_tree()
+	)
+
+
+## 完成整笔后回到下一笔的等待状态，只让当前笔画清理自身界面。
+## [br]
+## @api private
+func _finish_stroke() -> void:
+	var stroke: GFScenePlacementStrokeCommand = _stroke
+	var count: int = stroke.get_sample_count()
+	if count == 0:
+		_stroke = null
+		_clear_preview()
+		_panel.show_status("本笔没有有效位置。拖动可重新开始。")
+		return
+	_confirming = true
+	var report: Dictionary = stroke.commit_stroke(
+		get_undo_redo(),
+		_stroke_is_current.bind(stroke)
+	)
+	_confirming = false
+	if _stroke != stroke:
+		var residuals: PackedStringArray = report["residuals"]
+		if not residuals.is_empty():
+			if is_instance_valid(_panel):
+				_panel.show_placement_failure(report)
+			push_error("[GFScenePlacementPlugin][scene_placement_plugin.stroke_rollback_incomplete] The interrupted stroke could not restore these samples: %s." % ", ".join(residuals))
+		return
+	_last_report = report
+	_stroke = null
+	_clear_preview()
+	var succeeded: bool = report["ok"]
+	if not succeeded:
+		cancel_placement()
+		_panel.show_placement_failure(report)
+		return
+	_panel.show_status("已摆放 %d 个实例，可一次撤销。按住左键开始下一笔。" % count)
+
+
 ## 从相机生成射线，表面模式另查询物理命中；只对 READY 且携带有效世界变换的拾取结果绘制代理预览。
 ## [br]
 ## @api private
 func _update_pointer(camera: Camera3D, position: Vector2) -> void:
+	if _stroke != null and _stroke.get_sample_count() >= GFScenePlacementStrokeCommand.MAX_SAMPLES:
+		return
 	var origin: Vector3 = camera.project_ray_origin(position)
 	var direction: Vector3 = camera.project_ray_normal(position)
 	var input_data: Dictionary = { "ray_origin": origin, "ray_direction": direction }
@@ -298,16 +410,34 @@ func _update_pointer(camera: Camera3D, position: Vector2) -> void:
 			input_data["hit"] = world.direct_space_state.intersect_ray(query)
 	var state: GFEditorPickOperation.State = _operation.pick(input_data)
 	if state != GFEditorPickOperation.State.READY:
-		_clear_preview()
+		_clear_cursor_preview()
+		if _stroke != null:
+			_stroke.break_segment()
 		_panel.show_status("没有有效命中；平面需在射线前方，表面需有碰撞体。")
 		return
 	var preview: Dictionary = _operation.get_preview()
 	var transform_value: Variant = preview.get("world_transform")
 	if not transform_value is Transform3D:
-		_clear_preview()
+		_clear_cursor_preview()
 		return
 	var world_transform: Transform3D = transform_value
+	if _stroke != null:
+		var anchor: Vector3 = preview["position"]
+		if _stroke.add_sample(anchor, world_transform):
+			_draw_preview(camera, world_transform)
+			_stroke_previews.append(_preview_instance)
+			_preview_instance = RID()
+		else:
+			_clear_cursor_preview()
+		if _stroke.get_sample_count() == GFScenePlacementStrokeCommand.MAX_SAMPLES:
+			_panel.show_status("已达到单笔 %d 个位置。松手提交，再拖动可开始下一笔。" % GFScenePlacementStrokeCommand.MAX_SAMPLES)
+		else:
+			_panel.show_status("本笔 %d 个位置。松手提交，Esc / 右键取消。" % _stroke.get_sample_count())
+		return
 	_draw_preview(camera, world_transform)
+	if _brush_mode:
+		_panel.show_status("按住左键拖动预览一笔，松手提交。")
+		return
 	_panel.show_status("左键 / Enter 确认；Esc / 右键取消。")
 
 
@@ -424,7 +554,7 @@ func _begin_operation() -> bool:
 ## [br]
 ## @api private
 func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
-	if not _preview_instance.is_valid():
+	if _preview_mesh == null:
 		_preview_mesh = ImmediateMesh.new()
 		var material: StandardMaterial3D = StandardMaterial3D.new()
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -446,6 +576,7 @@ func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 					_preview_mesh.surface_add_vertex(bounds.get_endpoint(corner))
 					_preview_mesh.surface_add_vertex(bounds.get_endpoint(paired))
 		_preview_mesh.surface_end()
+	if not _preview_instance.is_valid():
 		_preview_instance = RenderingServer.instance_create()
 		RenderingServer.instance_set_base(
 			_preview_instance,
@@ -462,10 +593,20 @@ func _draw_preview(camera: Camera3D, transform: Transform3D) -> void:
 ## [br]
 ## @api private
 func _clear_preview() -> void:
+	_clear_cursor_preview()
+	for instance: RID in _stroke_previews:
+		RenderingServer.free_rid(instance)
+	_stroke_previews.clear()
+	_preview_mesh = null
+
+
+## 只释放当前光标线框，拖动中已经接受的样本仍可见。
+## [br]
+## @api private
+func _clear_cursor_preview() -> void:
 	if _preview_instance.is_valid():
 		RenderingServer.free_rid(_preview_instance)
 	_preview_instance = RID()
-	_preview_mesh = null
 
 
 ## 从编辑场景弱引用中取得仍存活的根节点。
@@ -503,12 +644,16 @@ func _on_placement_requested() -> void:
 	_parent_ref = weakref(parent) if is_instance_valid(parent) else null
 	_options = _panel.get_options()
 	_continuous = _panel.is_continuous_placement_enabled()
+	_brush_mode = _panel.is_brush_enabled()
 	_collision_mask = _panel.get_collision_mask()
 	_proxy_size = _panel.get_proxy_size()
 	if not _begin_operation():
 		return
 	_last_report.clear()
-	_panel.show_status("移动 3D 视口指针预览；左键确认，Esc / 右键取消。")
+	if _brush_mode:
+		_panel.show_status("按住左键拖动预览一笔，松手提交。Esc / 右键取消。")
+	else:
+		_panel.show_status("移动 3D 视口指针预览；左键确认，Esc / 右键取消。")
 
 
 ## 只有编辑器恰好选择一个 Node3D 时更新父节点，否则保留选择并提示用户。
@@ -538,6 +683,14 @@ func _on_scene_changed(_scene_root: Node) -> void:
 ## @api private
 func _on_visibility_changed() -> void:
 	if is_instance_valid(_panel) and not _panel.is_visible_in_tree():
+		cancel_placement()
+
+
+## 窗口外松开左键可能不会被视口收到，失焦时丢弃未提交的笔画。
+## [br]
+## @api private
+func _on_window_focus_exited() -> void:
+	if _stroke != null:
 		cancel_placement()
 
 

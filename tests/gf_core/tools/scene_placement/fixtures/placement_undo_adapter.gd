@@ -4,6 +4,11 @@
 extends RefCounted
 
 
+# --- 公共变量 ---
+
+var foreign_history_target: Object = null
+
+
 # --- 私有变量 ---
 
 var _history: UndoRedo = UndoRedo.new()
@@ -43,8 +48,8 @@ func add_undo_reference(target: Object) -> void:
 	_history.add_undo_reference(target)
 
 
-func get_object_history_id(_target: Object) -> int:
-	return 1
+func get_object_history_id(target: Object) -> int:
+	return 2 if target == foreign_history_target else 1
 
 
 func commit_action(execute: bool = true) -> void:
