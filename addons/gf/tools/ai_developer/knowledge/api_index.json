@@ -1,8 +1,8 @@
 {
   "schema_version": 2,
   "catalog_version": "2.0.0",
-  "framework_version": "12.0.1",
-  "source_digest": "8237afa517752979707eacaad053ff529c766b39f2e46eb312794079cf3ad98b",
+  "framework_version": "12.0.2",
+  "source_digest": "7f39b133ca68d7762859cab4ae2efb9ebe483555cb9cdae84d9c40664ed069b6",
   "class_count": 915,
   "autoload_count": 1,
   "package_count": 62,
