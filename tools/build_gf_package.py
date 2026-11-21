@@ -13,11 +13,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import gf_module_descriptors as descriptors
 import gf_path_security
 from gf_package_paths import normalize_manifest_path as normalize_shared_manifest_path
 from gf_package_paths import path_matches_any_manifest_path as shared_path_matches_any_manifest_path
 from gf_package_paths import portable_literal_path_identity as shared_portable_literal_path_identity
-from gf_package_paths import portable_manifest_path_identity as shared_portable_manifest_path_identity
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,20 +25,7 @@ PACKAGE_ROOT = ROOT / "packages"
 BLOCKED_DIR_NAMES = {".git", ".godot", ".import", ".vs", "__pycache__", "node_modules"}
 BLOCKED_FILE_NAMES = {".DS_Store", "Thumbs.db"}
 BLOCKED_SUFFIXES = {".import", ".pyc", ".pyo", ".tmp", ".log"}
-PACKAGE_SCHEMA_VERSION = 1
-PACKAGE_MANIFEST_MAX_BYTES = 1024 * 1024
-PACKAGE_MANIFEST_MAX_DEPTH = 32
-PACKAGE_MANIFEST_MAX_NODES = 4096
-PACKAGE_MANIFEST_ALLOWED_FIELDS = {
-	"schema_version",
-	"id",
-	"kind",
-	"dependencies",
-	"exclude_paths",
-	"paths",
-	"gf_extension_id",
-}
-PACKAGE_KINDS = {"kernel", "standard", "extension", "tool"}
+PACKAGE_MANIFEST_ALLOWED_FIELDS = descriptors.ALLOWED_FIELDS
 
 
 def main() -> int:
@@ -66,27 +53,24 @@ def configure_stdio() -> None:
 			stream.reconfigure(encoding="utf-8", errors="replace")
 
 
-def load_package_manifests() -> dict[str, Any]:
+def load_package_manifests(root: Path | None = None) -> dict[str, Any]:
+	package_root = PACKAGE_ROOT if root is None else root / "packages"
+	root = ROOT if root is None else root
 	records: list[dict[str, Any]] = []
 	issues: list[str] = []
 	seen_ids: dict[str, str] = {}
-	for path in sorted(PACKAGE_ROOT.rglob("*.json")):
-		relative_path = path.relative_to(ROOT).as_posix()
-		data = read_manifest_data(path, relative_path, issues)
-		if data is None:
+	for path in sorted(path for path in package_root.rglob("*") if path.suffix.lower() == ".json" and not path.is_dir()):
+		relative_path = path.relative_to(root).as_posix()
+		record, problems = descriptors.read_descriptor(root, relative_path)
+		issues.extend(f"{relative_path}: {problem['message']}" for problem in problems)
+		if not record["id"]:
 			continue
-		issues.extend(audit_manifest_fields(data, relative_path))
-		record = manifest_record(data, relative_path)
 		module_id = record["id"]
-		if module_id:
-			previous_path = seen_ids.get(module_id)
-			if previous_path:
-				issues.append(
-					f"{relative_path}: module id {module_id!r} is already declared "
-					f"by {previous_path}."
-				)
-			else:
-				seen_ids[module_id] = relative_path
+		previous_path = seen_ids.get(module_id)
+		if previous_path:
+			issues.append(f"{relative_path}: module id {module_id!r} is already declared by {previous_path}.")
+		else:
+			seen_ids[module_id] = relative_path
 		records.append(record)
 	declared_ids = {record["id"] for record in records if record["id"]}
 	for record in records:
@@ -99,162 +83,42 @@ def load_package_manifests() -> dict[str, Any]:
 	return {"records": records, "issues": issues}
 
 
-def read_manifest_data(
-	path: Path,
-	relative_path: str,
-	issues: list[str],
-) -> dict[str, Any] | None:
-	if gf_path_security.path_has_reparse_component(path):
-		issues.append(
-			f"{relative_path}: module descriptor crosses a symlink, junction, "
-			"or reparse point."
-		)
-		return None
-	try:
-		manifest_text = gf_path_security.read_pinned_utf8_regular_file(
-			ROOT,
-			relative_path,
-			max_bytes=PACKAGE_MANIFEST_MAX_BYTES,
-		)
-	except gf_path_security.PinnedReadError as error:
-		issues.append(
-			f"{relative_path}: module descriptor is not a stable contained "
-			f"UTF-8 regular file: {error.rule_id}."
-		)
-		return None
-	try:
-		data = json.loads(
-			manifest_text,
-			parse_constant=reject_non_finite_json_constant,
-			object_pairs_hook=reject_duplicate_json_object_keys,
-		)
-	except RecursionError:
-		issues.append(
-			f"{relative_path}: module descriptor nesting exceeds "
-			f"{PACKAGE_MANIFEST_MAX_DEPTH}."
-		)
-		return None
-	except (json.JSONDecodeError, ValueError) as error:
-		issues.append(f"{relative_path}: invalid module descriptor JSON: {error}")
-		return None
-	structure_issue = package_manifest_structure_issue(data)
-	if structure_issue:
-		issues.append(f"{relative_path}: {structure_issue}.")
-		return None
-	if not isinstance(data, dict):
-		issues.append(f"{relative_path}: module descriptor root must be an object.")
-		return None
-	return data
-
-
 def audit_manifest_fields(data: dict[str, Any], relative_path: str) -> list[str]:
-	issues: list[str] = []
-	for field_name in sorted(set(data) - PACKAGE_MANIFEST_ALLOWED_FIELDS):
-		issues.append(
-			f"{relative_path}: unsupported module descriptor field: {field_name}."
-		)
-	if (
-		type(data.get("schema_version")) is not int
-		or data["schema_version"] != PACKAGE_SCHEMA_VERSION
-	):
-		issues.append(
-			f"{relative_path}: schema_version must be the integer "
-			f"{PACKAGE_SCHEMA_VERSION}."
-		)
-	module_id = string_value(data.get("id", ""))
-	if not module_id or module_id != data.get("id"):
-		issues.append(f"{relative_path}: canonical module id is required.")
-	kind = string_value(data.get("kind", ""))
-	if kind not in PACKAGE_KINDS:
-		issues.append(
-			f"{relative_path}: module kind must be one of "
-			f"{', '.join(sorted(PACKAGE_KINDS))}."
-		)
-	issues.extend(string_array_issues(module_id or relative_path, "dependencies", data.get("dependencies")))
-	issues.extend(
-		portable_manifest_path_list_issues(
-			module_id or relative_path,
-			"paths",
-			data.get("paths"),
-		)
-	)
-	issues.extend(
-		portable_manifest_path_list_issues(
-			module_id or relative_path,
-			"exclude_paths",
-			data.get("exclude_paths", []),
-		)
-	)
-	if not string_array(data.get("paths")):
-		issues.append(f"{relative_path}: module descriptor must own at least one path.")
-	extension_id = string_value(data.get("gf_extension_id", ""))
-	if kind == "extension" and not extension_id:
-		issues.append(
-			f"{relative_path}: extension module must declare gf_extension_id."
-		)
-	if kind != "extension" and "gf_extension_id" in data:
-		issues.append(
-			f"{relative_path}: only extension modules may declare gf_extension_id."
-		)
-	return issues
+	_, issues = descriptors.descriptor_fields(data, relative_path)
+	return [f"{relative_path}: {problem['message']}" for problem in issues]
 
 
-def manifest_record(data: dict[str, Any], relative_path: str) -> dict[str, Any]:
-	return {
-		"path": relative_path,
-		"id": string_value(data.get("id", "")),
-		"kind": string_value(data.get("kind", "")),
-		"gf_extension_id": string_value(data.get("gf_extension_id", "")),
-		"dependencies": string_array(data.get("dependencies", [])),
-		"paths": string_array(data.get("paths", [])),
-		"exclude_paths": string_array(data.get("exclude_paths", [])),
-	}
-
-
-def reject_non_finite_json_constant(value: str) -> Any:
-	raise ValueError(f"non-finite JSON number is forbidden: {value}")
-
-
-def reject_duplicate_json_object_keys(
-	pairs: list[tuple[str, Any]],
-) -> dict[str, Any]:
-	result: dict[str, Any] = {}
-	for key, value in pairs:
-		if key in result:
-			raise ValueError(f"duplicate JSON object key is forbidden: {key}")
-		result[key] = value
-	return result
-
-
-def package_manifest_structure_issue(value: Any) -> str:
-	stack: list[tuple[Any, int]] = [(value, 1)]
-	node_count = 0
-	while stack:
-		current, depth = stack.pop()
-		if depth > PACKAGE_MANIFEST_MAX_DEPTH:
-			return f"module descriptor nesting exceeds {PACKAGE_MANIFEST_MAX_DEPTH}"
-		node_count += 1
-		if node_count > PACKAGE_MANIFEST_MAX_NODES:
-			return (
-				f"module descriptor structure exceeds "
-				f"{PACKAGE_MANIFEST_MAX_NODES} JSON values"
-			)
-		if isinstance(current, dict):
-			stack.extend(
-				(nested, depth + 1)
-				for nested in reversed(list(current.values()))
-			)
-		elif isinstance(current, list):
-			stack.extend((nested, depth + 1) for nested in reversed(current))
-	return ""
+def collect_file_owners(records: list[dict[str, Any]], root: Path) -> dict[str, str]:
+	"""Expand the filesystem candidates once and apply the same ownership rules as maintenance."""
+	index = descriptors.PackageOwnershipIndex(descriptors.collect_package_source_owner_entries(records))
+	owners: dict[str, str] = {}
+	portable_paths: dict[str, str] = {}
+	for record in records:
+		issues: list[str] = []
+		files = collect_package_files(record, issues, root=root)
+		if issues:
+			raise ValueError(f"Package {record['id']} is invalid: " + "; ".join(issues[:10]))
+		for path in files:
+			relative = path.relative_to(root).as_posix()
+			previous = portable_paths.setdefault(portable_path_identity(relative), relative)
+			if previous != relative:
+				raise ValueError(f"Module sources collide under portable path rules: {previous} and {relative}")
+			matches = index.find_owners(relative)
+			if len(matches) != 1:
+				ids = [match["package_id"] for match in matches]
+				raise ValueError(f"Source must belong to exactly one package: {relative} -> {ids}")
+			owners[relative] = matches[0]["package_id"]
+	return owners
 
 
 def collect_package_files(
 	record: dict[str, Any],
 	issues: list[str] | None = None,
+	*, root: Path | None = None,
 ) -> list[Path]:
+	root = ROOT if root is None else root
+	resolved_root = root.resolve(strict=True)
 	result_issues = issues if issues is not None else []
-	files: list[Path] = []
 	seen_identities: dict[str, Path] = {}
 	exclude_patterns = record.get("exclude_paths", [])
 	path_issues = portable_manifest_path_list_issues(
@@ -269,28 +133,28 @@ def collect_package_files(
 	))
 	if path_issues:
 		result_issues.extend(path_issues)
-		return files
+		return []
 	for raw_pattern in record["paths"]:
 		pattern = normalize_manifest_path(raw_pattern)
-		for path in expand_manifest_path(pattern):
+		for path in expand_manifest_path(pattern, root):
+			relative_path = path.relative_to(root).as_posix()
 			if gf_path_security.path_has_reparse_component(path):
 				result_issues.append(
 					f"{record['id']}: module source crosses a symlink, junction, "
-					f"or reparse point: {relative_display_path(path)}"
+					f"or reparse point: {relative_path}"
 				)
 				continue
-			if not path.is_file() or is_blocked_path(path):
+			if not path.is_file() or is_blocked_path(path, root):
 				continue
 			try:
 				resolved_path = path.resolve(strict=True)
-				resolved_path.relative_to(ROOT.resolve(strict=True))
+				resolved_path.relative_to(resolved_root)
 			except (OSError, ValueError):
 				result_issues.append(
 					f"{record['id']}: module source leaves the repository root: "
 					f"{path.as_posix()}"
 				)
 				continue
-			relative_path = path.relative_to(ROOT).as_posix()
 			if not is_windows_portable_relative_path(relative_path):
 				result_issues.append(
 					f"{record['id']}: module source is not portable: {relative_path}"
@@ -300,29 +164,26 @@ def collect_package_files(
 				continue
 			identity = portable_path_identity(relative_path)
 			previous = seen_identities.get(identity)
-			if previous is not None and previous != path:
+			if previous is not None and previous.as_posix() != path.as_posix():
 				result_issues.append(
 					f"{record['id']}: module sources collide under portable path "
-					f"rules: {previous.relative_to(ROOT).as_posix()} and "
+					f"rules: {previous.relative_to(root).as_posix()} and "
 					f"{relative_path}"
 				)
 				continue
 			seen_identities[identity] = path
-			if path not in files:
-				files.append(path)
-	return sorted(files, key=lambda item: item.relative_to(ROOT).as_posix())
+	return sorted(seen_identities.values(), key=lambda item: item.relative_to(root).as_posix())
 
 
-def expand_manifest_path(pattern: str) -> list[Path]:
+def expand_manifest_path(pattern: str, root: Path) -> list[Path]:
 	normalized = normalize_manifest_path(pattern)
 	if not normalized:
 		return []
-	module_source_root = gf_path_security.absolute_lexical_path(ROOT / "addons/gf")
+	module_source_root = gf_path_security.absolute_lexical_path(root / "addons/gf")
 	if not has_glob(normalized):
-		path = gf_path_security.absolute_lexical_path(ROOT / normalized)
+		path = descriptors.exact_source_path(root, normalized)
 		if (
-			gf_path_security.path_is_inside_lexical(module_source_root, path)
-			and path.exists()
+			path is not None and gf_path_security.path_is_inside_lexical(module_source_root, path)
 		):
 			return [path]
 		return []
@@ -331,7 +192,9 @@ def expand_manifest_path(pattern: str) -> list[Path]:
 		if has_glob(part):
 			break
 		static_parts.append(part)
-	search_root = gf_path_security.absolute_lexical_path(ROOT.joinpath(*static_parts))
+	search_root = descriptors.exact_source_path(root, "/".join(static_parts))
+	if search_root is None:
+		return []
 	if gf_path_security.path_is_inside_lexical(search_root, module_source_root):
 		search_root = module_source_root
 	if (
@@ -344,7 +207,7 @@ def expand_manifest_path(pattern: str) -> list[Path]:
 		path
 		for path in search_root.rglob("*")
 		if path_matches_any_manifest_path(
-			path.relative_to(ROOT).as_posix(),
+			path.relative_to(root).as_posix(),
 			[normalized],
 		)
 	)
@@ -362,70 +225,17 @@ def portable_path_identity(path: str) -> str:
 	return shared_portable_literal_path_identity(path)
 
 
-def portable_manifest_path_list_issues(
-	module_id: str,
-	field_name: str,
-	value: Any,
-) -> list[str]:
-	if not isinstance(value, list):
-		return [f"{module_id}: module descriptor {field_name} must be an array."]
-	issues: list[str] = []
-	seen_identities: set[str] = set()
-	for raw_path in value:
-		if (
-			not isinstance(raw_path, str)
-			or not raw_path
-			or raw_path != raw_path.strip()
-		):
-			issues.append(
-				f"{module_id}: module descriptor {field_name} must contain "
-				"canonical non-empty strings."
-			)
-			continue
-		identity = shared_portable_manifest_path_identity(raw_path)
-		if not identity:
-			issues.append(
-				f"{module_id}: module descriptor {field_name} contains an "
-				f"unsafe or non-portable path: {raw_path}"
-			)
-			continue
-		if identity in seen_identities:
-			issues.append(
-				f"{module_id}: module descriptor {field_name} contains a "
-				f"duplicate portable path: {raw_path}"
-			)
-			continue
-		seen_identities.add(identity)
-	return issues
-
-
-def string_array_issues(module_id: str, field_name: str, value: Any) -> list[str]:
-	if not isinstance(value, list):
-		return [f"{module_id}: module descriptor {field_name} must be an array."]
-	issues: list[str] = []
-	seen: set[str] = set()
-	for item in value:
-		if not isinstance(item, str) or not item or item != item.strip():
-			issues.append(
-				f"{module_id}: module descriptor {field_name} must contain "
-				"canonical non-empty strings."
-			)
-			continue
-		if item in seen:
-			issues.append(
-				f"{module_id}: module descriptor {field_name} contains "
-				f"duplicate value: {item}."
-			)
-		seen.add(item)
-	return issues
+def portable_manifest_path_list_issues(module_id: str, field_name: str, value: Any) -> list[str]:
+	_, issues = descriptors.array_field(value, module_id, field_name)
+	return [f"{module_id}: {problem['message']}" for problem in issues]
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
 	return shared_path_matches_any_manifest_path(path, patterns)
 
 
-def is_blocked_path(path: Path) -> bool:
-	relative_parts = path.relative_to(ROOT).parts
+def is_blocked_path(path: Path, root: Path) -> bool:
+	relative_parts = path.relative_to(root).parts
 	if any(part in BLOCKED_DIR_NAMES for part in relative_parts):
 		return True
 	if path.name in BLOCKED_FILE_NAMES:
@@ -435,23 +245,6 @@ def is_blocked_path(path: Path) -> bool:
 
 def has_glob(path: str) -> bool:
 	return any(token in path for token in ("*", "?"))
-
-
-def relative_display_path(path: Path) -> str:
-	try:
-		return path.relative_to(ROOT).as_posix()
-	except ValueError:
-		return path.as_posix()
-
-
-def string_value(value: Any) -> str:
-	return value.strip() if isinstance(value, str) else ""
-
-
-def string_array(value: Any) -> list[str]:
-	if not isinstance(value, list):
-		return []
-	return [item.strip() for item in value if isinstance(item, str) and item.strip()]
 
 
 if __name__ == "__main__":

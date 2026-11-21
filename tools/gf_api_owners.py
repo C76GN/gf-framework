@@ -61,6 +61,8 @@ def collect_api_owners(
 	source_root: Path,
 	root: Path = ROOT,
 	package_records: list[dict[str, Any]] | None = None,
+	*,
+	file_owners: dict[str, str] | None = None,
 ) -> list[ApiOwner]:
 	autoload_contracts = _autoload_contracts_within_source_root(
 		source_root,
@@ -70,7 +72,7 @@ def collect_api_owners(
 	scripts = collect_api_scripts(source_root, root)
 	owners = select_api_owners(scripts, autoload_contracts)
 	validate_controlled_autoloads(owners, root, autoload_contracts)
-	return resolve_api_owner_packages(owners, package_records, root)
+	return resolve_api_owner_packages(owners, package_records, root, file_owners=file_owners)
 
 
 def _autoload_contracts_within_source_root(
@@ -262,9 +264,11 @@ def resolve_api_owner_packages(
 	owners: list[ApiOwner],
 	package_records: list[dict[str, Any]] | None = None,
 	root: Path = ROOT,
+	*,
+	file_owners: dict[str, str] | None = None,
 ) -> list[ApiOwner]:
-	if package_records is None:
-		manifest_load = build_gf_package.load_package_manifests()
+	if file_owners is None and package_records is None:
+		manifest_load = build_gf_package.load_package_manifests(root)
 		if manifest_load.get("issues"):
 			raise ValueError(
 				"Package manifests are invalid: " + "; ".join(manifest_load["issues"][:10])
@@ -274,30 +278,20 @@ def resolve_api_owner_packages(
 			if record.get("kind") != "preset"
 		]
 
-	candidates: dict[str, list[str]] = {}
-	for record in package_records:
-		file_issues: list[str] = []
-		files = build_gf_package.collect_package_files(record, file_issues)
-		if file_issues:
-			raise ValueError(
-				f"Package {record.get('id', '')} is invalid: " + "; ".join(file_issues[:10])
-			)
-		for path in files:
-			relative = path.relative_to(root).as_posix()
-			candidates.setdefault(relative, []).append(str(record.get("id", "")))
+	if file_owners is None:
+		file_owners = build_gf_package.collect_file_owners(package_records or [], root)
 
 	contracts_by_path = {
 		contract.source_path: contract for contract in CONTROLLED_AUTOLOAD_CONTRACTS
 	}
 	resolved: list[ApiOwner] = []
 	for owner in owners:
-		package_ids = sorted(set(candidates.get(owner.script.path, [])))
-		if len(package_ids) != 1:
+		package_id = file_owners.get(owner.script.path)
+		if package_id is None:
 			raise ValueError(
 				"API owner source must belong to exactly one package: "
-				f"{owner.name} ({owner.script.path}) -> {package_ids}"
+				f"{owner.name} ({owner.script.path}) -> []"
 			)
-		package_id = package_ids[0]
 		contract = contracts_by_path.get(owner.script.path)
 		if contract is not None and package_id != contract.package_id:
 			raise ValueError(

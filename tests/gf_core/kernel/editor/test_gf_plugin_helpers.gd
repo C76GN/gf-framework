@@ -4214,7 +4214,7 @@ func test_extension_manager_dock_exposes_strict_reference_export_policy() -> voi
 	assert_not_null(export_fail_check, "扩展管理面板应暴露禁用扩展引用的严格导出策略。")
 	assert_eq(
 		export_fail_check.text,
-		"引用禁用扩展时阻止导出",
+		"严格检查禁用扩展引用",
 		"严格导出策略应有清晰的 UI 文案。"
 	)
 	assert_true(export_fail_check.button_pressed, "扩展管理面板应读取当前严格导出策略。")

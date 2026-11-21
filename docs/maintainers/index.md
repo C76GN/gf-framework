@@ -130,7 +130,15 @@ GF 内置可选扩展默认关闭；每个 `addons/gf/extensions/*/gf_extension.
 - 生成访问器中的扩展类型或扩展路径。
 - 直接使用扩展内 `class_name` 的类型声明。
 
-`GF` 工作区的 `GF Extensions` 页面提供“扫描引用”，导出开始时也会检查禁用扩展引用。发布前可启用“引用禁用扩展时阻止导出”，把这类问题提升为导出错误。
+`GF Extensions` 页面提供“扫描引用”。导出开始时，GF 按该次导出预设审计引用，并记录一条策略结果。Windows 发布验收会从待发布的完整框架 ZIP 建立三个独立的临时项目，实际运行启用和禁用行为树的导出物，同时核对严格模式能拒绝强引用并指出引用来源。可在具有 Windows x86_64 导出模板的机器上单独重跑：
+
+```powershell
+python tools/gf_extension_export_acceptance.py --archive build/gf-framework-13.0.0-dev.0.zip
+```
+
+省略 `--archive` 会使用当前源码。要把同一策略用于自己的 CI，请将一次 Godot 导出的标准输出和错误输出保存为独立的 UTF-8 日志，然后把原始进程退出码传给 `python tools/gf_extension_export_check.py export.log --godot-exit <退出码>`。命令返回 0 才可放行。查阅[编辑器扩展管理器](../zh/extensions/editor-manager.md)了解确切的日志格式。
+
+维护工具共用 `packages/` 清单的字段校验、路径排除和唯一归属规则。`package-boundary` 从 Git 已跟踪和未忽略的新文件中发现清单，再在实际的 `addons/gf` 文件树上检查归属重叠。API 文档和 AI 索引直接从生成时的文件树发现清单和源码。每次运行独立获取输入，因此提交前应同时运行模块边界检查与两个生成检查。
 
 分层边界必须按硬规则维护：`kernel` 不认识 `standard` 或任何 extension；`standard` 只认识 `kernel`，不能通过扩展 ID、扩展路径、动态脚本探测或扩展内类名弱联动 GF 内置扩展；GF 内置扩展只能依赖 `kernel` 和稳定的 `standard`，彼此保持互不认识。需要跨 GF 内置扩展协作时，应放到项目 Installer 或 `addons/gf` 外的独立插件中。如果扩展能力需要显示在标准库诊断、Overlay 或工具快照里，应由扩展侧向标准库的通用注册入口贡献能力，而不是在标准库中写扩展探测逻辑。
 

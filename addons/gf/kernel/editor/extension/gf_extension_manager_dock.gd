@@ -133,7 +133,7 @@ var _auto_install_check: CheckBox
 ## @api private
 var _export_exclude_check: CheckBox
 
-## 项目仍引用禁用扩展时阻止导出的复选框。
+## 项目仍引用禁用扩展时将导出审计判为失败的复选框。
 ## [br]
 ## @api private
 var _export_fail_check: CheckBox
@@ -525,8 +525,8 @@ func _build_ui() -> void:
 	option_row.add_child(_export_exclude_check)
 
 	_export_fail_check = CheckBox.new()
-	_export_fail_check.text = "引用禁用扩展时阻止导出"
-	_export_fail_check.tooltip_text = "导出审计发现项目仍引用禁用扩展时，以错误形式报告，适合发布前检查"
+	_export_fail_check.text = "严格检查禁用扩展引用"
+	_export_fail_check.tooltip_text = "启用导出排除后，确认存在引用或扫描不完整时，GF 检查失败。Godot 仍可能生成文件，发布前应检查结果。"
 	option_row.add_child(_export_fail_check)
 
 	var filter_row: HBoxContainer = GFEditorWorkspaceUI.make_toolbar()
