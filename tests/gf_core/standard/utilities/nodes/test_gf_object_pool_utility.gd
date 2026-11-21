@@ -360,6 +360,101 @@ func test_public_acquire_does_not_retain_ref_counted_owner_while_waiting() -> vo
 	)
 
 
+func test_shared_parent_and_owner_delivers_and_releases_one_lease() -> void:
+	var initial_connections: int = _parent.tree_exiting.get_connections().size()
+	for lifetime_owner: Object in [_parent, _pool]:
+		var result: GFObjectPoolAcquireResult = await _pool.acquire(
+			_scene,
+			_parent,
+			lifetime_owner
+		)
+		_assert_acquire_result(
+			result,
+			GFObjectPoolAcquireResult.Status.SUCCEEDED,
+			&"complete",
+			&"acquired"
+		)
+		var lease: GFObjectPoolLease = result.get_lease()
+		assert_not_null(lease)
+		if lease == null:
+			return
+		assert_same(
+			lease.get_node().get_parent(),
+			_parent
+		)
+		assert_eq(
+			_parent.get_child_count(),
+			1
+		)
+		assert_eq(
+			_pool.get_active_count(_scene),
+			1
+		)
+		assert_eq(
+			_parent.tree_exiting.get_connections().size(),
+			initial_connections
+		)
+		watch_signals(lease)
+		assert_true(lease.release())
+		assert_eq(
+			await lease.wait_settled(),
+			&"released"
+		)
+		assert_signal_emit_count(
+			lease,
+			"settled",
+			1
+		)
+
+	_pool.dispose()
+	await _pool.wait_disposed()
+	assert_engine_error_count(0)
+
+
+func test_shared_parent_and_owner_exiting_before_delivery_cancels_as_parent_lost() -> void:
+	var initial_connections: int = _parent.tree_exiting.get_connections().size()
+	var state: Dictionary = {}
+	_start_public_owner_acquire.call_deferred(
+		_pool,
+		_scene,
+		_parent,
+		_parent,
+		{},
+		state
+	)
+	var exit_while_pending: Callable = func() -> void:
+		assert_eq(
+			_parent.tree_exiting.get_connections().size(),
+			initial_connections + 1
+		)
+		_leave_and_return_for_review(_parent, state)
+	exit_while_pending.call_deferred()
+
+	var result: GFObjectPoolAcquireResult = await _wait_for_acquire_result(state)
+	_assert_acquire_result(
+		result,
+		GFObjectPoolAcquireResult.Status.CANCELLED,
+		&"validation",
+		&"parent_lost"
+	)
+	if result == null:
+		return
+	assert_null(result.get_lease())
+	assert_eq(
+		_parent.tree_exiting.get_connections().size(),
+		initial_connections
+	)
+	assert_eq(
+		_parent.get_child_count(),
+		0
+	)
+	assert_eq(
+		_pool.get_active_count(_scene),
+		0
+	)
+	assert_engine_error_count(0)
+
+
 func test_public_owner_exit_before_delivery_is_irreversible_after_reentry() -> void:
 	var owner_node: Node = Node.new()
 	_parent.add_child(owner_node)

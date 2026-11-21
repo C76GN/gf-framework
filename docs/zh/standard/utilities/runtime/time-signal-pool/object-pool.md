@@ -32,7 +32,9 @@ func spawn_effect(scene: PackedScene, parent: Node) -> void:
 		print("本次借用结束：", reason)
 ```
 
-`parent` 决定节点挂在哪里，必填的 `lifetime_owner` 决定谁接收这次借用，通常传调用脚本的 `self`。两者可以不同，例如临时发射器向常驻场景挂载特效。池只弱引用接收方：交付前接收方被销毁，或 Node 接收方退出场景树，请求以 `CANCELLED / owner_lost` 结束并清理候选；重新入树不会恢复已取消的请求。
+`parent` 决定实例挂在哪里，必填的 `lifetime_owner` 指定谁接收这次借用。节点为自己借用子节点时，可以写 `await pool.acquire(scene, self, self)`。只要它在交付前离树，请求就以 `CANCELLED / validation / parent_lost` 结束，重新入树也不会恢复这次请求。
+
+临时发射器向常驻场景挂载特效时，可以把场景节点传作 `parent`，把发射器自身传作 `lifetime_owner`。池只弱引用接收方。交付前，单独移除父节点会以 `parent_lost` 取消请求。父节点仍有效时，销毁独立接收方或将 Node 接收方移出场景树会以 `owner_lost` 取消请求。池会清理尚未交付的实例。
 
 成功交付后，接收方的生命周期不再自动控制 Lease。接收方应保存并归还 Lease，或把它明确转交给持续管理该节点的对象；不要依赖接收方退出时自动归还已交付节点。
 
