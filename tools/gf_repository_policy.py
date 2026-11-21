@@ -897,6 +897,7 @@ def audit_release_workflow(source: str) -> list[str]:
 			"Set up Windows native build and export", "Build release artifact set",
 			"Verify release metadata against built artifacts",
 			"Upload immutable release artifact set",
+			"Retain failed extension export diagnostics",
 		),
 		"release-framework-checks": (
 			"Checkout tag", "Set up Python", "Install documentation dependencies",
@@ -959,6 +960,13 @@ def audit_release_workflow(source: str) -> list[str]:
 			RELEASE_UPLOAD_ACTION,
 			RELEASE_UPLOAD_WITH_FIELDS,
 			issues,
+		)
+		require_exact_action_step(
+			build_release_job, "build-release-artifacts", "Retain failed extension export diagnostics",
+			RELEASE_UPLOAD_ACTION,
+			(("name", "extension-export-diagnostics"), ("path", "ai_analysis/godot_logs/extension-export-*/"),
+			 ("if-no-files-found", "ignore"), ("retention-days", "3")),
+			issues, expected_if="failure()",
 		)
 	if "create-release" not in jobs:
 		issues.append("Release workflow is missing create-release job.")
@@ -2012,14 +2020,19 @@ def require_exact_action_step(
 	expected_action: str,
 	expected_with_fields: tuple[tuple[str, str], ...],
 	issues: list[str],
+	*,
+	expected_if: str = "",
 ) -> None:
 	step_source = extract_ci_step_block(job_source, step_name)
 	actual_fields = extract_ci_step_field_keys(step_source)
-	if actual_fields != ["uses", "with"]:
+	expected_fields = ["if", "uses", "with"] if expected_if else ["uses", "with"]
+	if actual_fields != expected_fields:
 		issues.append(
 			f"CI job {job_id} {step_name} fields are {actual_fields!r}, "
-			"expected ['uses', 'with']."
+			f"expected {expected_fields!r}."
 		)
+	if expected_if and extract_yaml_scalar(step_source, "if", 8) != expected_if:
+		issues.append(f"CI job {job_id} {step_name} condition must be {expected_if!r}.")
 	actual_action = extract_yaml_scalar(step_source, "uses", 8)
 	if actual_action != expected_action:
 		issues.append(
@@ -2755,11 +2768,16 @@ def run_release_workflow_mutation_self_tests() -> list[str]:
 			"Verify release metadata against built artifacts environment",
 		),
 		(
+			"always_uploads_failed_extension_diagnostics",
+			mutate_job(build_job, "if: failure()", "if: always()"),
+			"Retain failed extension export diagnostics condition",
+		),
+		(
 			"wrong_release_upload_action",
 			mutate_job(
 				build_job,
-				"uses: actions/upload-artifact@v7",
-				"uses: actions/upload-artifact@v6",
+				"Upload immutable release artifact set\n        uses: actions/upload-artifact@v7",
+				"Upload immutable release artifact set\n        uses: actions/upload-artifact@v6",
 			),
 			"Upload immutable release artifact set action",
 		),
