@@ -3,6 +3,11 @@ extends SceneTree
 
 func _initialize() -> void:
 	var expected_native: bool = OS.get_cmdline_user_args().has("--native")
+	var height_errors: Array[String] = preload("res://tests/native/terrain_rgb/acceptance.gd").check(expected_native)
+	if not height_errors.is_empty():
+		push_error(str(height_errors))
+		quit(1)
+		return
 	var schema: GFDataBatchSchema = GFDataBatchSchema.create(
 		&"selection",
 		1,

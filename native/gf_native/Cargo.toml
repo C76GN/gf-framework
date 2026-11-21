@@ -10,6 +10,10 @@ description = "Optional native capabilities for GF Framework"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[example]]
+name = "foundation_probe"
+crate-type = ["cdylib"]
+
 [dependencies]
 godot = { version = "=0.5.5", default-features = false, features = ["api-4-6"] }
 

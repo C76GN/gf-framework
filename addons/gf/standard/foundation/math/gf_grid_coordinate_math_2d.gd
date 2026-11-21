@@ -16,8 +16,10 @@ extends RefCounted
 
 ## 正交邻居枚举采用的右、左、下、上方向。
 ## [br]
-## @api private
-const _ORTHOGONAL_DIRECTIONS: Array[Vector2i] = [
+## @api layer_internal
+## [br]
+## @layer standard/foundation
+const CARDINAL_DIRECTIONS: Array[Vector2i] = [
 	Vector2i.RIGHT,
 	Vector2i.LEFT,
 	Vector2i.DOWN,
@@ -211,10 +213,9 @@ static func get_neighbors(
 	include_diagonal: bool = false
 ) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
-	var directions: Array[Vector2i] = []
-	directions.append_array(_ORTHOGONAL_DIRECTIONS)
+	var directions: Array[Vector2i] = CARDINAL_DIRECTIONS
 	if include_diagonal:
-		directions.append_array(_DIAGONAL_DIRECTIONS)
+		directions = CARDINAL_DIRECTIONS + _DIAGONAL_DIRECTIONS
 
 	for direction: Vector2i in directions:
 		var next_cell: Vector2i = cell + direction

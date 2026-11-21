@@ -1124,6 +1124,89 @@ func test_simplify_path_line_of_sight_keeps_blocked_corner() -> void:
 	)
 
 
+func test_cardinal_flow_matches_uniform_weighted_search_including_goal_order() -> void:
+	var size: Vector2i = Vector2i(8, 5)
+	var goals: Array[Vector2i] = [
+		Vector2i(1, 4),
+		Vector2i(1, 0),
+		Vector2i(1, 4),
+		Vector2i(-1, 0),
+		Vector2i(4, 1),
+	]
+	var reads: Array[Vector2i] = []
+	var walkable: Callable = func(cell: Vector2i) -> bool:
+		reads.append(cell)
+		return cell.x != 4
+	var unit_cost: Callable = func(_from: Vector2i, _to: Vector2i) -> float:
+		return 1.0
+	var uniform: Dictionary = GFGridPathMath2D.build_flow_field(
+		size,
+		goals,
+		walkable
+	)
+	var fifo_reads: Array[Vector2i] = reads.duplicate()
+	reads.clear()
+	var weighted: Dictionary = GFGridPathMath2D.build_flow_field(
+		size,
+		goals,
+		walkable,
+		false,
+		unit_cost
+	)
+	assert_eq(uniform, weighted)
+	assert_eq(fifo_reads, reads)
+	var costs: Dictionary = GFVariantData.get_option_dictionary(uniform, "costs")
+	assert_false(costs.has(Vector2i(6, 4)))
+	var directions: Dictionary = GFVariantData.get_option_dictionary(uniform, "directions")
+	var tie_direction: Vector2i = directions[Vector2i(1, 2)]
+	assert_eq(tie_direction, Vector2i.DOWN)
+
+
+func test_flow_field_preserves_directed_costs_and_diagonal_distance() -> void:
+	var walkable: Callable = func(_cell: Vector2i) -> bool:
+		return true
+	var eastward: Callable = func(from: Vector2i, to: Vector2i) -> float:
+		if from.x > to.x:
+			return -1.0
+		return 5.0 if from.x == 0 else 2.0
+	var east: Dictionary = GFGridPathMath2D.build_flow_field(
+		Vector2i(3, 1),
+		[Vector2i(2, 0)],
+		walkable,
+		false,
+		eastward
+	)
+	var east_costs: Dictionary = east["costs"]
+	var start_cost: float = east_costs[Vector2i.ZERO]
+	assert_eq(start_cost, 7.0)
+	var west: Dictionary = GFGridPathMath2D.build_flow_field(
+		Vector2i(3, 1),
+		[Vector2i.ZERO],
+		walkable,
+		false,
+		eastward
+	)
+	var west_costs: Dictionary = west["costs"]
+	assert_eq(
+		west_costs,
+		{ Vector2i.ZERO: 0.0, }
+	)
+	var diagonal: Dictionary = GFGridPathMath2D.build_flow_field(
+		Vector2i(2, 2),
+		[Vector2i.ONE],
+		walkable,
+		true
+	)
+	var diagonal_costs: Dictionary = diagonal["costs"]
+	var diagonal_cost: float = diagonal_costs[Vector2i.ZERO]
+	assert_true(
+		is_equal_approx(
+			diagonal_cost,
+			sqrt(2.0)
+		)
+	)
+
+
 func test_build_flow_field_points_toward_nearest_goal() -> void:
 	var field: Dictionary = GF_GRID_MATH.build_flow_field(
 		Vector2i(3, 1),

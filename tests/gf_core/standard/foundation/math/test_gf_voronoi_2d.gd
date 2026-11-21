@@ -227,6 +227,54 @@ func test_voronoi_marks_center_cell_as_closed() -> void:
 	)
 
 
+func test_voronoi_cells_reference_incident_triangles_in_angular_order() -> void:
+	var points: PackedVector2Array = PackedVector2Array(
+		[
+			Vector2(-2, -1),
+			Vector2(1, -2),
+			Vector2(2, 2),
+			Vector2(-2, 1),
+			Vector2.ZERO,
+		]
+	)
+	var report: Dictionary = GF_VORONOI_2D.build_voronoi(points)
+	var triangles: Array = _get_triangles(report)
+	var vertices: PackedVector2Array = _get_vertices(report)
+	var cells: Array = GFVariantData.get_option_array(report, "cells")
+	assert_eq(
+		cells.size(),
+		points.size()
+	)
+	for cell: Dictionary in cells:
+		var point_index: int = cell["point_index"]
+		var center: Vector2 = cell["point"]
+		var indices: PackedInt32Array = cell["vertex_indices"]
+		var polygon: PackedVector2Array = _get_polygon(cell)
+		var incident: PackedInt32Array = PackedInt32Array()
+		for index: int in range(triangles.size()):
+			var triangle: PackedInt32Array = triangles[index]
+			if triangle.has(point_index):
+				var _appended: bool = incident.append(index)
+		var sorted_indices: PackedInt32Array = indices.duplicate()
+		sorted_indices.sort()
+		assert_eq(sorted_indices, incident)
+		assert_eq(
+			polygon.size(),
+			indices.size()
+		)
+		if polygon.size() != indices.size() or sorted_indices != incident:
+			continue
+		var previous_angle: float = -INF
+		for i: int in range(indices.size()):
+			assert_eq(
+				polygon[i],
+				vertices[indices[i]]
+			)
+			var angle: float = center.angle_to_point(polygon[i])
+			assert_true(angle >= previous_angle)
+			previous_angle = angle
+
+
 func test_voronoi_marks_hull_cells_as_open() -> void:
 	var result: Dictionary = GF_VORONOI_2D.build_voronoi(
 		PackedVector2Array(

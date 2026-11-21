@@ -179,6 +179,8 @@ if cleaned["ok"]:
 
 ## 代价与流场
 
+四方向且使用默认步长时，`build_flow_field()` 从有效目标按加入顺序执行广度优先搜索，只为可达格子保存代价和方向。启用斜向移动或提供 `step_cost` 时使用优先队列处理不同的移动代价。
+
 ```gdscript
 var path := GFGridPathMath2D.find_path_a_star(
 	Vector2i(32, 32),
