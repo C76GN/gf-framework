@@ -478,7 +478,8 @@ func _make_acquire_request(
 	request._context = context.duplicate(true)
 	request._parent_exit_callback = request._invalidate.bind(&"parent_lost")
 	var _parent_connected: Error = parent.tree_exiting.connect(request._parent_exit_callback) as Error
-	if lifetime_owner is Node:
+	# 父节点兼任接收方时，同一次退出由父节点的回调记录为 parent_lost。
+	if lifetime_owner is Node and lifetime_owner != parent:
 		var owner_node: Node = lifetime_owner
 		request._owner_exit_callback = request._invalidate.bind(&"owner_lost")
 		var _owner_connected: Error = owner_node.tree_exiting.connect(request._owner_exit_callback) as Error
