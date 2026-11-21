@@ -173,6 +173,42 @@ func test_heightfield_rejects_invalid_configuration_without_overwriting_previous
 	)
 
 
+func test_heightfield_owns_valid_samples_until_cleared() -> void:
+	var heights: PackedFloat32Array = PackedFloat32Array([3.0, 8.0])
+	var field: GFHeightfield3D = GFHeightfield3D.new()
+	assert_false(field.is_valid())
+	assert_true(
+		field.configure(
+			Vector2i(2, 1),
+			heights
+		)
+	)
+	heights[0] = NAN
+	var exported: PackedFloat32Array = field.get_height_samples()
+	exported[0] = INF
+	assert_false(
+		field.configure(
+			Vector2i(2, 1),
+			heights
+		)
+	)
+	assert_true(field.is_valid())
+	assert_eq(
+		field.sample_cell(Vector2i.ZERO),
+		3.0
+	)
+	field.clear()
+	assert_false(field.is_valid())
+	assert_eq(
+		field.sample_world(
+			0.0,
+			0.0,
+			-5.0
+		),
+		-5.0
+	)
+
+
 func test_heightfield_decodes_terrain_rgb_height() -> void:
 	var sea_level: float = GFHeightfield3D.decode_terrain_rgb_height(
 		Color8(
@@ -282,6 +318,113 @@ func test_heightfield_builds_from_terrain_rgb_image() -> void:
 			) - 15.0
 		) <= 0.001,
 		"世界中心应对解码样本双线性插值。"
+	)
+
+
+func test_terrain_rgb_decodes_base_level_in_row_order_across_pixel_formats() -> void:
+	var options: Dictionary = { "height_scale": -1.25, "height_offset": 17.0 }
+	for format: Image.Format in [
+		Image.FORMAT_RGB8,
+		Image.FORMAT_RGBA8,
+		Image.FORMAT_RGBF,
+	]:
+		var image: Image = Image.create(
+			5,
+			3,
+			false,
+			format
+		)
+		var expected: PackedFloat32Array = PackedFloat32Array()
+		for y: int in range(image.get_height()):
+			for x: int in range(image.get_width()):
+				var index: int = y * image.get_width() + x
+				image.set_pixel(
+					x,
+					y,
+					Color8(
+						index * 17,
+						255 - index * 13,
+						index * 7,
+						index * 11
+					)
+				)
+				var meters: float = GFHeightfield3D.decode_terrain_rgb_height(image.get_pixel(x, y))
+				var _appended: bool = expected.append(meters * -1.25 + 17.0)
+		assert_eq(
+			image.generate_mipmaps(),
+			OK
+		)
+		var report: Dictionary = GFHeightfield3D.samples_from_terrain_rgb_image(image, options)
+		assert_true(GFVariantData.get_option_bool(report, "ok"))
+		_assert_terrain_samples(report, expected)
+		assert_eq(
+			GFVariantData.get_option_int(
+				report,
+				"sample_count",
+				-1
+			),
+			expected.size()
+		)
+		var sorted: PackedFloat32Array = expected.duplicate()
+		sorted.sort()
+		assert_eq(
+			GFVariantData.get_option_float(
+				report,
+				"min_height",
+				NAN
+			),
+			sorted[0]
+		)
+		assert_eq(
+			GFVariantData.get_option_float(
+				report,
+				"max_height",
+				NAN
+			),
+			sorted[-1]
+		)
+
+
+func test_terrain_rgb_float32_overflow_discards_prior_decoded_pixels() -> void:
+	var image: Image = Image.create_from_data(
+		2,
+		1,
+		false,
+		Image.FORMAT_RGB8,
+		PackedByteArray(
+			[
+				1,
+				134,
+				160,
+				255,
+				255,
+				255,
+			]
+		)
+	)
+	var report: Dictionary = GFHeightfield3D.samples_from_terrain_rgb_image(
+		image,
+		{ "height_scale": 1.0e35 }
+	)
+	assert_false(GFVariantData.get_option_bool(report, "ok"))
+	_assert_terrain_samples(
+		report,
+		PackedFloat32Array()
+	)
+	assert_eq(
+		GFVariantData.get_option_int(
+			report,
+			"sample_count",
+			-1
+		),
+		0
+	)
+	var issues: Array = GFVariantData.get_option_array(report, "issues")
+	assert_eq(
+		issues,
+		[
+			{ "kind": "unrepresentable_height", "message": "height samples must be representable as finite float32 values." },
+		]
 	)
 
 
@@ -700,6 +843,15 @@ func test_scatter_reports_height_and_slope_rejections() -> void:
 
 
 # --- 私有/辅助方法 ---
+
+func _assert_terrain_samples(report: Dictionary, expected: PackedFloat32Array) -> void:
+	var value: Variant = report.get("samples")
+	if value is PackedFloat32Array:
+		var actual: PackedFloat32Array = value
+		assert_eq(actual, expected)
+	else:
+		fail_test("Terrain-RGB 报告必须含有 float32 样本数组。")
+
 
 func _make_gradient_heightfield() -> GFHeightfield3D:
 	return GFHeightfield3D.from_samples(

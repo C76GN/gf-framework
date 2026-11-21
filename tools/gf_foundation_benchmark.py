@@ -1,0 +1,216 @@
+"""Measure public foundation operations and optional native capabilities in a Windows release export."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import platform
+import re
+import shutil
+import statistics
+import sys
+import tempfile
+import time
+import tomllib
+from pathlib import Path
+
+from gf_godot_process import resolve_godot_executable
+from gf_native_acceptance import check_engine_diagnostics, run
+
+ROOT = Path(__file__).resolve().parents[1]
+CRATE = ROOT / "native/gf_native"
+FIXTURE = ROOT / "tests/gf_core/benchmarks/foundation/foundation_probe.gd.fixture"
+SOURCE_DIRS = {
+    "kernel/core": ("cancellation_token", "data_value_capture", "report_value_codec", "variant_access"),
+    "standard/foundation/collections": ("priority_queue",),
+    "standard/foundation/deterministic": ("deterministic_random",),
+    "standard/foundation/variant": ("variant_data",),
+    "standard/foundation/math": ("graph_math", "graph_path_search_state", "grid_coordinate_math_2d",
+                                 "grid_path_math_2d", "grid_transform_2d", "heightfield_3d", "wave_function_collapse_2d",
+                                 "surface_scatter_sampler_3d", "transform_3d_math", "noise_field_tools", "voronoi_2d"),
+}
+CASES = {
+    "terrain_rgb8_256": ("native", "portable"), "terrain_rgb8_512": ("native", "portable"),
+    "height_queries_64": ("public",), "height_queries_512": ("public",), "surface_scatter_512": ("public",),
+    "noise_96": ("public",), "noise_256": ("public",),
+    "voronoi_64": ("public", "insertion"), "voronoi_256": ("public", "insertion"),
+    "flow_open_32": ("public", "native_probe"), "flow_open_64": ("public", "native_probe"),
+    "wfc_entropy_8": ("public", "native_probe", "mrv"), "wfc_entropy_16": ("public", "native_probe", "mrv"),
+    "wfc_weighted_fixed_12": ("public", "native_probe"),
+}
+MATH_DIR = Path("addons/gf/standard/foundation/math")
+BASELINES = {"height": ("heightfield_3d", "GFHeightfield3D"), "flow": ("grid_path_math_2d", "GFGridPathMath2D"),
+             "noise": ("noise_field_tools", "GFNoiseFieldTools"), "voronoi": ("voronoi_2d", "GFVoronoi2D"),
+             "flow_coordinates": ("grid_coordinate_math_2d", "GFGridCoordinateMath2D"),
+             "scatter": ("surface_scatter_sampler_3d", "GFSurfaceScatterSampler3D")}
+
+
+def profile_voronoi(project: Path) -> None:
+    """Time the full insertion loop with two clock reads, retaining the complete public result."""
+    source = (project / MATH_DIR / "gf_voronoi_2d.gd").read_text(encoding="utf-8")
+    for anchor, replacement in (
+        ("class_name GFVoronoi2D", "class_name GfBenchmarkVoronoiProfile"),
+        ("extends RefCounted", "extends RefCounted\n\nstatic var insert_usec: int = 0"),
+        ("\tvar working_triangles: Array[Dictionary] = [first_triangle]",
+         "\tvar started: int = Time.get_ticks_usec()\n\tvar working_triangles: Array[Dictionary] = [first_triangle]"),
+        ("\tvar result: Array[PackedInt32Array] = []\n\tfor triangle: Dictionary in working_triangles:",
+         "\tinsert_usec = Time.get_ticks_usec() - started\n\tvar result: Array[PackedInt32Array] = []\n\tfor triangle: Dictionary in working_triangles:"),
+    ):
+        if source.count(anchor) != 1:
+            raise ValueError("Update the Voronoi insertion timing anchors for the current implementation")
+        source = source.replace(anchor, replacement)
+    (project / "profile_voronoi.gd").write_text(source, encoding="utf-8")
+
+
+def runtime_sources() -> list[Path]:
+    return [ROOT / "addons/gf" / folder / f"gf_{name}.gd"
+            for folder, names in SOURCE_DIRS.items() for name in names]
+
+
+def stage(project: Path, probe: Path, native: Path) -> None:
+    for source in runtime_sources():
+        target = project / source.relative_to(ROOT)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, target)
+    shutil.copyfile(FIXTURE, project / "probe.gd")
+    for dll in (probe, native):
+        shutil.copyfile(dll, project / dll.name)
+        (project / f"{dll.stem}.gdextension").write_text(
+            '[configuration]\nentry_symbol="gdext_rust_init"\ncompatibility_minimum="4.6"\n'
+            f'[libraries]\nwindows.x86_64="./{dll.name}"\n', encoding="utf-8")
+    profile_voronoi(project)
+    (project / "project.godot").write_text(
+        'config_version=5\n[application]\nconfig/name="GF Foundation Benchmark"\nrun/main_scene="res://main.tscn"\n'
+        '[rendering]\nrenderer/rendering_method="gl_compatibility"\n', encoding="utf-8")
+    (project / "main.tscn").write_text(
+        '[gd_scene format=3]\n[ext_resource type="Script" path="res://probe.gd" id="1"]\n'
+        '[node name="Benchmark" type="Node"]\nscript=ExtResource("1")\n', encoding="utf-8")
+    (project / "export_presets.cfg").write_text(
+        '[preset.0]\nname="Windows"\nplatform="Windows Desktop"\nrunnable=true\nexport_filter="all_resources"\n'
+        'include_filter=""\nexclude_filter=""\n[preset.0.options]\nbinary_format/architecture="x86_64"\n'
+        'binary_format/embed_pck=false\napplication/modify_resources=false\n', encoding="utf-8")
+
+
+def stage_baseline(project: Path, kind: str, path: Path) -> str:
+    data = path.read_bytes()
+    source = data.decode("utf-8-sig")
+    _, class_name = BASELINES[kind]
+    if not re.search(rf"(?m)^class_name {class_name}\s*$", source):
+        raise ValueError(f"{path} must declare {class_name}")
+    if kind == "scatter":
+        source = re.sub(r"\bGFHeightfield3D\b", "GfBenchmarkGFHeightfield3DBaseline", source)
+    if kind == "flow":
+        source = re.sub(r"\bGFGridCoordinateMath2D\b", "GfBenchmarkGFGridCoordinateMath2DBaseline", source)
+    (project / f"{kind}_baseline.gd").write_text(
+        re.sub(rf"\b{class_name}\b", f"GfBenchmark{class_name}Baseline", source), encoding="utf-8")
+    return hashlib.sha256(data).hexdigest()
+
+
+def summarize(output: str, baselines: dict[str, str]) -> dict:
+    prefix = "GF_FOUNDATION_BENCHMARK="
+    records = [json.loads(line[len(prefix):]) for line in output.splitlines() if line.startswith(prefix)]
+    if len(records) != 1:
+        raise ValueError("Expected exactly one benchmark report")
+    report = records[0]
+    if (report["release"] is not True or report["failures"] or report["warmups"] != 2
+            or report["samples"] != 9 or [case["name"] for case in report["cases"]] != list(CASES)):
+        raise ValueError(f"Incomplete differential run: {report}")
+    medians = {}
+    for case in report["cases"]:
+        name = case["name"]
+        kind = name.split("_", 1)[0]
+        required = set(CASES[name])
+        baseline_kind = {"terrain": "height", "surface": "scatter"}.get(kind, kind)
+        if baseline_kind in baselines and baseline_kind in {"height", "noise", "voronoi", "flow", "scatter"}:
+            required.add("previous")
+        if set(case["usec"]) != required:
+            raise ValueError(f"Incomplete measurements for {name}")
+        medians[name] = case["median_ms"] = {}
+        for mode, samples in case["usec"].items():
+            if len(samples) != report["samples"] or any(type(value) is not int or value <= 0 for value in samples):
+                raise ValueError(f"Invalid {mode} samples for {name}")
+            medians[name][mode] = statistics.median(samples) / 1000
+    # Both lanes call the public decoder on the same valid pixels. Falling back to
+    # script on the main thread would preserve values but lose the native speedup.
+    terrain = medians["terrain_rgb8_512"]
+    if terrain["native"] > terrain["portable"] * 0.5:
+        raise ValueError("Installed Terrain-RGB decoder is not accelerating the public entry point")
+    # A 64-fold area increase should leave eight reads approximately constant. A timer
+    # floor and wide ratio tolerate CPU scheduling noise while detecting a full-map scan.
+    if medians["height_queries_512"]["public"] > max(0.020, medians["height_queries_64"]["public"]) * 8:
+        raise ValueError("Eight height queries scale with grid area")
+    return report
+
+
+def fingerprint(paths: list[Path], base: Path = ROOT) -> dict[str, str]:
+    return {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--godot", default="godot", help="Godot editor with the matching Windows export template")
+    parser.add_argument("--height-baseline", type=Path, help="Older trusted gf_heightfield_3d.gd for a paired comparison")
+    parser.add_argument("--baseline-root", type=Path, help="Trusted reference worktree for paired public operations")
+    args = parser.parse_args()
+    if sys.platform != "win32":
+        parser.error("This fixture qualifies Windows x86_64")
+    godot = resolve_godot_executable(args.godot, environment=os.environ, cwd=ROOT)
+    channel = tomllib.loads((CRATE / "rust-toolchain.toml").read_text(encoding="utf-8"))["toolchain"]["channel"]
+    build = ROOT / "build"
+    build.mkdir(exist_ok=True)
+    log_root = ROOT / "ai_analysis/godot_logs/foundation_benchmark"
+    log_root.mkdir(parents=True, exist_ok=True)
+    logs = Path(tempfile.mkdtemp(prefix="run-", dir=log_root))
+    deadline = time.monotonic() + 900
+    target = build / "gf_native_target"
+    inputs = [*runtime_sources(), FIXTURE, Path(__file__).resolve(), CRATE / "Cargo.lock", CRATE / "Cargo.toml",
+              CRATE / ".cargo/config.toml", CRATE / "rust-toolchain.toml",
+              *sorted((CRATE / "examples/foundation_probe").glob("*.rs")), *sorted((CRATE / "src").glob("*.rs"))]
+    source_hashes = fingerprint(inputs)
+    run(["cargo", f"+{channel}", "build", "--lib", "--example", "foundation_probe", "--release", "--locked",
+         "--target-dir", str(target)], CRATE, "build", 600, logs, deadline)
+    release = target / "x86_64-pc-windows-msvc/release"
+    probe, native = release / "examples/foundation_probe.dll", release / "gf_native.dll"
+    binary_hashes = fingerprint([native, probe], release)
+    with tempfile.TemporaryDirectory(prefix="foundation-benchmark-", dir=build) as directory:
+        sandbox = Path(directory)
+        project = sandbox / "project"
+        project.mkdir()
+        stage(project, probe, native)
+        baselines = {}
+        if args.baseline_root:
+            for kind, (filename, _) in BASELINES.items():
+                baselines[kind] = stage_baseline(project, kind, args.baseline_root / MATH_DIR / f"gf_{filename}.gd")
+        if args.height_baseline:
+            baselines["height"] = stage_baseline(project, "height", args.height_baseline)
+        game = sandbox / "export/game.exe"
+        game.parent.mkdir()
+        editor = [str(godot), "--headless", "--path", str(project)]
+        run([*editor, "--import"], project, "import", 120, logs, deadline)
+        run([*editor, "--export-release", "Windows", str(game)], project, "export", 120, logs, deadline)
+        engine_log = logs / "release-engine.log"
+        output = run([str(game), "--headless", "--log-file", str(engine_log)], game.parent, "release", 150, logs, deadline)
+        logged = engine_log.read_text(encoding="utf-8")
+        check_engine_diagnostics(logged, "release", logs)
+        report = summarize(output if "GF_FOUNDATION_BENCHMARK=" in output else logged, baselines)
+        report["baseline_sha256"] = baselines
+    report["platform"] = platform.platform()
+    report["toolchain"] = channel
+    if fingerprint(inputs) != source_hashes or fingerprint([native, probe], release) != binary_hashes:
+        raise RuntimeError("Benchmark inputs changed during execution")
+    report["source_sha256"] = source_hashes
+    report["dll_sha256"] = binary_hashes
+    reports = build / "foundation-benchmark-results"
+    reports.mkdir(exist_ok=True)
+    report_path = reports / f"{logs.name}.json"
+    with report_path.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(report, indent=2) + "\n")
+    for case in report["cases"]:
+        print(case["name"], "  ".join(f"{mode} {value:.3f} ms" for mode, value in case["median_ms"].items()))
+    print(report_path)
+
+
+if __name__ == "__main__":
+    main()

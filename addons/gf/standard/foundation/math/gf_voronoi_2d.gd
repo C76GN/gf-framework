@@ -601,13 +601,20 @@ static func _make_voronoi_cells(
 	hull_points: Dictionary
 ) -> Array[Dictionary]:
 	var cells: Array[Dictionary] = []
+	var incident_triangles: Array[Array] = []
+	for _point: Vector2 in points:
+		incident_triangles.append([])
+	for triangle_index: int in range(
+		mini(
+			triangles.size(),
+			vertices.size()
+		)
+	):
+		for corner: int in triangles[triangle_index]:
+			incident_triangles[corner].append(triangle_index)
 	for point_index: int in range(points.size()):
 		var vertex_entries: Array[Dictionary] = []
-		for triangle_index: int in range(triangles.size()):
-			var triangle: PackedInt32Array = triangles[triangle_index]
-			if triangle_index >= vertices.size() or not _triangle_has_point(triangle, point_index):
-				continue
-
+		for triangle_index: int in incident_triangles[point_index]:
 			var vertex: Vector2 = vertices[triangle_index]
 			vertex_entries.append({ "index": triangle_index, "angle": points[point_index].angle_to_point(vertex), })
 
@@ -682,17 +689,6 @@ static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 			var triangle: PackedInt32Array = value
 			result.append(triangle)
 	return result
-
-
-## 判断三角形索引数组是否包含指定输入点索引。
-## [br]
-## @api private
-## [br]
-static func _triangle_has_point(triangle: PackedInt32Array, point_index: int) -> bool:
-	for index: int in triangle:
-		if index == point_index:
-			return true
-	return false
 
 
 ## 在线性扫描中判断三角形数组是否已有完全相同的索引序列。

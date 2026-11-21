@@ -1,0 +1,380 @@
+extends Node
+# Only staged by the benchmark runner. No dependency on the game project's autoloads.
+
+const DIRECTIONS: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]
+const VORONOI_PROFILE = preload("res://profile_voronoi.gd")
+const WARMUPS: int = 2
+const SAMPLES: int = 9
+
+var backend: Object
+var results: Array[Dictionary] = []
+var failures: Array[String] = []
+
+
+func _ready() -> void:
+	backend = Engine.get_singleton(&"GfFoundationProbe")
+	if backend == null or not Engine.has_singleton(&"GfTerrainRgbBackend") or not OS.has_feature("release"):
+		push_error("Expected a Windows Release export with the benchmark GDExtension")
+		get_tree().quit(1)
+		return
+	var baseline: Script
+	if ResourceLoader.exists("res://height_baseline.gd"):
+		baseline = load("res://height_baseline.gd")
+	for side: int in [256, 512]:
+		var rgb: Image = _terrain_input(side, 3)
+		var decode: Callable = GFHeightfield3D.samples_from_terrain_rgb_image.bind(rgb)
+		var lanes: Dictionary = {"native": decode, "portable": decode}
+		if baseline != null:
+			lanes["previous"] = Callable(baseline, &"samples_from_terrain_rgb_image").bind(rgb)
+		_measure("terrain_rgb8_%d" % side, lanes)
+	for side: int in [64, 512]:
+		_height_queries(side)
+	for side: int in [96, 256]:
+		_noise_case(side)
+	for count: int in [64, 256]:
+		_voronoi_case(count)
+	for side: int in [32, 64]:
+		_flow_case(side, false)
+	_flow_case(37, true)
+	for side: int in [8, 16]:
+		_wfc_case(side, 17, side * side, false, false, true)
+	_wfc_case(5, 0, 3, true, false, false)
+	_wfc_case(4, 123, 16, false, true, false)
+	_weighted_wfc_case(17, 144, true)
+	_weighted_wfc_case(23, 7, false)
+	_directional_wfc_cases()
+	print("GF_FOUNDATION_BENCHMARK=", JSON.stringify({
+		"engine": Engine.get_version_info()["string"], "release": true,
+		"warmups": WARMUPS, "samples": SAMPLES, "cases": results, "failures": failures,
+	}))
+	get_tree().quit(0 if failures.is_empty() else 1)
+
+
+func _compare(label: String, script_call: Callable, native_call: Callable) -> void:
+	var expected: Dictionary = script_call.call()
+	var actual: Dictionary = native_call.call()
+	if expected.is_empty() or expected != actual:
+		failures.append(label)
+
+
+func _timed(operation: Callable) -> Array:
+	var start: int = Time.get_ticks_usec()
+	var report: Dictionary = operation.call()
+	return [report, Time.get_ticks_usec() - start]
+
+
+func _measure(label: String, lanes: Dictionary, expected: Dictionary = {}) -> void:
+	var modes: Array = lanes.keys()
+	var times: Dictionary = {}
+	for mode: String in modes:
+		times[mode] = []
+	for iteration: int in range(WARMUPS + SAMPLES):
+		for turn: int in range(modes.size()):
+			var mode: String = modes[(iteration + turn) % modes.size()]
+			var operation: Callable = lanes[mode]
+			var sample: Array
+			if mode == "portable":
+				# The shipped adapter uses script on a worker. Time inside the worker to exclude thread setup.
+				var worker := Thread.new()
+				if worker.start(_timed.bind(operation)) != OK:
+					failures.append("Worker failed for " + label)
+					return
+				sample = worker.wait_to_finish()
+			else:
+				sample = _timed(operation)
+			var report: Dictionary = sample[0]
+			if expected.is_empty():
+				expected = report
+			if report.is_empty() or not report.get("ok", true) or expected != report:
+				failures.append("%s output mismatch in %s" % [label, mode])
+				return
+			if iteration >= WARMUPS:
+				var usec: int = VORONOI_PROFILE.insert_usec if mode == "insertion" else sample[1]
+				times[mode].append(usec)
+	results.append({"name": label, "usec": times})
+
+
+func _height_queries(side: int) -> void:
+	var samples := PackedFloat32Array()
+	samples.resize(side * side)
+	for y: int in range(side):
+		for x: int in range(side):
+			samples[y * side + x] = float(x + 2 * y)
+	var extent: Vector2 = Vector2(side - 1, side - 1)
+	var field: GFHeightfield3D = GFHeightfield3D.from_samples(Vector2i(side, side), samples, Vector2.ZERO, extent)
+	var points := PackedVector2Array([Vector2.ZERO, Vector2(4.5, 7.25), Vector2(17, 60), Vector2(21.25, 32.5),
+		Vector2(50.5, 50.5), Vector2(12.75, 9.5), Vector2(8.5, 13.5), extent])
+	var expected := PackedFloat64Array()
+	for point: Vector2 in points:
+		expected.append(point.x + 2.0 * point.y)
+	var lanes: Dictionary = {"public": _read_heights.bind(field.sample_world, points)}
+	var previous: Object
+	if ResourceLoader.exists("res://height_baseline.gd"):
+		var baseline: Script = load("res://height_baseline.gd")
+		previous = baseline.call(&"from_samples", Vector2i(side, side), samples, Vector2.ZERO, extent)
+		lanes["previous"] = _read_heights.bind(Callable(previous, &"sample_world"), points)
+	_measure("height_queries_%d" % side, lanes, {"heights": expected})
+	if side == 512:
+		var scatter: Callable = GFSurfaceScatterSampler3D.sample_heightfield_points.bind(field, points, {"seed": 17})
+		var reference: Dictionary = scatter.call()
+		if reference["accepted_count"] != points.size():
+			failures.append("Missing scatter transforms")
+			return
+		for i: int in range(points.size()):
+			if reference["points"][i].y != expected[i]:
+				failures.append("Scatter height mismatch")
+		var scatter_lanes: Dictionary = {"public": scatter}
+		if previous != null and ResourceLoader.exists("res://scatter_baseline.gd"):
+			scatter_lanes["previous"] = Callable(load("res://scatter_baseline.gd"), &"sample_heightfield_points").bind(previous, points, {"seed": 17})
+		_measure("surface_scatter_512", scatter_lanes, reference)
+
+
+func _read_heights(sample_world: Callable, points: PackedVector2Array) -> Dictionary:
+	var heights := PackedFloat64Array()
+	for point: Vector2 in points:
+		heights.append(sample_world.call(point.x, point.y))
+	return {"heights": heights}
+
+
+func _noise_case(side: int) -> void:
+	var noise := FastNoiseLite.new()
+	noise.seed = 17
+	var size := Vector2i(side, side)
+	var options: Dictionary = {"noise": noise, "step": Vector2(0.7, 1.25), "origin": Vector2(3.5, -7.0)}
+	var operation: Callable = GFNoiseFieldTools.sample_grid_2d.bind(size, options)
+	var reference: Dictionary = operation.call()
+	var raw := PackedFloat32Array()
+	raw.resize(side * side)
+	for y: int in range(side):
+		for x: int in range(side):
+			var pos: Vector2 = options["origin"] + Vector2(float(x) * options["step"].x, float(y) * options["step"].y)
+			raw[y * side + x] = noise.get_noise_2d(pos.x, pos.y)
+	var normalized: Dictionary = GFNoiseFieldTools.normalize_samples(raw)
+	if reference["samples"] != raw or reference["normalized_samples"] != normalized["normalized_samples"]:
+		failures.append("Noise field differs from direct FastNoiseLite samples")
+	var lanes: Dictionary = {"public": operation}
+	if ResourceLoader.exists("res://noise_baseline.gd"):
+		lanes["previous"] = Callable(load("res://noise_baseline.gd"), &"sample_grid_2d").bind(size, options)
+	_measure("noise_%d" % side, lanes, reference)
+
+
+func _voronoi_case(count: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 17
+	var points := PackedVector2Array()
+	for i: int in range(count):
+		points.append(Vector2(rng.randf() * 512.0, rng.randf() * 512.0))
+	var lanes: Dictionary = {"public": GFVoronoi2D.build_voronoi.bind(points), "insertion": VORONOI_PROFILE.build_voronoi.bind(points)}
+	if ResourceLoader.exists("res://voronoi_baseline.gd"):
+		lanes["previous"] = Callable(load("res://voronoi_baseline.gd"), &"build_voronoi").bind(points)
+	_measure("voronoi_%d" % count, lanes)
+
+
+func _terrain_input(side: int, stride: int) -> Image:
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(side * side * stride)
+	for i: int in range(data.size()):
+		data[i] = (i * 31 + 7) % 251
+	var image: Image = Image.create_from_data(side, side, false, Image.FORMAT_RGB8 if stride == 3 else Image.FORMAT_RGBA8, data)
+	if stride == 4:
+		var error: Error = image.generate_mipmaps()
+		if error != OK:
+			failures.append("mipmap generation")
+	return image
+
+
+func _flow_case(side: int, with_wall: bool) -> void:
+	var size: Vector2i = Vector2i(side, side)
+	var goals: Array[Vector2i] = [size - Vector2i.ONE]
+	var mask: PackedByteArray = PackedByteArray()
+	mask.resize(side * side)
+	mask.fill(1)
+	if with_wall:
+		for y: int in range(side):
+			mask[y * side + 11] = 0
+		goals.append(Vector2i(13, 1))
+		goals.append(goals[0])
+		goals.append(Vector2i(-1, 0))
+	var walkable: Callable = func(cell: Vector2i) -> bool: return mask[cell.y * side + cell.x] != 0
+	var script_call: Callable = GFGridPathMath2D.build_flow_field.bind(size, goals, walkable)
+	var native_call: Callable = _packed_flow.bind(size, goals, walkable)
+	var unit_cost: Callable = func(_a: Vector2i, _b: Vector2i) -> float: return 1.0
+	var weighted: Callable = GFGridPathMath2D.build_flow_field.bind(size, goals, walkable, false, unit_cost)
+	if with_wall:
+		_compare("flow_wall_multigoal", script_call, native_call)
+		_compare("flow_wall_multigoal_weighted", script_call, weighted)
+	else:
+		var lanes: Dictionary = {"public": script_call, "native_probe": native_call}
+		if ResourceLoader.exists("res://flow_baseline.gd"):
+			lanes["previous"] = Callable(load("res://flow_baseline.gd"), &"build_flow_field").bind(size, goals, walkable)
+		_measure("flow_open_%d" % side, lanes)
+
+
+func _packed_flow(size: Vector2i, goals: Array[Vector2i], walkable: Callable) -> Dictionary:
+	# Include capturing the passability callback and rebuilding both public dictionaries in timing.
+	var mask: PackedByteArray = PackedByteArray()
+	mask.resize(size.x * size.y)
+	for y: int in range(size.y):
+		for x: int in range(size.x):
+			mask[y * size.x + x] = int(walkable.call(Vector2i(x, y)))
+	var indices: PackedInt32Array = PackedInt32Array()
+	var valid_goals: Array[Vector2i] = []
+	for goal: Vector2i in goals:
+		if not Rect2i(Vector2i.ZERO, size).has_point(goal) or valid_goals.has(goal):
+			continue
+		var idx: int = goal.y * size.x + goal.x
+		if mask[idx] != 0:
+			indices.append(idx)
+			valid_goals.append(goal)
+	var packed: PackedInt32Array = backend.call(&"flow", size, mask, indices)
+	if packed.size() != 2 * mask.size():
+		return {}
+	var costs: Dictionary = {}
+	var directions: Dictionary = {}
+	for y: int in range(size.y):
+		for x: int in range(size.x):
+			var idx: int = y * size.x + x
+			var cost: int = packed[mask.size() + idx]
+			if cost >= 0:
+				var cell: Vector2i = Vector2i(x, y)
+				var parent: int = packed[idx]
+				costs[cell] = float(cost)
+				@warning_ignore("integer_division")
+				directions[cell] = Vector2i(parent % size.x, parent / size.x) - cell
+	return {"costs": costs, "directions": directions, "goals": valid_goals}
+
+
+func _wfc_case(side: int, seed_value: int, limit: int, periodic: bool, impossible: bool, timed: bool) -> void:
+	var tiles: Array = [0] if impossible else [0, 1, 2, 3]
+	var rules: Array[Dictionary] = []
+	for a: int in range(tiles.size()):
+		for b: int in range(tiles.size()):
+			for direction: Vector2i in DIRECTIONS:
+				if (impossible and direction == Vector2i.RIGHT) or (not impossible and (a != 0 or b != 0)):
+					rules.append({"from": a, "to": b, "direction": direction})
+	var size: Vector2i = Vector2i(side, side)
+	var options: Dictionary = {"seed": seed_value, "max_steps": limit, "periodic": periodic, "bidirectional_rules": false}
+	var script_call: Callable = GFWaveFunctionCollapse2D.solve_grid.bind(size, tiles, rules, options)
+	var native_call: Callable = _native_wfc.bind(size, tiles, rules, options)
+	if timed:
+		_measure("wfc_entropy_%d" % side, {"public": script_call, "native_probe": native_call, "mrv": _script_mrv.bind(size, tiles, rules, options)})
+	else:
+		_compare("wfc_edge_%d" % side, script_call, native_call)
+
+
+func _weighted_wfc_case(seed_value: int, limit: int, timed: bool) -> void:
+	var tiles: Array = [{"id": &"floor", "weight": 6.0}, {"id": &"stone", "weight": 2.0}, {"id": &"water", "weight": 1.0}]
+	var rules: Array[Dictionary] = []
+	for a: Dictionary in tiles:
+		for b: Dictionary in tiles:
+			if [a["id"], b["id"]].has(&"stone") and [a["id"], b["id"]].has(&"water"):
+				continue
+			for direction: Vector2i in DIRECTIONS:
+				rules.append({"from": a["id"], "to": b["id"], "direction": direction})
+	var size := Vector2i(12, 12)
+	var fixed: Dictionary = {Vector2i.ZERO: &"floor", Vector2i(5, 4): &"water", Vector2i(11, 11): &"stone"}
+	var options: Dictionary = {"seed": seed_value, "fixed_cells": fixed, "bidirectional_rules": false, "max_steps": limit, "periodic": false}
+	var public: Callable = GFWaveFunctionCollapse2D.solve_grid.bind(size, tiles, rules, options)
+	var native: Callable = _native_wfc.bind(size, tiles, rules, options)
+	var report: Dictionary = public.call()
+	for cell: Vector2i in fixed:
+		if report["grid"].get(cell) != fixed[cell]:
+			failures.append("A fixed WFC tile was changed")
+	if timed:
+		_measure("wfc_weighted_fixed_12", {"public": public, "native_probe": native}, report)
+	else:
+		_compare("wfc_weighted_step_limit", public, native)
+
+
+func _directional_wfc_cases() -> void:
+	var size := Vector2i(2, 1)
+	var rules: Array[Dictionary] = [{"from": &"entrance", "to": &"hall", "direction": Vector2i.RIGHT}]
+	var opts: Dictionary = {"seed": 23, "fixed_cells": {Vector2i.ZERO: &"entrance"}, "bidirectional_rules": false, "max_steps": 2, "periodic": false}
+	var tiles: Array = [&"entrance", &"hall"]
+	var reference: Dictionary = GFWaveFunctionCollapse2D.solve_grid(size, tiles, rules, opts)
+	if not reference["ok"] or reference["grid"] != {Vector2i.ZERO: &"entrance", Vector2i.RIGHT: &"hall"} or reference != _native_wfc(size, tiles, rules, opts):
+		failures.append("A directed edge must propagate in both spatial directions.")
+	opts["fixed_cells"] = {}
+	rules = []
+	for a: int in range(2):
+		for b: int in range(2):
+			rules.append({"from": a, "to": b, "direction": Vector2i.RIGHT})
+	for pair: Array in [[1.0e307, 2.0e307], [8.0e307, 1.6e308]]:
+		tiles = [{"id": 0, "weight": pair[0]}, {"id": 1, "weight": pair[1]}]
+		var expected: Dictionary = GFWaveFunctionCollapse2D.solve_grid(size, tiles, rules, opts)
+		if not expected["ok"] or expected != _native_wfc(size, tiles, rules, opts):
+			failures.append("WFC scaled weight or entropy mismatch.")
+
+
+func _script_mrv(size: Vector2i, tiles: Array, rules: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var mrv: Dictionary = options.duplicate()
+	mrv["heuristic"] = &"mrv"
+	var report: Dictionary = GFWaveFunctionCollapse2D.solve_grid(size, tiles, rules, mrv)
+	# Equal weights order domains identically. Normalize only the requested heuristic label.
+	report["heuristic"] = &"entropy"
+	return report
+
+
+func _native_wfc(size: Vector2i, tiles: Array, rules: Array[Dictionary], options: Dictionary) -> Dictionary:
+	var ids: Array = []
+	var indices: Dictionary = {}
+	var weights := PackedFloat64Array()
+	for entry: Variant in tiles:
+		var id: Variant = entry["id"] if entry is Dictionary else entry
+		indices[id] = ids.size()
+		ids.append(id)
+		weights.append(float(entry["weight"]) if entry is Dictionary else 1.0)
+	var allowed := PackedInt32Array()
+	allowed.resize(4 * tiles.size())
+	for rule: Dictionary in rules:
+		var dir: int = DIRECTIONS.find(rule["direction"])
+		var opposite: int = DIRECTIONS.find(-rule["direction"])
+		var a: int = indices[rule["from"]]
+		var b: int = indices[rule["to"]]
+		allowed[dir * tiles.size() + a] |= 1 << b
+		allowed[opposite * tiles.size() + b] |= 1 << a
+		if rule.get("bidirectional", options.get("bidirectional_rules", true)):
+			allowed[dir * tiles.size() + b] |= 1 << a
+			allowed[opposite * tiles.size() + a] |= 1 << b
+	var fixed := PackedInt32Array()
+	var fixed_cells: Dictionary = options.get("fixed_cells", {})
+	for cell: Vector2i in fixed_cells:
+		fixed.append(cell.y * size.x + cell.x)
+		fixed.append(indices[fixed_cells[cell]])
+	var settings := PackedInt64Array([options["seed"], options["max_steps"], int(options["periodic"])])
+	var packed: PackedInt32Array = backend.call(&"collapse", size, allowed, weights, fixed, settings)
+	if packed.size() != size.x * size.y + 2:
+		return {}
+	var grid: Dictionary = {}
+	var domains: Dictionary = {}
+	var undecided: int = 0
+	var contradiction: Vector2i = Vector2i(-2147483648, -2147483648)
+	for y: int in range(size.y):
+		for x: int in range(size.x):
+			var i: int = y * size.x + x
+			var cell: Vector2i = Vector2i(x, y)
+			var remaining: Array = []
+			for tile: int in range(ids.size()):
+				if packed[i + 2] & (1 << tile):
+					remaining.append(ids[tile])
+			domains[cell] = remaining
+			if remaining.size() == 1:
+				grid[cell] = remaining[0]
+			elif remaining.size() > 1:
+				undecided += 1
+			if packed[1] == i:
+				contradiction = cell
+	var status: StringName = &"complete"
+	var error: String = ""
+	if packed[1] >= 0:
+		status = &"contradiction"
+		error = "neighbor domain became empty."
+	elif undecided > 0:
+		status = &"step_limit"
+		error = "max_steps reached before all cells collapsed."
+	return {"ok": status == &"complete", "error": error, "status": status, "algorithm": &"wave_function_collapse_2d",
+		"grid_size": size, "seed": options["seed"], "heuristic": &"entropy", "periodic": options["periodic"],
+		"cell_count": size.x * size.y, "max_cells": GFWaveFunctionCollapse2D.DEFAULT_MAX_CELLS, "tile_count": tiles.size(),
+		"max_tiles": GFWaveFunctionCollapse2D.DEFAULT_MAX_TILES, "max_steps": options["max_steps"],
+		"step_count": packed[0], "collapsed_count": grid.size(), "undecided_count": undecided,
+		"contradiction_cell": contradiction, "grid": grid, "domains": domains}

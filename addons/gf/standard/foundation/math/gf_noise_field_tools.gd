@@ -114,11 +114,17 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 	var sum: float = 0.0
 	var source_name: String = GFVariantData.get_option_string(source, "source")
 	var metadata: Dictionary = GFVariantData.get_option_dictionary(options, "metadata")
+	var noise: FastNoiseLite = null
+	var sampler: Callable = Callable()
+	var noise_value: Variant = source.get("noise")
+	if noise_value is FastNoiseLite:
+		noise = noise_value
+	else:
+		sampler = source["sampler"]
 	var sample_index: int = 0
 
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
-			var cell: Vector2i = Vector2i(x, y)
 			var position: Vector2 = origin + Vector2(
 				float(x) * step.x,
 				float(y) * step.y
@@ -132,12 +138,17 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 					origin,
 					step
 				)
-			var sample_value: float = _sample_source(
-				source,
-				position,
-				cell,
-				metadata
-			)
+			var sample_value: float
+			if noise != null:
+				sample_value = noise.get_noise_2d(position.x, position.y)
+			else:
+				sample_value = _variant_to_float_sample(
+					sampler.call(
+						position,
+						Vector2i(x, y),
+						metadata
+					)
+				)
 			if not _is_finite_float(sample_value):
 				return _make_grid_result(
 					false,
@@ -187,17 +198,16 @@ static func sample_grid_2d(grid_size: Vector2i, options: Dictionary = {}) -> Dic
 		"include_normalized",
 		true
 	):
-		var normalized_report: Dictionary = normalize_samples(
+		var normalized_report: Dictionary = _normalize_valid_samples(
 			samples,
-			{
-				"minimum": min_value,
-				"maximum": max_value,
-				"constant_value": GFVariantData.get_option_float(
-					options,
-					"constant_value",
-					0.0
-				),
-			}
+			min_value,
+			max_value,
+			GFVariantData.get_option_float(
+				options,
+				"constant_value",
+				0.0
+			),
+			true
 		)
 		if GFVariantData.get_option_bool(
 			normalized_report,
@@ -274,10 +284,60 @@ static func normalize_samples(samples: PackedFloat32Array, options: Dictionary =
 			max_value
 		)
 
-	var constant_value: float = GFVariantData.get_option_float(
-		options,
-		"constant_value",
-		0.0
+	return _normalize_valid_samples(
+		samples,
+		min_value,
+		max_value,
+		GFVariantData.get_option_float(
+			options,
+			"constant_value",
+			0.0
+		),
+		GFVariantData.get_option_bool(
+			options,
+			"clamp",
+			true
+		)
+	)
+
+
+## 将噪声工具报告转换为 JSON.stringify() 安全的结构。
+## [br]
+## @api public
+## [br]
+## @since 8.0.0
+## [br]
+## @param report: sample_grid_2d() 或 normalize_samples() 返回的报告。
+## [br]
+## @param options: 报告编码选项，透传给 GFReportValueCodec。
+## [br]
+## @return: JSON 兼容报告。
+## [br]
+## @schema report: Dictionary report returned by GFNoiseFieldTools.
+## [br]
+## @schema options: Dictionary with GFReportValueCodec options.
+## [br]
+## @schema return: Dictionary safe for JSON.stringify().
+static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
+	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(report, options))
+
+
+# --- 私有/辅助方法 ---
+
+## 将已验证的有限样本按给定范围映射，并检查输出的 float32 表示。
+## [br]
+## @api private
+static func _normalize_valid_samples(
+	samples: PackedFloat32Array,
+	min_value: float,
+	max_value: float,
+	constant_value: float,
+	should_clamp: bool
+) -> Dictionary:
+	var report: Dictionary = _make_normalize_result(
+		false,
+		"",
+		samples.size()
 	)
 	if not _is_finite_float(min_value) or not _is_finite_float(max_value):
 		report["error"] = "minimum and maximum must be finite."
@@ -309,11 +369,6 @@ static func normalize_samples(samples: PackedFloat32Array, options: Dictionary =
 		if scaled_span <= 0.0 or not _is_finite_float(scaled_span):
 			report["error"] = "sample range could not be normalized safely."
 			return report
-	var should_clamp: bool = GFVariantData.get_option_bool(
-		options,
-		"clamp",
-		true
-	)
 	for index: int in range(samples.size()):
 		var normalized_value: float = constant_value
 		if not constant_range:
@@ -343,29 +398,6 @@ static func normalize_samples(samples: PackedFloat32Array, options: Dictionary =
 	report["normalized_samples"] = normalized_samples
 	return report
 
-
-## 将噪声工具报告转换为 JSON.stringify() 安全的结构。
-## [br]
-## @api public
-## [br]
-## @since 8.0.0
-## [br]
-## @param report: sample_grid_2d() 或 normalize_samples() 返回的报告。
-## [br]
-## @param options: 报告编码选项，透传给 GFReportValueCodec。
-## [br]
-## @return: JSON 兼容报告。
-## [br]
-## @schema report: Dictionary report returned by GFNoiseFieldTools.
-## [br]
-## @schema options: Dictionary with GFReportValueCodec options.
-## [br]
-## @schema return: Dictionary safe for JSON.stringify().
-static func to_json_compatible_report(report: Dictionary, options: Dictionary = {}) -> Dictionary:
-	return GFVariantData.as_dictionary(_GF_REPORT_VALUE_CODEC_SCRIPT.to_json_compatible(report, options))
-
-
-# --- 私有/辅助方法 ---
 
 ## 按顺序检查网格正尺寸、有限原点与步长、正采样预算及总样本上限。
 ## [br]
@@ -486,41 +518,6 @@ static func _resolve_source(options: Dictionary) -> Dictionary:
 		"error": "",
 		"noise": noise,
 	}
-
-
-## 从解析结果调用 sampler 或 FastNoiseLite 采样，并把不支持的值变为 NAN。
-## [br]
-## @api private
-## [br]
-static func _sample_source(
-	source: Dictionary,
-	position: Vector2,
-	cell: Vector2i,
-	metadata: Dictionary
-) -> float:
-	var source_name: String = GFVariantData.get_option_string(source, "source")
-	if source_name == "callable":
-		var sampler_value: Variant = GFVariantData.get_option_value(
-			source,
-			"sampler",
-			Callable()
-		)
-		if sampler_value is Callable:
-			var sampler: Callable = sampler_value
-			return _variant_to_float_sample(
-				sampler.call(
-					position,
-					cell,
-					metadata
-				)
-			)
-		return NAN
-
-	var noise_value: Variant = GFVariantData.get_option_value(source, "noise")
-	if noise_value is FastNoiseLite:
-		var noise: FastNoiseLite = noise_value
-		return noise.get_noise_2d(position.x, position.y)
-	return NAN
 
 
 ## 验证样本均有限并计算数量、最小值、最大值与平均值。

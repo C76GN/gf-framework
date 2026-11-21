@@ -392,18 +392,18 @@ static func build_flow_field(
 	var costs: Dictionary = {}
 	var directions: Dictionary = {}
 	var valid_goals: Array[Vector2i] = []
+	var field: Dictionary = {
+		"costs": costs,
+		"directions": directions,
+		"goals": valid_goals,
+	}
 	if (
 		grid_size.x <= 0
 		or grid_size.y <= 0
 		or not is_walkable.is_valid()
 	):
-		return {
-			"costs": costs,
-			"directions": directions,
-			"goals": valid_goals,
-		}
+		return field
 
-	var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
 	for goal: Vector2i in goals:
 		if (
 			not GFGridCoordinateMath2D.is_in_bounds(goal, grid_size)
@@ -415,6 +415,19 @@ static func build_flow_field(
 		costs[goal] = 0.0
 		directions[goal] = Vector2i.ZERO
 		valid_goals.append(goal)
+
+	if not allow_diagonal and not step_cost.is_valid():
+		_fill_cardinal_flow(
+			grid_size,
+			valid_goals,
+			is_walkable,
+			costs,
+			directions
+		)
+		return field
+
+	var frontier: GFPriorityQueue = GFPriorityQueue.new(false)
+	for goal: Vector2i in valid_goals:
 		_push_cell_priority(
 			frontier,
 			goal,
@@ -478,14 +491,38 @@ static func build_flow_field(
 				next_cost
 			)
 
-	return {
-		"costs": costs,
-		"directions": directions,
-		"goals": valid_goals,
-	}
+	return field
 
 
 # --- 私有/辅助方法 ---
+
+## 等步长正交移动按 FIFO 到达次序填入最近目标，仅访问目标可达区域。
+## [br]
+## @api private
+static func _fill_cardinal_flow(
+	grid_size: Vector2i,
+	goals: Array[Vector2i],
+	is_walkable: Callable,
+	costs: Dictionary,
+	directions: Dictionary
+) -> void:
+	var bounds: Rect2i = Rect2i(Vector2i.ZERO, grid_size)
+	var cells: Array[Vector2i] = goals.duplicate()
+	var head: int = 0
+	while head < cells.size():
+		var cell: Vector2i = cells[head]
+		head += 1
+		var distance: float = costs[cell]
+		for direction: Vector2i in GFGridCoordinateMath2D.CARDINAL_DIRECTIONS:
+			var neighbor: Vector2i = cell + direction
+			if not bounds.has_point(neighbor):
+				continue
+			if not _call_cell_predicate(is_walkable, neighbor) or costs.has(neighbor):
+				continue
+			costs[neighbor] = distance + 1.0
+			directions[neighbor] = cell - neighbor
+			cells.append(neighbor)
+
 
 ## 沿前驱字典从目标回溯并反向构造路径；链路缺失时返回空数组。
 ## [br]
@@ -585,10 +622,10 @@ static func _call_cell_predicate(
 ) -> bool:
 	if not predicate.is_valid():
 		return fallback
-	return GFVariantData.to_bool(
-		predicate.call(cell),
-		fallback
-	)
+	var value: Variant = predicate.call(cell)
+	if value is bool:
+		return value
+	return GFVariantData.to_bool(value, fallback)
 
 
 ## 从字典读取 Vector2i；缺失或类型不符时返回 fallback。

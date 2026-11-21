@@ -2,6 +2,7 @@
 use godot::prelude::*;
 
 mod packed_gather;
+mod terrain_rgb;
 
 struct GfNative;
 

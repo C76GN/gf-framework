@@ -151,7 +151,7 @@ static func decode_terrain_rgb_height(color: Color) -> float:
 	var red: int = _color_channel_to_byte(color.r)
 	var green: int = _color_channel_to_byte(color.g)
 	var blue: int = _color_channel_to_byte(color.b)
-	return -10000.0 + float(red * 65536 + green * 256 + blue) * 0.1
+	return _terrain_rgb_meters(red * 65536 + green * 256 + blue)
 
 
 ## 将表面法线转换为归一化坡度。
@@ -239,17 +239,42 @@ static func samples_from_terrain_rgb_image(image: Image, options: Dictionary = {
 
 	var width: int = image.get_width()
 	var height: int = image.get_height()
+	var stride: int = 0
+	match image.get_format():
+		Image.FORMAT_RGB8:
+			stride = 3
+		Image.FORMAT_RGBA8:
+			stride = 4
+	var pixels: PackedByteArray = image.get_data() if stride > 0 else PackedByteArray()
+	var grid_size: Vector2i = Vector2i(width, height)
+	if stride > 0 and _try_native_terrain_rgb(
+		report,
+		pixels,
+		grid_size,
+		stride,
+		height_scale,
+		height_offset
+	):
+		report["grid_size"] = grid_size
+		report["sample_count"] = width * height
+		return _finalize_terrain_rgb_samples_report(report)
+
 	var samples: PackedFloat32Array = PackedFloat32Array()
 	var _resize_result: int = samples.resize(width * height)
-	var min_height: float = 0.0
-	var max_height: float = 0.0
-	var has_sample: bool = false
+	var min_height: float = INF
+	var max_height: float = -INF
 
 	for y: int in range(height):
 		for x: int in range(width):
 			var sample_index: int = y * width + x
-			var height_value: float = decode_terrain_rgb_height(image.get_pixel(x, y)) * height_scale + height_offset
-			if not _is_finite_float(height_value):
+			var meters: float
+			if stride > 0:
+				var offset: int = sample_index * stride
+				meters = _terrain_rgb_meters(pixels[offset] * 65536 + pixels[offset + 1] * 256 + pixels[offset + 2])
+			else:
+				meters = decode_terrain_rgb_height(image.get_pixel(x, y))
+			var height_value: float = meters * height_scale + height_offset
+			if not is_finite(height_value):
 				_append_terrain_rgb_issue(
 					report,
 					"non_finite_height",
@@ -258,22 +283,17 @@ static func samples_from_terrain_rgb_image(image: Image, options: Dictionary = {
 				return _finalize_terrain_rgb_samples_report(report)
 			samples[sample_index] = height_value
 			var stored_height: float = samples[sample_index]
-			if not _is_finite_float(stored_height):
+			if not is_finite(stored_height):
 				_append_terrain_rgb_issue(
 					report,
 					"unrepresentable_height",
 					"height samples must be representable as finite float32 values."
 				)
 				return _finalize_terrain_rgb_samples_report(report)
-			if not has_sample:
-				min_height = stored_height
-				max_height = stored_height
-				has_sample = true
-			else:
-				min_height = minf(min_height, stored_height)
-				max_height = maxf(max_height, stored_height)
+			min_height = minf(min_height, stored_height)
+			max_height = maxf(max_height, stored_height)
 
-	report["grid_size"] = Vector2i(width, height)
+	report["grid_size"] = grid_size
 	report["samples"] = samples
 	report["sample_count"] = samples.size()
 	report["min_height"] = min_height
@@ -302,18 +322,20 @@ func configure(
 	world_min: Vector2 = Vector2.ZERO,
 	world_max: Vector2 = Vector2.ONE
 ) -> bool:
-	if not _can_configure(
-		grid_size,
-		height_samples,
-		world_min,
-		world_max
+	if (
+		grid_size.x <= 0
+		or grid_size.y <= 0
+		or height_samples.size() != grid_size.x * grid_size.y
+		or not _valid_world_bounds(world_min, world_max)
+		or not _samples_are_finite(height_samples)
 	):
 		return false
-
-	_grid_size = grid_size
-	_world_min = world_min
-	_world_max = world_max
-	_height_samples = _copy_float_samples(height_samples)
+	_set_owned_samples(
+		grid_size,
+		height_samples.duplicate(),
+		world_min,
+		world_max
+	)
 	return true
 
 
@@ -342,6 +364,8 @@ func configure_from_terrain_rgb_image(
 	world_max: Vector2 = Vector2.ONE,
 	options: Dictionary = {}
 ) -> bool:
+	if not _valid_world_bounds(world_min, world_max):
+		return false
 	var report: Dictionary = samples_from_terrain_rgb_image(image, options)
 	if not GFVariantData.get_option_bool(report, "ok"):
 		return false
@@ -361,12 +385,13 @@ func configure_from_terrain_rgb_image(
 
 	var grid_size: Vector2i = grid_size_value
 	var samples: PackedFloat32Array = samples_value
-	return configure(
+	_set_owned_samples(
 		grid_size,
 		samples,
 		world_min,
 		world_max
 	)
+	return true
 
 
 ## 清空高度场数据。
@@ -389,12 +414,7 @@ func clear() -> void:
 ## [br]
 ## @return 高度场尺寸、范围和样本数量有效时返回 true。
 func is_valid() -> bool:
-	return _can_configure(
-		_grid_size,
-		_height_samples,
-		_world_min,
-		_world_max
-	)
+	return not _height_samples.is_empty()
 
 
 ## 获取高度网格尺寸。
@@ -452,7 +472,7 @@ func get_world_rect() -> Rect2:
 ## [br]
 ## @return 行优先高度样本副本。
 func get_height_samples() -> PackedFloat32Array:
-	return _copy_float_samples(_height_samples)
+	return _height_samples.duplicate()
 
 
 ## 获取样本数量。
@@ -849,16 +869,85 @@ func get_debug_snapshot() -> Dictionary:
 
 # --- 私有/辅助方法 ---
 
-## 复制打包浮点数组，避免高度场与调用方共享可变样本存储。
+## 一次发布已通过校验、由高度场独占的非空样本和坐标边界。
 ## [br]
 ## @api private
+func _set_owned_samples(
+	grid_size: Vector2i,
+	samples: PackedFloat32Array,
+	world_min: Vector2,
+	world_max: Vector2
+) -> void:
+	_grid_size = grid_size
+	_world_min = world_min
+	_world_max = world_max
+	_height_samples = samples
+
+
+## 连接主线程上的可选 Terrain-RGB 协议 1 服务，完整接收样本和极值后写入报告。
 ## [br]
-static func _copy_float_samples(samples: PackedFloat32Array) -> PackedFloat32Array:
-	var result: PackedFloat32Array = PackedFloat32Array()
-	var _resize_result: int = result.resize(samples.size())
-	for index: int in range(samples.size()):
-		result[index] = samples[index]
-	return result
+## @api private
+static func _try_native_terrain_rgb(
+	report: Dictionary,
+	pixels: PackedByteArray,
+	grid_size: Vector2i,
+	stride: int,
+	scale: float,
+	offset: float
+) -> bool:
+	const SERVICE: StringName = &"GfTerrainRgbBackend"
+	if not Thread.is_main_thread() or not Engine.has_singleton(SERVICE):
+		return false
+	var backend: Object = Engine.get_singleton(SERVICE)
+	if (
+		not is_instance_valid(backend)
+		or not backend.is_class(SERVICE)
+		or not backend.has_method(&"protocol_version")
+		or not backend.has_method(&"decode")
+	):
+		return false
+	var version: Variant = backend.call(&"protocol_version")
+	if not version is int or version != 1:
+		return false
+	var decoded: Variant = backend.call(
+		&"decode",
+		pixels,
+		grid_size,
+		stride,
+		scale,
+		offset
+	)
+	if not decoded is Array:
+		return false
+	var values: Array = decoded
+	if (
+		values.size() != 3
+		or not values[0] is PackedFloat32Array
+		or not values[1] is float
+		or not values[2] is float
+	):
+		return false
+	var heights: PackedFloat32Array = values[0]
+	var minimum: float = values[1]
+	var maximum: float = values[2]
+	if (
+		heights.size() != grid_size.x * grid_size.y
+		or not is_finite(minimum)
+		or not is_finite(maximum)
+		or minimum > maximum
+	):
+		return false
+	report["samples"] = heights
+	report["min_height"] = minimum
+	report["max_height"] = maximum
+	return true
+
+
+## 按 Terrain-RGB 的固定零点与分辨率将 24 位编码换算为米。
+## [br]
+## @api private
+static func _terrain_rgb_meters(encoded: int) -> float:
+	return -10000.0 + float(encoded) * 0.1
 
 
 ## 将归一化颜色通道夹取并四舍五入为 0 至 255 的字节值；非有限输入按零处理。
@@ -978,30 +1067,21 @@ static func _is_finite_vector3(value: Vector3) -> bool:
 ## [br]
 static func _samples_are_finite(samples: PackedFloat32Array) -> bool:
 	for height_value: float in samples:
-		if not _is_finite_float(height_value):
+		if not is_finite(height_value):
 			return false
 	return true
 
 
-## 校验尺寸、样本数量、有限范围、最小世界跨度和所有高度值。
+## 检查世界范围分量有限，且两个轴均有可采样跨度。
 ## [br]
 ## @api private
-## [br]
-static func _can_configure(
-	grid_size: Vector2i,
-	height_samples: PackedFloat32Array,
-	world_min: Vector2,
-	world_max: Vector2
-) -> bool:
-	if grid_size.x <= 0 or grid_size.y <= 0:
-		return false
-	if height_samples.size() != grid_size.x * grid_size.y:
-		return false
-	if not _is_finite_vector2(world_min) or not _is_finite_vector2(world_max):
-		return false
-	if world_max.x - world_min.x < _MIN_WORLD_SPAN or world_max.y - world_min.y < _MIN_WORLD_SPAN:
-		return false
-	return _samples_are_finite(height_samples)
+static func _valid_world_bounds(world_min: Vector2, world_max: Vector2) -> bool:
+	return (
+		_is_finite_vector2(world_min)
+		and _is_finite_vector2(world_max)
+		and world_max.x - world_min.x >= _MIN_WORLD_SPAN
+		and world_max.y - world_min.y >= _MIN_WORLD_SPAN
+	)
 
 
 ## 判断整数样本坐标是否位于当前网格尺寸内。
