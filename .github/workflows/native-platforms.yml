@@ -69,7 +69,7 @@ jobs:
           python-version: "3.13"
       - id: inputs
         run: echo "key=$(git rev-parse HEAD)-$(xcodebuild -version | awk 'END {print $NF}')" >> "${GITHUB_OUTPUT}"
-      - uses: actions/cache@v5
+      - uses: actions/cache/restore@v5
         id: archives
         with:
           path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
@@ -79,6 +79,11 @@ jobs:
         run: |
           python -m pip install scons==4.9.1
           scons -j"$(sysctl -n hw.logicalcpu)" platform=ios target=template_${{ matrix.profile }} simulator=yes arch=arm64
+      - uses: actions/cache/save@v5
+        if: steps.archives.outputs.cache-hit != 'true'
+        with:
+          path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
+          key: ${{ steps.archives.outputs.cache-primary-key }}
       - uses: actions/upload-artifact@v7
         with:
           name: gf-godot-simulator-${{ matrix.profile }}

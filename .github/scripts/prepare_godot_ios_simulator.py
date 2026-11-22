@@ -34,9 +34,9 @@ def prepare(template: Path, libraries: Path, output: Path) -> None:
                     with intel.open("wb") as stream:
                         shutil.copyfileobj(original, stream)
                     apple = members[entry.filename]
-                    subprocess.run(["xcrun", "lipo", "-verify_arch", "arm64", str(apple)], check=True)
+                    subprocess.run(["xcrun", "lipo", str(apple), "-verify_arch", "arm64"], check=True)
                     subprocess.run(["xcrun", "lipo", "-create", str(intel), str(apple), "-output", str(universal)], check=True)
-                    subprocess.run(["xcrun", "lipo", "-verify_arch", "arm64", "x86_64", str(universal)], check=True)
+                    subprocess.run(["xcrun", "lipo", str(universal), "-verify_arch", "arm64", "x86_64"], check=True)
                     with universal.open("rb") as stream:
                         shutil.copyfileobj(stream, target)
         candidate.replace(output)
