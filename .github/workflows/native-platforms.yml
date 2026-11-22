@@ -18,7 +18,7 @@ jobs:
           - host: ubuntu-22.04
             name: linux-android
             targets: x86_64-unknown-linux-gnu aarch64-linux-android x86_64-linux-android
-          - host: macos-15
+          - host: macos-26
             name: apple
             targets: aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim
     runs-on: ${{ matrix.host }}
@@ -120,7 +120,7 @@ jobs:
 
   apple:
     needs: package
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7

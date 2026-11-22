@@ -160,12 +160,14 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
                'application/export_project_only=true\narchitectures/arm64=true\nstoryboard/image_scale_mode=1')
     export(godot, project, 'iOS', options, logs / 'Game.ipa', logs, profile)
     xcode = logs / 'Game.xcodeproj'
+    # Keep build products outside Godot's recursive Xcode framework search path.
+    derived = project.parent / 'DerivedData'
     common = ['xcodebuild', '-project', str(xcode), '-scheme', 'Game', '-configuration', profile.capitalize(),
-              '-derivedDataPath', str(logs / 'derived')]
+              '-derivedDataPath', str(derived)]
     for sdk, destination in [('iphoneos', 'generic/platform=iOS'), ('iphonesimulator', 'id=' + simulator)]:
         signing = ['CODE_SIGNING_ALLOWED=NO'] if sdk == 'iphoneos' else ['CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=']
         invoke([*common, '-sdk', sdk, '-destination', destination, *signing, 'build'], 900, log=logs / (sdk + '.log'))
-        app, = (logs / f'derived/Build/Products/{profile.capitalize()}-{sdk}').glob('*.app')
+        app, = (derived / f'Build/Products/{profile.capitalize()}-{sdk}').glob('*.app')
         framework = app / 'Frameworks/libgf_native.framework/libgf_native'
         native.check_binary(native.IOS if sdk == 'iphoneos' else native.SIM, framework.read_bytes())
     simctl = ['xcrun', 'simctl']

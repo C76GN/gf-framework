@@ -34,7 +34,7 @@ The release builder takes the Windows DLL from the qualified multi-platform ZIP 
 
 ### Build Linux, Android and iOS libraries
 
-Run `rustup target add` inside `native/gf_native` for the triples you want. From the repository root, build Linux and Android with an x86_64 Linux toolchain, GNU `readelf` and Android NDK r28b. The Linux build verifies that its versioned glibc requirements fit the published 2.34 baseline. Build Apple targets with Xcode and Python 3.13 or newer on an Apple Silicon Mac. The macOS test runner uses Python’s `os.waitid` support to supervise build and game processes.
+Run `rustup target add` inside `native/gf_native` for the triples you want. From the repository root, build Linux and Android with an x86_64 Linux toolchain, GNU `readelf` and Android NDK r28b. The Linux build verifies that its versioned glibc requirements fit the published 2.34 baseline. Build Apple targets with Xcode 26 and Python 3.13 or newer on an Apple Silicon Mac. The macOS test runner uses Python’s `os.waitid` support to supervise build and game processes.
 
 ```sh
 python tools/gf_native_platforms.py build --targets x86_64-unknown-linux-gnu aarch64-linux-android x86_64-linux-android --ndk "$ANDROID_NDK_ROOT"
