@@ -33,6 +33,9 @@ jobs:
         run: |
           "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.1.13356709"
           echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/28.1.13356709" >> "${GITHUB_ENV}"
+      - name: Check macOS process group cleanup
+        if: matrix.name == 'apple'
+        run: python tests/gf_core/tools/test_gf_posix_process_watchdog.py DarwinGroupMembershipTests
       - name: Build target libraries
         working-directory: native/gf_native
         shell: bash
