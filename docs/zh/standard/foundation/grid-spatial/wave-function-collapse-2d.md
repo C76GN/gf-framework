@@ -98,7 +98,7 @@ if expansion["ok"]:
 - `bidirectional_rules`：规则默认是否自动补反向关系，默认 `true`。
 - `max_cells`、`max_tiles`、`max_steps` 控制单次求解的格数、瓦片种类和坍缩步数预算。
 
-## Windows x64 原生求解
+## GF Native 原生求解
 
 安装同版本 GF Native 后，主线程调用 `solve_grid()` 时，默认的熵选格策略会在最多 4096 格、1 至 128 种瓦片的范围内自动使用 Rust。空规则允许全部邻接。固定格、周期边界和步数预算同样生效。两条路径按同一瓦片顺序和随机序列生成网格、候选域和诊断报告。
 

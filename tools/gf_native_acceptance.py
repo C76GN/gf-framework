@@ -78,7 +78,7 @@ def file_digest(path: Path, deadline: float) -> str:
 
 def source_digest(deadline: float) -> str:
     """Bind native results to the exact runtime, crate, fixture and runner bytes."""
-    paths = [*(CRATE / name for name in ('Cargo.toml', 'Cargo.lock', '.cargo/config.toml', 'rust-toolchain.toml',
+    paths = [*(CRATE / name for name in ('Cargo.toml', 'Cargo.lock', 'build.rs', '.cargo/config.toml', 'rust-toolchain.toml',
                                        EXTENSION.name, 'THIRD_PARTY_NOTICES.txt', '.gdignore')),
              ROOT / 'addons/gf/standard/foundation/math/gf_heightfield_3d.gd',
              ROOT / 'addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd',
@@ -139,7 +139,7 @@ def run_fresh_import(godot: str, workspace: Path, logs: Path, deadline: float) -
         raise RuntimeError(f'First import did not register the fixture extension: {expected}')
 
 
-def prepare_project(workspace: Path, *, standard_only: bool = False) -> None:
+def prepare_project(workspace: Path, *, standard_only: bool = False, platform_token: str = '') -> None:
     workspace.mkdir()
     for capability in ('terrain_rgb', 'wfc_entropy'):
         fixture = Path('tests/native') / capability / 'acceptance.gd'
@@ -154,10 +154,12 @@ def prepare_project(workspace: Path, *, standard_only: bool = False) -> None:
     enabled = '[]' if standard_only else '["gf.data_batch"]'
     (workspace / 'project.godot').write_text(
         'config_version=5\n[application]\nconfig/name="GF native acceptance"\nrun/main_scene="res://main.tscn"\n'
-        '[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
+        'config/icon="res://addons/gf/icon.png"\n[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
         '[editor_plugins]\nenabled=PackedStringArray("res://addons/gf/plugin.cfg")\n'
         f'[gf]\nextensions/selection_mode="explicit"\nextensions/enabled=Array[String]({enabled})\n'
-        '[rendering]\nrenderer/rendering_method="gl_compatibility"\n', encoding='utf-8')
+        '[rendering]\nrenderer/rendering_method="gl_compatibility"\ntextures/vram_compression/import_etc2_astc=true\n'
+        '[debug]\nfile_logging/enable_file_logging=true\n'
+        f'[gf_native_acceptance]\nrun_token="{platform_token}"\n', encoding='utf-8')
     (workspace / 'main.tscn').write_text(
         '[gd_scene load_steps=2 format=3]\n[ext_resource type="Script" path="res://acceptance.gd" id="1"]\n'
         '[node name="Acceptance" type="Node"]\nscript = ExtResource("1")\n', encoding='utf-8')
@@ -240,7 +242,7 @@ def check_dependency_report(output: str) -> list[str]:
 
 def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revision: str, *,
             export: bool, skip_build: bool = False, cargo_name: str = 'cargo',
-            timeout: float = 900) -> dict:
+            timeout: float = 900, candidate_library: bytes | None = None) -> dict:
     if sys.platform != 'win32':
         raise ValueError('Building GF Native requires a Windows x64 MSVC toolchain.')
     deadline = time.monotonic() + timeout
@@ -259,12 +261,18 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
     common = [cargo, f'+{toolchain}']
     if not skip_build:
         run([*common, 'fmt', '--check'], CRATE, 'rustfmt', 60, logs, deadline)
-        for name, args in [('rust-tests', ['test']), ('clippy', ['clippy']), ('release-build', ['build'])]:
-            cmd = [*common, *args, '--release', '--locked', '--target-dir', str(target)]
+        commands = [('rust-tests', ['test']), ('clippy', ['clippy'])]
+        if candidate_library is None:
+            commands.append(('release-build', ['build']))
+        for name, args in commands:
+            cmd = [*common, *args, '--release', '--locked', '--target', 'x86_64-pc-windows-msvc', '--target-dir', str(target)]
             if name == 'clippy':
                 cmd.extend(['--', '-D', 'warnings'])
             run(cmd, CRATE, name, 600, logs, deadline)
     dll = target / 'x86_64-pc-windows-msvc/release/gf_native.dll'
+    if candidate_library is not None:
+        dll = logs / 'gf_native.dll'
+        dll.write_bytes(candidate_library)
     imports = check_windows_dependencies(dll, logs, deadline)
     rustc = str(Path(cargo).with_name('rustc.exe'))
     sysroot = run([rustc, f'+{toolchain}', '--print', 'sysroot'], CRATE, 'rust-sysroot', 30, logs, deadline).strip()

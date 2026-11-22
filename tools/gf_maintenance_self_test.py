@@ -5974,8 +5974,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 	)
 	release_artifact_builder_source = read_text_file(ROOT / "tools/build_gf_release_artifacts.py")
 	record_result(
-		"release_artifact_set_has_four_archives_and_manifest",
-		'("framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64")' in release_artifact_builder_source
+		"release_artifact_set_has_five_archives_and_manifest",
+		'("framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64", "native_multiplatform")' in release_artifact_builder_source
 		and 'f"gf-framework-{version}.zip"' in release_artifact_builder_source
 		and 'f"gf-ai-developer-kit-{version}.zip"' in release_artifact_builder_source
 		and 'f"gf-release-artifacts-{version}.json"' in release_artifact_builder_source
@@ -5983,10 +5983,11 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		and '"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip"' in release_workflow_source
 		and '"build/release/gf-framework-windows-x86_64-${GITHUB_REF_NAME}.zip"' in release_workflow_source
 		and '"build/release/gf-native-windows-x86_64-${GITHUB_REF_NAME}.zip"' in release_workflow_source
+		and '"build/release/gf-native-multiplatform-${GITHUB_REF_NAME}.zip"' in release_workflow_source
 		and '"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json"' in release_workflow_source
 		and "build/release/registry/" not in release_workflow_source
 		and "build/release/packages/" not in release_workflow_source,
-		"Release publication must include the portable framework, Windows framework, native supplement, AI Developer Kit, and manifest.",
+		"Release publication must include the portable framework, Windows framework, both native supplements, AI Developer Kit, and manifest.",
 	)
 	release_without_manifest = run_maintenance_subprocess(
 		[

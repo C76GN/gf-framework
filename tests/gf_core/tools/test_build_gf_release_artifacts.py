@@ -401,12 +401,13 @@ class ReleaseArtifactTests(unittest.TestCase):
 						actual_version = ""
 				self.assertEqual(actual_version, expected_version)
 
-	def test_build_publishes_only_four_archives_and_manifest(self) -> None:
+	def test_build_publishes_only_five_archives_and_manifest(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"
 			output_dir = build_root / "release"
 			audit_calls: list[tuple[Path, str, str]] = []
 			real_audit = release_builder.audit_release_artifact_manifest
+			_test_delivery(build_root / "native-delivery")
 
 			def recording_audit(
 				manifest_path: Path,
@@ -492,6 +493,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					f"gf-ai-developer-kit-{VERSION}.zip",
 					f"gf-framework-windows-x86_64-{VERSION}.zip",
 					f"gf-native-windows-x86_64-{VERSION}.zip",
+					f"gf-native-multiplatform-{VERSION}.zip",
 					f"gf-release-artifacts-{VERSION}.json",
 				},
 			)
@@ -500,11 +502,11 @@ class ReleaseArtifactTests(unittest.TestCase):
 					encoding="utf-8"
 				)
 			)
-			self.assertEqual(manifest["schema_version"], 4)
-			self.assertEqual(manifest["artifact_count"], 4)
+			self.assertEqual(manifest["schema_version"], 5)
+			self.assertEqual(manifest["artifact_count"], 5)
 			self.assertEqual(
 				{entry["role"] for entry in manifest["artifacts"]},
-				{"framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64"},
+				{"framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64", "native_multiplatform"},
 			)
 			self.assertEqual(manifest["source_revision"], REVISION)
 			self.assertEqual(
@@ -548,7 +550,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					REVISION,
 				)
 			self.assertFalse(result["ok"])
-			self.assertTrue(any("only the four archives" in issue for issue in result["issues"]))
+			self.assertTrue(any("only the five archives" in issue for issue in result["issues"]))
 
 	def test_audit_rejects_extra_release_directory(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -562,7 +564,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					REVISION,
 				)
 			self.assertFalse(result["ok"])
-			self.assertTrue(any("only the four archives" in issue for issue in result["issues"]))
+			self.assertTrue(any("only the five archives" in issue for issue in result["issues"]))
 
 	def test_audit_rejects_boolean_integer_fields(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -637,6 +639,57 @@ class ReleaseArtifactTests(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "exactly"):
 				verify(portable, supplement, bundle, VERSION, REVISION)
 
+	def test_release_requires_runtime_evidence_for_the_exact_archive_and_every_abi(self) -> None:
+		acceptance = release_builder.gf_native_platform_acceptance
+		with tempfile.TemporaryDirectory() as temporary:
+			directory = Path(temporary)
+			_test_delivery(directory)
+			debug = directory / "linux-debug.json"
+			original = debug.read_text(encoding="utf-8")
+			wrong = json.loads(original)
+			wrong["runtime"]["x86_64"]["debug_build"] = False
+			debug.write_text(json.dumps(wrong), encoding="utf-8")
+			with self.assertRaisesRegex(ValueError, "debug template"):
+				acceptance.verify_delivery(directory, VERSION, REVISION)
+			debug.write_text(original, encoding="utf-8")
+			path = directory / "android-release.json"
+			proof = json.loads(path.read_text(encoding="utf-8"))
+			proof["runtime"].pop("arm64-v8a")
+			path.write_text(json.dumps(proof), encoding="utf-8")
+			with self.assertRaisesRegex(ValueError, "architectures"):
+				acceptance.verify_delivery(directory, VERSION, REVISION)
+			proof["archive_sha256"] = "0" * 64
+			path.write_text(json.dumps(proof), encoding="utf-8")
+			with self.assertRaisesRegex(ValueError, "evidence"):
+				acceptance.verify_delivery(directory, VERSION, REVISION)
+
+	def test_platform_slices_reject_swapped_os_and_alignment(self) -> None:
+		platforms = release_builder.gf_native_platforms
+		with tempfile.TemporaryDirectory() as temporary:
+			stage = _test_slices(Path(temporary))
+			device = platforms.staged_binary(stage, platforms.IOS, REVISION)
+			with self.assertRaisesRegex(ValueError, "platform"):
+				platforms.check_binary(platforms.SIM, device)
+			newer = bytearray(device)
+			struct.pack_into("<I", newer, 44, 17 << 16)
+			with self.assertRaisesRegex(ValueError, "deployment minimum"):
+				platforms.check_binary(platforms.IOS, newer)
+			android = bytearray(platforms.staged_binary(stage, platforms.ANDROID_X64, REVISION))
+			android.extend(b"libc.so.6\0")
+			with self.assertRaisesRegex(ValueError, "libc"):
+				platforms.check_binary(platforms.LINUX, android)
+			invalid = bytearray(android)
+			struct.pack_into("<I", invalid, 120, 0)
+			with self.assertRaisesRegex(ValueError, "dynamic segment"):
+				platforms.check_binary(platforms.ANDROID_X64, invalid)
+			struct.pack_into("<Q", android, 64 + 48, 4096)
+			with self.assertRaisesRegex(ValueError, "alignment"):
+				platforms.check_binary(platforms.ANDROID_X64, android)
+			with self.assertRaisesRegex(ValueError, "receipt"):
+				platforms.staged_binary(stage, platforms.MAC, "b" * 40)
+			with self.assertRaisesRegex(ValueError, "both iOS"):
+				platforms.support_files({platforms.IOS}, b"notices")
+
 	def test_validate_output_dir_rejects_build_root_itself(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"
@@ -686,21 +739,84 @@ def _write_zip(path: Path, name: str, payload: bytes) -> None:
 		archive.writestr(name, payload)
 
 
-def _qualify_test_archives(
-		portable: Path, supplement: Path, bundle: Path, version: str, revision: str, *, export: bool,
-) -> dict[str, object]:
-	# Minimal structural PE fixture. Executable behavior is covered by the real Windows release builder.
-	if not export:
-		raise AssertionError("Release candidates must qualify both exports.")
+def _windows_library() -> bytes:
+	# Executable behavior is covered by the real exported games.
 	library = bytearray(128)
 	library[:2] = b"MZ"
 	struct.pack_into("<I", library, 60, 64)
 	library[64:68] = b"PE\0\0"
 	struct.pack_into("<H", library, 68, 0x8664)
 	struct.pack_into("<HH", library, 86, 0x2000, 0x20B)
-	release_builder.gf_native_distribution.assemble(portable, supplement, bundle, bytes(library),
+	return bytes(library)
+
+
+def _qualify_test_archives(
+		portable: Path, supplement: Path, bundle: Path, version: str, revision: str, *, export: bool,
+		candidate_library: bytes | None = None,
+) -> dict[str, object]:
+	if not export or candidate_library not in (None, _windows_library()):
+		raise AssertionError("Windows must qualify the candidate library through both exports.")
+	release_builder.gf_native_distribution.assemble(portable, supplement, bundle, _windows_library(),
 		b"fixture toolchain copyright", version, revision)
 	return {"archives_sha256": {p.name: release_builder.sha256_file(p) for p in (portable, supplement, bundle)}}
+
+
+def _test_slices(directory: Path) -> Path:
+	"""Minimal target headers for transport tests. Export jobs use actual Cargo binaries."""
+	platforms = release_builder.gf_native_platforms
+	for target, (_, filename) in platforms.TARGETS.items():
+		data = bytearray(128)
+		if target == platforms.WINDOWS:
+			data = bytearray(_windows_library())
+		elif target in (platforms.MAC, platforms.IOS, platforms.SIM):
+			struct.pack_into("<8I", data, 0, 0xfeedfacf, 0x100000c, 0, 6, 1, 24, 0, 0)
+			platform = {platforms.MAC: 1, platforms.IOS: 2, platforms.SIM: 7}[target]
+			struct.pack_into("<6I", data, 32, 0x32, 24, platform, 15 << 16, 0, 0)
+		else:
+			data[:6] = b"\x7fELF\x02\x01"
+			struct.pack_into("<HH", data, 16, 3, 183 if target == platforms.ANDROID_ARM else 62)
+			struct.pack_into("<Q", data, 32, 64)
+			names = b"\0libc.so.6\0" if target == platforms.LINUX else b"\0libc.so\0"
+			data.extend(bytes(256 - len(data)))
+			struct.pack_into("<HH", data, 54, 56, 2)
+			struct.pack_into("<II6Q", data, 64, 1, 5, 0, 0, 0, 256 + len(names), 256 + len(names), 16384)
+			struct.pack_into("<II6Q", data, 120, 2, 4, 176, 176, 0, 64, 64, 8)
+			struct.pack_into("<8Q", data, 176, 1, 1, 5, 256, 10, len(names), 0, 0)
+			data.extend(names)
+		folder = directory / target
+		folder.mkdir(parents=True)
+		if target == platforms.WINDOWS:
+			(folder / platforms.dist.STD_NOTICES).write_bytes(b"fixture toolchain copyright")
+		else:
+			data.extend(platforms.dist.notice_bytes() + b"\n\nfixture toolchain copyright")
+		(folder / Path(filename).name).write_bytes(data)
+		record = platforms.stage_record(target, bytes(data), REVISION)
+		(folder / "build.json").write_text(json.dumps(record), encoding="utf-8")
+	return directory
+
+
+def _test_delivery(directory: Path) -> None:
+	platforms = release_builder.gf_native_platforms
+	with tempfile.TemporaryDirectory() as scratch:
+		platforms.assemble(directory / "overlay.zip", _test_slices(Path(scratch)), set(platforms.TARGETS), VERSION, REVISION)
+	digest = release_builder.sha256_file(directory / "overlay.zip")
+	for platform, os_name, abis in [
+		("linux", "Linux", {"x86_64": "x86_64"}),
+		("android", "Android", {"arm64-v8a": "arm64", "x86_64": "x86_64"}),
+		("ios", "iOS", {"arm64-simulator": "arm64"}),
+	]:
+		for profile in ("debug", "release"):
+			runtime = {}
+			for abi, arch in abis.items():
+				samples = [dict(source_rows=n, selected_rows=n // 2, int64_columns=4,
+					native_usec=[1] * 10, script_usec=[2] * 10) for n in (16, 1000, 100000)]
+				foundation = {name: dict(native_usec=[1] * 5, script_usec=[2] * 5)
+					for name in ("terrain_rgb_256", "wfc_entropy_16")}
+				runtime[abi] = dict(ok=True, failures=[], platform=os_name, architecture=arch, run_token="a" * 24,
+					samples=samples, foundation=foundation, debug_build=profile == "debug")
+			proof = dict(platform=platform, profile=profile, source_revision=REVISION, archive_sha256=digest,
+				native_source_sha256=platforms.dist.native_source_digest(), runtime=runtime)
+			(directory / f"{platform}-{profile}.json").write_text(json.dumps(proof), encoding="utf-8")
 
 
 def _write_valid_release_fixture(root: Path) -> Path:
@@ -711,6 +827,10 @@ def _write_valid_release_fixture(root: Path) -> Path:
 	archives = {role: root / name for role, name in release_builder.archive_names(VERSION).items()}
 	_qualify_test_archives(framework, archives["native_windows_x86_64"], archives["framework_windows_x86_64"],
 		VERSION, REVISION, export=True)
+	platforms = release_builder.gf_native_platforms
+	with tempfile.TemporaryDirectory() as temporary:
+		platforms.assemble(archives["native_multiplatform"], _test_slices(Path(temporary)), set(platforms.TARGETS),
+			VERSION, REVISION)
 	artifacts = [release_builder.artifact_record(path, role) for role, path in archives.items()]
 	manifest_path = root / f"gf-release-artifacts-{VERSION}.json"
 	release_builder.write_json(manifest_path, {

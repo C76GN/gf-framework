@@ -72,10 +72,10 @@ def stage(project: Path, probe: Path, native: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
     shutil.copyfile(FIXTURE, project / "probe.gd")
-    for dll in (probe, native):
+    for dll, entry in ((probe, "gdext_rust_init"), (native, "gf_native_init")):
         shutil.copyfile(dll, project / dll.name)
         (project / f"{dll.stem}.gdextension").write_text(
-            '[configuration]\nentry_symbol="gdext_rust_init"\ncompatibility_minimum="4.6"\n'
+            f'[configuration]\nentry_symbol="{entry}"\ncompatibility_minimum="4.6"\n'
             f'[libraries]\nwindows.x86_64="./{dll.name}"\n', encoding="utf-8")
     profile_voronoi(project / MATH_DIR / 'gf_voronoi_2d.gd', project / 'profile_voronoi.gd')
     (project / "project.godot").write_text(
@@ -174,12 +174,12 @@ def main() -> None:
     logs = Path(tempfile.mkdtemp(prefix="run-", dir=log_root))
     deadline = time.monotonic() + 900
     target = build / "gf_native_target"
-    inputs = [*runtime_sources(), FIXTURE, Path(__file__).resolve(), CRATE / "Cargo.lock", CRATE / "Cargo.toml",
+    inputs = [*runtime_sources(), FIXTURE, Path(__file__).resolve(), CRATE / "Cargo.lock", CRATE / "Cargo.toml", CRATE / "build.rs",
               CRATE / ".cargo/config.toml", CRATE / "rust-toolchain.toml",
               *sorted((CRATE / "examples/foundation_probe").glob("*.rs")), *sorted((CRATE / "src").glob("*.rs"))]
     source_hashes = fingerprint(inputs)
     run(["cargo", f"+{channel}", "build", "--lib", "--example", "foundation_probe", "--release", "--locked",
-         "--target-dir", str(target)], CRATE, "build", 600, logs, deadline)
+         "--target", "x86_64-pc-windows-msvc", "--target-dir", str(target)], CRATE, "build", 600, logs, deadline)
     release = target / "x86_64-pc-windows-msvc/release"
     probe, native = release / "examples/foundation_probe.dll", release / "gf_native.dll"
     binary_hashes = fingerprint([native, probe], release)

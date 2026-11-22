@@ -27,6 +27,8 @@ on:
       - "tools/build_gf_release_artifacts.py"
       - ".github/scripts/setup_gf_native_windows.py"
       - ".github/workflows/native-windows.yml"
+      - ".github/scripts/setup_gf_native_platforms.py"
+      - ".github/workflows/native-platforms.yml"
       - ".github/workflows/release.yml"
 
 permissions:
@@ -37,7 +39,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-platform-libraries:
+    uses: ./.github/workflows/native-platforms.yml
+
   native-exports:
+    needs: native-platform-libraries
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -47,6 +53,12 @@ jobs:
           python-version: "3.12"
       - name: Set up Windows native build and export
         run: python .github/scripts/setup_gf_native_windows.py
+      - name: Download the qualified native addon and reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: gf-native-delivery-*
+          merge-multiple: true
+          path: build/native-delivery
       - name: Verify native installation and exported games
         run: python tools/build_gf_release_artifacts.py --output-dir build/native-preview
       - name: Check out the PR base geometry for differential tests

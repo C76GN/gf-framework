@@ -13,7 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  native-platform-libraries:
+    uses: ./.github/workflows/native-platforms.yml
+
   build-release-artifacts:
+    needs:
+      - native-platform-libraries
     name: Build GF release artifacts once
     runs-on: windows-latest
     timeout-minutes: 45
@@ -35,6 +40,13 @@ jobs:
 
       - name: Set up Windows native build and export
         run: python .github/scripts/setup_gf_native_windows.py
+
+      - name: Download the qualified native addon and reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: gf-native-delivery-*
+          merge-multiple: true
+          path: build/native-delivery
 
       - name: Build release artifact set
         run: >
@@ -180,6 +192,7 @@ jobs:
             "build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-framework-windows-x86_64-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-native-windows-x86_64-${GITHUB_REF_NAME}.zip" \
+            "build/release/gf-native-multiplatform-${GITHUB_REF_NAME}.zip" \
             "build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \

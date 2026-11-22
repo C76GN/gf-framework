@@ -5,7 +5,8 @@
 | 你的项目 | 下载 | 解压后 |
 | --- | --- | --- |
 | 新建 Windows x64 项目，希望直接用原生加速 | `gf-framework-windows-x86_64-<version>.zip` | 同时得到 `addons/gf` 和 `addons/gf_native` |
-| 多平台项目，或只用 GDScript | `gf-framework-<version>.zip`，也可从 Godot Asset Store / Asset Library 安装 | 得到完整的 `addons/gf` |
+| Linux x86_64（glibc）、Android arm64-v8a/x86_64（API 24+）、iOS arm64（15+）项目使用原生加速 | `gf-framework-<version>.zip` 加同版本 `gf-native-multiplatform-<version>.zip` | 得到 GF 和对应平台的预编译库，含 Apple Silicon 编辑器和 iOS 模拟器 |
+| 只用 GDScript | `gf-framework-<version>.zip`，也可从 Godot Asset Store / Asset Library 安装 | 得到完整的 `addons/gf` |
 | 已装同版本 GF，希望加入 Windows x64 原生能力 | `gf-native-windows-x86_64-<version>.zip` | 只增加 `addons/gf_native` |
 
 打开 Godot，在 `Project > Project Settings > Plugins` 启用 `GF Framework`。Godot 在导入时加载原生库。项目开发者和玩家都无需安装 Rust。请在项目中仅保留一份原生库；如需移动，可以整体移动 `gf_native` 目录。

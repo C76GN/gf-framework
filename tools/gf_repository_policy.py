@@ -134,6 +134,7 @@ RELEASE_CREATE_COMMAND = (
 	'"build/release/gf-ai-developer-kit-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-framework-windows-x86_64-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-native-windows-x86_64-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-native-multiplatform-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\ '
 	'--verify-tag \\ '
 	'--title "${GITHUB_REF_NAME}" \\ '
@@ -873,6 +874,7 @@ def audit_release_workflow(source: str) -> list[str]:
 	if duplicate_jobs:
 		issues.append(f"Release workflow has duplicate job ids: {', '.join(sorted(duplicate_jobs))}.")
 	required_job_ids = {
+		"native-platform-libraries",
 		"build-release-artifacts",
 		"release-framework-checks",
 		"create-release",
@@ -884,7 +886,8 @@ def audit_release_workflow(source: str) -> list[str]:
 	if extra_job_ids:
 		issues.append(f"Release workflow has unsupported jobs: {', '.join(extra_job_ids)}.")
 	expected_job_fields = {
-		"build-release-artifacts": ("name", "runs-on", "timeout-minutes", "steps"),
+		"native-platform-libraries": ("uses",),
+		"build-release-artifacts": ("needs", "name", "runs-on", "timeout-minutes", "steps"),
 		"release-framework-checks": ("name", "runs-on", "timeout-minutes", "strategy", "steps"),
 		"create-release": ("name", "permissions", "needs", "runs-on", "timeout-minutes", "steps"),
 	}
@@ -894,7 +897,7 @@ def audit_release_workflow(source: str) -> list[str]:
 	release_step_names = {
 		"build-release-artifacts": (
 			"Checkout tag", "Set up Python", "Verify release tag on main",
-			"Set up Windows native build and export", "Build release artifact set",
+			"Set up Windows native build and export", "Download the qualified native addon and reports", "Build release artifact set",
 			"Verify release metadata against built artifacts",
 			"Upload immutable release artifact set",
 			"Retain failed extension export diagnostics",
@@ -932,8 +935,15 @@ def audit_release_workflow(source: str) -> list[str]:
 			issues.append(f"Release job {job_id} permission contents must not be write.")
 		if permission_keys and (permission_keys != ["contents"] or contents_permission != "read"):
 			issues.append(f"Release job {job_id} may only narrow its permissions to contents: read.")
+	if "native-platform-libraries" in jobs:
+		require_exact_job_scalar(jobs["native-platform-libraries"], "native-platform-libraries", "uses",
+			"./.github/workflows/native-platforms.yml", issues)
 	build_release_job = jobs.get("build-release-artifacts", "")
 	if build_release_job:
+		require_exact_job_needs(build_release_job, "build-release-artifacts", ("native-platform-libraries",), issues)
+		require_exact_action_step(build_release_job, "build-release-artifacts", "Download the qualified native addon and reports",
+			RELEASE_DOWNLOAD_ACTION, (("pattern", "gf-native-delivery-*"), ("merge-multiple", "true"),
+				("path", "build/native-delivery")), issues)
 		require_exact_job_scalar(build_release_job, "build-release-artifacts", "runs-on", "windows-latest", issues)
 		require_exact_job_scalar(build_release_job, "build-release-artifacts", "timeout-minutes", "45", issues)
 		require_exact_run_step(build_release_job, "build-release-artifacts", "Set up Windows native build and export",
@@ -1953,7 +1963,9 @@ def reject_failure_tolerant_jobs_and_steps(
 			index for index, line in enumerate(lines)
 			if re.fullmatch(r"    steps:\s*", strip_yaml_comment(line)) is not None
 		]
-		unsupported_step_item = len(steps_indices) != 1
+		# A reusable workflow has its own steps and the caller pins the exact workflow path.
+		reusable = "uses" in job_fields
+		unsupported_step_item = len(steps_indices) != (0 if reusable else 1)
 		if len(steps_indices) == 1:
 			for line in lines[steps_indices[0] + 1:]:
 				code = strip_yaml_comment(line)

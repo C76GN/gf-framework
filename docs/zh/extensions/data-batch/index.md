@@ -100,7 +100,7 @@ func sum_offsets(publication: GFDataBatchPublication) -> int:
 
 ## 可选原生 gather
 
-用 Windows x64 完整包安装 GF 后，在主线程按常规方式创建发布者即可。框架会让可用的原生库执行整型行筛选；使用通用包时，同一行 GDScript 会选择脚本实现。安装包选择见[安装与 AutoLoad](../../overview/quickstart/install-autoload.md)。
+安装适合目标平台的 GF Native 后，在主线程按常规方式创建发布者即可。框架会让可用的原生库执行整型行筛选；使用通用包时，同一行 GDScript 会选择脚本实现。安装包选择见[安装与 AutoLoad](../../overview/quickstart/install-autoload.md)。
 
 ```gdscript
 var publication: GFDataBatchPublication = GFDataBatchPublication.create(

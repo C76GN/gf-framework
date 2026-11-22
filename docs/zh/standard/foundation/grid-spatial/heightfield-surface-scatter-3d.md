@@ -37,7 +37,7 @@ var slope: float = heightfield.sample_slope_world(5.0, 5.0)
 
 `configure()` 在接收样本时检查有限值并保存独立副本。高度、法线与散布查询只访问所需的格点。重新配置失败时仍可查询上一次成功的数据，`clear()` 会使高度场失效。
 
-RGB8 和 RGBA8 图像按原始尺寸一次读取基础层，跳过 Alpha 通道与 mipmap。Windows x64 安装 GF Native 后，主线程自动使用同一 DLL 中的 Terrain-RGB 解码器。便携包和工作线程使用批量 GDScript 解码，其他可读格式使用 Godot 的像素颜色转换。三种路径返回同一套样本和诊断。
+RGB8 和 RGBA8 图像按原始尺寸一次读取基础层，跳过 Alpha 通道与 mipmap。安装目标平台的 GF Native 后，主线程自动使用原生库中的 Terrain-RGB 解码器。便携包和工作线程使用批量 GDScript 解码，其他可读格式使用 Godot 的像素颜色转换。三种路径返回同一套样本和诊断。
 
 Terrain-RGB 的 scale/offset 不仅各自必须有限，派生高度还必须能以有限 float32 样本保存。乘加溢出或 float32 窄化失败会返回带 issue 的失败报告，且不会暴露非有限或部分样本；成功报告的高度范围按实际保存值统计。
 
