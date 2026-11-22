@@ -43,6 +43,7 @@ const GODOT_CALLBACK_NAMES: Dictionary = {
 	"_can_drop_data": true,
 	"_can_handle": true,
 	"_capture": true,
+	"_disable_plugin": true,
 	"_draw": true,
 	"_drop_data": true,
 	"_enter_tree": true,

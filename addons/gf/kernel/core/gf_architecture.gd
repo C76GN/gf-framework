@@ -3283,6 +3283,12 @@ func register_utility_instance_for_required_plan_for_framework(
 ## 在执行用户回调前登记本次工作，供 Installer、模块启动和热替换共用。
 ## [br]
 ## @api framework_internal
+## [br]
+## @param scope: 本次回调的作用域，取消后会阻止旧工作写入。
+## [br]
+## @param work: 无参数回调，可以同步完成或挂起。
+## [br]
+## @return 已登记的步骤，调用者可通过它等待回调实际返回。
 func _start_lifecycle_step(scope: GFAsyncScope, work: Callable) -> LifecycleStep:
 	var step: LifecycleStep = LifecycleStep.new(scope)
 	_pending_lifecycle_steps.append(step)
@@ -3292,6 +3298,15 @@ func _start_lifecycle_step(scope: GFAsyncScope, work: Callable) -> LifecycleStep
 	)
 	return step
 
+
+## 供 System/Utility 的 tick 配置变化请求调度器重建缓存。
+## [br]
+## @api framework_internal
+func _refresh_tick_caches() -> void:
+	_tick_scheduler.refresh()
+
+
+# --- 私有/辅助方法 ---
 
 ## 回调实际返回后，先释放本架构的步骤，再唤醒直接等待它的调用者。
 ## [br]
@@ -3314,15 +3329,6 @@ func _has_stale_lifecycle_step() -> bool:
 			return true
 	return false
 
-
-## 供 System/Utility 的 tick 配置变化请求调度器重建缓存。
-## [br]
-## @api framework_internal
-func _refresh_tick_caches() -> void:
-	_tick_scheduler.refresh()
-
-
-# --- 私有/辅助方法 ---
 
 ## 等待指定代次已有的初始化，并在取消或完成后断开临时连接；仅成功且架构就绪、代次仍当前时返回 true。
 ## [br]
@@ -8868,15 +8874,24 @@ func _has_assignable_instance(module_registry: ModuleRegistry, script_cls: Scrip
 class LifecycleStep:
 	extends RefCounted
 
+
+	# --- 信号 ---
+
 	## 实际回调及其架构登记都已收尾。
 	## [br]
 	## @api framework_internal
 	signal returned
 
+
+	# --- 公共变量 ---
+
 	## 工作可能在首个 await 前返回。
 	## [br]
 	## @api framework_internal
 	var has_returned: bool = false
+
+
+	# --- 私有变量 ---
 
 	## 生命周期调用者提供给此步骤的同一个作用域。
 	## [br]
@@ -8888,12 +8903,19 @@ class LifecycleStep:
 	## @api private
 	var _abandoned: bool = false
 
+
+	# --- Godot 生命周期方法 ---
+
 	## 保存作用域以便同步观察用户发起的取消。
 	## [br]
 	## @api framework_internal
+	## [br]
+	## @param scope: 此步骤执行用户回调时使用的作用域。
 	func _init(scope: GFAsyncScope) -> void:
 		_scope = scope
 
+
+	# --- 框架内部方法 ---
 
 	## 无 deadline 时直接等到回调返回，包括取消后仍在运行的工作。
 	## [br]
@@ -8906,6 +8928,8 @@ class LifecycleStep:
 	## 先撤销写入资格。scope.cancel() 的清理回调可能同步恢复旧工作。
 	## [br]
 	## @api framework_internal
+	## [br]
+	## @param reason: 传递给作用域的取消原因。
 	func abandon(reason: String) -> void:
 		_abandoned = true
 		GFArchitecture._cancel_module_async_scope(_scope, reason)
@@ -8914,6 +8938,8 @@ class LifecycleStep:
 	## 作用域也可能由用户回调主动取消，早于等待者下一帧观察它。
 	## [br]
 	## @api framework_internal
+	## [br]
+	## @return 等待已提前结束或作用域已取消时为 true。
 	func blocks_writes() -> bool:
 		return _abandoned or _scope.is_cancel_requested()
 
