@@ -40,6 +40,8 @@ Choose a version from [GitHub Releases](https://github.com/C76GN/gf-framework/re
 | Portable GDScript | `gf-framework-<version>.zip` or the official Godot Asset Store/Asset Library package |
 | Same GF version already installed in a Windows x64 project | `gf-native-windows-x86_64-<version>.zip` adds only `addons/gf_native` |
 
+For Godot 4.7.2 on an Apple Silicon iOS simulator, select the matching simulator export template. [Simulator setup](native/gf_native/README.md#rebuild-the-godot-472-simulator-template)
+
 For integer row selection, enable Data Batch in `GF Workspace > GF Extensions`. Existing GDScript calls select the available backend automatically. Both game developers and players can use the prebuilt library without installing Rust. When upgrading a native installation, replace both `addons/gf` and `addons/gf_native` with matching versions.
 
 Godot does not automatically enable editor plugins after files are copied into `addons`. This is expected: plugin enablement belongs to the target project's `project.godot`, and the user must opt in before editor plugin code runs.

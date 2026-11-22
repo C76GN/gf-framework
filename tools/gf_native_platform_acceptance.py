@@ -170,7 +170,12 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
         invoke([*common, '-sdk', sdk, '-destination', destination, *signing, 'build'], 900, log=logs / (sdk + '.log'))
         app, = (derived / f'Build/Products/{profile.capitalize()}-{sdk}').glob('*.app')
         framework = app / 'Frameworks/libgf_native.framework/libgf_native'
-        native.check_binary(native.IOS if sdk == 'iphoneos' else native.SIM, framework.read_bytes())
+        target = native.IOS if sdk == 'iphoneos' else native.SIM
+        installed = (project / native.dist.ADDON / native.TARGETS[target][1]).read_bytes()
+        exported = framework.read_bytes()
+        native.check_binary(target, exported)
+        if native.apple_code_identity(target, installed) != native.apple_code_identity(target, exported):
+            raise ValueError(f'The {sdk} app embedded different GF Native code from the tested ZIP.')
     simctl = ['xcrun', 'simctl']
     invoke([*simctl, 'install', simulator, str(app)])
     try:

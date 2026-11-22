@@ -53,6 +53,25 @@ Set `GF_GODOT_EXECUTABLE` to the editor with matching release templates. Android
 
 The stock Godot 4.7.2 device template contains arm64. Its simulator engine and camera libraries contain only x86_64. For an Apple Silicon simulator, download the `godot-ios-simulator-template` artifact from a successful native workflow, unpack it, select its `ios.zip` for both **Custom Template → Debug / Release** in the iOS preset and use the **Compatibility** renderer on mobile. CI rebuilds both simulator profiles at the editor's exact Godot commit, combines the arm64 and x86_64 libraries and retains the original device binaries. Local acceptance reads this ZIP from `GF_IOS_EXPORT_TEMPLATE`. [Godot simulator issue](https://github.com/godotengine/godot/issues/122379)
 
+### Rebuild the Godot 4.7.2 simulator template
+
+To reproduce the CI artifact after its retention period, install the official Godot 4.7.2 export templates and Xcode 26 with the iOS simulator SDK on an Apple Silicon Mac. Run these commands from a GF Framework source checkout. The output is `build/native-simulator-template/ios.zip`.
+
+```sh
+mkdir -p build
+git clone --depth 1 --branch 4.7.2-stable https://github.com/godotengine/godot.git build/godot-4.7.2
+test "$(git -C build/godot-4.7.2 rev-parse HEAD)" = ed1daf0bf001b61586d9930840f2f1394092c079 || exit 1
+python3 -m venv build/godot-scons
+build/godot-scons/bin/python -m pip install scons==4.9.1
+for profile in debug release; do
+    build/godot-scons/bin/scons -C build/godot-4.7.2 -j"$(sysctl -n hw.logicalcpu)" \
+        platform=ios target="template_$profile" simulator=yes arch=arm64 || exit 1
+done
+python3 .github/scripts/prepare_godot_ios_simulator.py \
+    --template "$HOME/Library/Application Support/Godot/export_templates/4.7.2.stable/ios.zip" \
+    --libraries build/godot-4.7.2/bin --output build/native-simulator-template/ios.zip
+```
+
 The release workflow joins all seven target libraries into one overlay before exercising the Debug and Release games. To reproduce its handoff, test this exact ZIP on each platform with `--profile debug` and `--profile release`, passing `--receipts build/native-delivery`. Both Android ABIs must report success. Release timings cover 256×256 Terrain-RGB, 16×16 WFC and a 100,000-row gather. The release builder checks all six reports against the ZIP's SHA-256, checks Windows exports with its embedded DLL, and publishes the same bytes. Packaging verifies ELF dependencies, Android 16 KB load-segment alignment and Apple device/simulator identity. The portable framework and its Asset Store distribution remain available independently.
 
 ## Benchmark foundation operations

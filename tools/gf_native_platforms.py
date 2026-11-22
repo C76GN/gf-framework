@@ -93,26 +93,57 @@ def check_binary(target: str, data: bytes) -> None:
         if needed.intersection({b'libc.so', b'libc.so.6'}) != {libc}:
             raise ValueError(f'Wrong target libc dependencies for {target}.')
         return
-    if struct.unpack_from('<4I', data)[:4] != (0xfeedfacf, 0x100000c, 0, 6):
+    platforms = []
+    for kind, command in macho_commands(target, data):
+        if kind == 0x32 and len(command) >= 24:  # LC_BUILD_VERSION
+            platform, minimum = struct.unpack_from('<II', command, 8)
+            if target in (IOS, SIM) and not 0 < minimum <= 15 << 16:
+                raise ValueError(f'Unsupported iOS deployment minimum for {target}.')
+            platforms.append(platform)
+    if platforms != [{MAC: 1, IOS: 2, SIM: 7}[target]]:
+        raise ValueError(f'Mach-O platform does not match {target}.')
+
+
+def macho_commands(target: str, data: bytes) -> list[tuple[int, bytes]]:
+    if len(data) < 32 or struct.unpack_from('<4I', data) != (0xfeedfacf, 0x100000c, 0, 6):
         raise ValueError(f'Expected an arm64 Mach-O dynamic library for {target}.')
     count, length = struct.unpack_from('<II', data, 16)
     end = 32 + length
     offset = 32
-    platforms = []
+    commands = []
     for _ in range(count):
         if offset + 8 > end or end > len(data):
             raise ValueError(f'Invalid Mach-O commands for {target}.')
-        command, size = struct.unpack_from('<II', data, offset)
+        kind, size = struct.unpack_from('<II', data, offset)
         if size < 8 or offset + size > end:
             raise ValueError(f'Invalid Mach-O command size for {target}.')
-        if command == 0x32 and size >= 24:  # LC_BUILD_VERSION
-            platform, minimum = struct.unpack_from('<II', data, offset + 8)
-            if target in (IOS, SIM) and not 0 < minimum <= 15 << 16:
-                raise ValueError(f'Unsupported iOS deployment minimum for {target}.')
-            platforms.append(platform)
+        commands.append((kind, data[offset:offset + size]))
         offset += size
-    if offset != end or platforms != [{MAC: 1, IOS: 2, SIM: 7}[target]]:
-        raise ValueError(f'Mach-O platform does not match {target}.')
+    if offset != end:
+        raise ValueError(f'Invalid Mach-O command length for {target}.')
+    return commands
+
+
+def apple_code_identity(target: str, data: bytes) -> tuple[bytes, str]:
+    """Godot changes the install name and Xcode signs the framework. Both preserve the UUID and instructions."""
+    uuids = []
+    text = []
+    for kind, command in macho_commands(target, data):
+        if kind == 0x1b and len(command) == 24:  # LC_UUID
+            uuids.append(command[8:])
+        if kind != 0x19 or command[8:24].rstrip(b'\0') != b'__TEXT':  # LC_SEGMENT_64
+            continue
+        if len(command) < 72 or len(command) != 72 + 80 * struct.unpack_from('<I', command, 64)[0]:
+            raise ValueError(f'Invalid Mach-O section table for {target}.')
+        for section in range(72, len(command), 80):
+            if command[section:section + 16].rstrip(b'\0') == b'__text':
+                size, offset = struct.unpack_from('<QI', command, section + 40)
+                if size == 0 or offset + size > len(data):
+                    raise ValueError(f'Invalid Mach-O executable section for {target}.')
+                text.append(sha(data[offset:offset + size]))
+    if len(uuids) != 1 or len(text) != 1:
+        raise ValueError(f'Missing or duplicate Mach-O code identity for {target}.')
+    return uuids[0], text[0]
 
 
 def elf_dependencies(data: bytes, headers: list[tuple], loads: list[tuple]) -> set[bytes]:

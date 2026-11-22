@@ -663,6 +663,23 @@ class ReleaseArtifactTests(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "evidence"):
 				acceptance.verify_delivery(directory, VERSION, REVISION)
 
+	def test_exported_apple_identity_compares_uuid_and_code_independently_of_signing(self) -> None:
+		platforms = release_builder.gf_native_platforms
+		uuid = struct.pack("<II16s", 0x1b, 24, b"1" * 16)
+		segment = bytearray(72 + 80)
+		struct.pack_into("<II16s", segment, 0, 0x19, len(segment), b"__TEXT")
+		struct.pack_into("<I", segment, 64, 1)
+		struct.pack_into("<16s16s", segment, 72, b"__text", b"__TEXT")
+		offset = 32 + len(uuid) + len(segment)
+		struct.pack_into("<QI", segment, 72 + 40, 4, offset)
+		header = struct.pack("<8I", 0xfeedfacf, 0x100000c, 0, 6, 2, offset - 32, 0, 0)
+		binary = header + uuid + segment + b"code"
+		identity = platforms.apple_code_identity(platforms.IOS, binary)
+		self.assertEqual(identity, platforms.apple_code_identity(platforms.IOS, binary + b"signature"))
+		self.assertNotEqual(identity, platforms.apple_code_identity(platforms.IOS, binary[:-4] + b"edit"))
+		other_uuid = binary[:40] + b"2" * 16 + binary[56:]
+		self.assertNotEqual(identity, platforms.apple_code_identity(platforms.IOS, other_uuid))
+
 	def test_linux_build_enforces_the_published_glibc_baseline(self) -> None:
 		platforms = release_builder.gf_native_platforms
 		requirements = [

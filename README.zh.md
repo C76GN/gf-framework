@@ -40,6 +40,8 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 | 只需要 GDScript | `gf-framework-<version>.zip`，也可使用 Godot Asset Store / Asset Library 官方包 |
 | 已有同版本 GF，要给 Windows x64 项目加速 | `gf-native-windows-x86_64-<version>.zip`，只添加 `addons/gf_native` |
 
+使用 Godot 4.7.2 在 Apple Silicon 模拟器上运行时，需要选择对应的 iOS 模板。[iOS 模拟器设置](docs/zh/overview/quickstart/install-autoload.md)
+
 要按行筛选整型数据，在 `GF Workspace > GF Extensions` 启用 Data Batch。现有 GDScript 调用会自动选择可用后端。开发者和玩家都无需安装 Rust。若使用原生包，升级时同步替换同版本的 `addons/gf` 和 `addons/gf_native`。
 
 Godot 不会在文件复制到 `addons` 后自动启用编辑器插件，这是正常行为。插件启用状态属于目标项目的 `project.godot`，需要用户明确启用后，编辑器插件代码才会运行。
