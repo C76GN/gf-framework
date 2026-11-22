@@ -37,11 +37,6 @@ signal architecture_identity_changed(previous_architecture: GFArchitecture, curr
 ## @api private
 const _GF_VARIANT_ACCESS_SCRIPT = preload("res://addons/gf/kernel/core/gf_variant_access.gd")
 
-## 运行受作用域管理的异步 Installer 调用。
-## [br]
-## @api private
-const _GF_ASYNC_CALL_SCRIPT = preload("res://addons/gf/kernel/core/gf_async_call.gd")
-
 ## 规范化项目 Installer 资源路径。
 ## [br]
 ## @api private
@@ -1737,24 +1732,24 @@ func _apply_project_installers(architecture_instance: GFArchitecture, installer_
 				architecture_instance.fail_initialization(_last_project_installer_error)
 				return false
 			continue
-		if installer != null:
-			var install_completed: bool = await _await_project_installer_install(
-				installer,
-				architecture_instance,
-				path,
-				installer_scope
-			)
-			if not install_completed or not architecture_instance.is_project_installers_running():
-				return false
-			if installer.has_method("install_bindings"):
-				var bindings_completed: bool = await _await_project_installer_bindings(
-					installer,
-					architecture_instance,
-					path,
-					installer_scope
-				)
-				if not bindings_completed:
-					return false
+		var installed: bool = await _await_project_installer_step(
+			installer,
+			&"install",
+			architecture_instance,
+			installer_scope,
+			path
+		)
+		if not installed or not architecture_instance.is_project_installers_running():
+			return false
+		var bindings_installed: bool = await _await_project_installer_step(
+			installer,
+			&"install_bindings",
+			architecture_instance,
+			installer_scope,
+			path
+		)
+		if not bindings_installed:
+			return false
 		if not architecture_instance.is_project_installers_running():
 			return false
 
@@ -1766,161 +1761,40 @@ func _apply_project_installers(architecture_instance: GFArchitecture, installer_
 	)
 
 
-## 执行单个安装器；具备场景树且超时为正时通过分离协程与逐帧等待检测中断，否则直接等待安装函数返回。
+## 等待一次 install 或 install_bindings。无超时预算时直接等到返回，有预算时逐帧观察取消与截止时间。
 ## [br]
 ## @api private
-func _await_project_installer_install(
+func _await_project_installer_step(
 	installer: GFInstaller,
+	stage: StringName,
 	architecture_instance: GFArchitecture,
-	path: String,
-	installer_scope: GFAsyncScope
+	installer_scope: GFAsyncScope,
+	path: String
 ) -> bool:
 	var timeout_seconds: float = _get_project_installer_timeout_seconds()
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
-	if timeout_seconds <= 0.0 or scene_tree == null:
+	var target: Object = architecture_instance if stage == &"install" else architecture_instance.create_binder()
+	# 捕获 Installer 的强引用，等待者退出后其协程仍须执行到真正返回。
+	var work: Callable = func() -> void:
 		await installer.call(
-			&"install",
-			architecture_instance,
+			stage,
+			target,
 			installer_scope
 		)
-		return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
-
-	var completion_state: Dictionary = { "done": false, "write_blocked": false, }
-	_GF_ASYNC_CALL_SCRIPT.run_detached(
-		Callable(self, &"_complete_project_installer_install"),
-		[
-			installer,
-			architecture_instance,
-			installer_scope,
-			completion_state,
-		]
-	)
-	return await _wait_for_project_installer_step(
-		completion_state,
-		architecture_instance,
-		path,
-		"install",
-		timeout_seconds,
-		scene_tree,
-		installer_scope
-	)
-
-
-## 执行单个安装器的绑定入口并传入新 binder；仅有场景树和正超时时启用逐帧超时与取消检测。
-## [br]
-## @api private
-func _await_project_installer_bindings(
-	installer: GFInstaller,
-	architecture_instance: GFArchitecture,
-	path: String,
-	installer_scope: GFAsyncScope
-) -> bool:
-	var timeout_seconds: float = _get_project_installer_timeout_seconds()
-	var scene_tree: SceneTree = _get_scene_tree_or_null()
+	var step: GFArchitecture.LifecycleStep = architecture_instance._start_lifecycle_step(installer_scope, work)
 	if timeout_seconds <= 0.0 or scene_tree == null:
-		await installer.call(
-			&"install_bindings",
-			architecture_instance.create_binder(),
-			installer_scope
-		)
+		await step.wait_for_return()
 		return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
 
-	var completion_state: Dictionary = { "done": false, "write_blocked": false, }
-	_GF_ASYNC_CALL_SCRIPT.run_detached(
-		Callable(self, &"_complete_project_installer_bindings"),
-		[
-			installer,
-			architecture_instance,
-			installer_scope,
-			completion_state,
-		]
-	)
-	return await _wait_for_project_installer_step(
-		completion_state,
-		architecture_instance,
-		path,
-		"install_bindings",
-		timeout_seconds,
-		scene_tree,
-		installer_scope
-	)
-
-
-## 承接分离执行的安装协程；迟到返回时解除该步骤登记的过期写入阻断，再标记步骤完成。
-## [br]
-## @api private
-func _complete_project_installer_install(
-	installer: GFInstaller,
-	architecture_instance: GFArchitecture,
-	installer_scope: GFAsyncScope,
-	completion_state: Dictionary
-) -> void:
-	await installer.call(
-		&"install",
-		architecture_instance,
-		installer_scope
-	)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"write_blocked",
-		false
-	):
-		architecture_instance._end_stale_async_write_block()
-	completion_state["done"] = true
-
-
-## 承接分离执行的绑定安装协程；若等待方已阻断过期写入，返回后释放对应计数并标记完成。
-## [br]
-## @api private
-func _complete_project_installer_bindings(
-	installer: GFInstaller,
-	architecture_instance: GFArchitecture,
-	installer_scope: GFAsyncScope,
-	completion_state: Dictionary
-) -> void:
-	await installer.call(
-		&"install_bindings",
-		architecture_instance.create_binder(),
-		installer_scope
-	)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"write_blocked",
-		false
-	):
-		architecture_instance._end_stale_async_write_block()
-	completion_state["done"] = true
-
-
-## 逐帧等待安装步骤，取消、架构失败或超时会登记过期写入阻断后返回失败；超时同时令架构初始化失败，后台协程仍可能迟到返回。
-## [br]
-## @api private
-func _wait_for_project_installer_step(
-	completion_state: Dictionary,
-	architecture_instance: GFArchitecture,
-	path: String,
-	stage: String,
-	timeout_seconds: float,
-	scene_tree: SceneTree,
-	installer_scope: GFAsyncScope
-) -> bool:
 	var start_msec: int = Time.get_ticks_msec()
 	var timeout_msec: int = int(timeout_seconds * 1000.0)
-	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"done",
-		false
-	):
+	while not step.has_returned:
 		if installer_scope.is_cancel_requested():
-			_block_stale_project_installer_write(completion_state, architecture_instance)
 			return false
-		if (architecture_instance.has_initialization_failed() or not architecture_instance.is_project_installers_running()):
-			_block_stale_project_installer_write(completion_state, architecture_instance)
-			var _cancelled_stopped_scope: bool = installer_scope.cancel(_get_project_installer_cancel_reason(architecture_instance))
+		if architecture_instance.has_initialization_failed() or not architecture_instance.is_project_installers_running():
+			step.abandon(_get_project_installer_cancel_reason(architecture_instance))
 			return false
-		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
-		if elapsed_msec >= timeout_msec:
-			_block_stale_project_installer_write(completion_state, architecture_instance)
+		if Time.get_ticks_msec() - start_msec >= timeout_msec:
 			var timeout_reason: String = (
 				"[GF][gf.installer_timeout] Project Installer timed out: %s.%s() exceeded %.2f seconds."
 				% [
@@ -1929,25 +1803,11 @@ func _wait_for_project_installer_step(
 					timeout_seconds,
 				]
 			)
-			var _cancelled_timeout_scope: bool = installer_scope.cancel(timeout_reason)
+			step.abandon(timeout_reason)
 			architecture_instance.fail_initialization(timeout_reason)
 			return false
 		await scene_tree.process_frame
 	return not architecture_instance.has_initialization_failed() and not installer_scope.is_cancel_requested()
-
-
-## 为同一尚未返回的安装步骤至多登记一次过期写入阻断；计数由对应完成协程在实际返回后释放。
-## [br]
-## @api private
-func _block_stale_project_installer_write(completion_state: Dictionary, architecture_instance: GFArchitecture) -> void:
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"write_blocked",
-		false
-	):
-		return
-	completion_state["write_blocked"] = true
-	architecture_instance._begin_stale_async_write_block()
 
 
 ## 仅在项目安装阶段仍运行时将中断原因写为架构初始化失败，避免重复结算已经结束的安装。

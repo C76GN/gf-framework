@@ -410,10 +410,10 @@ var _project_installers_applied: bool = false
 ## @api private
 var _project_installers_running: bool = false
 
-## 迟到异步回调结算期间的写入屏障计数；大于零时拒绝运行期变更，解除时下限为零。
+## 已进入 Installer 或模块回调、尚未实际返回的步骤，按发起架构隔离。
 ## [br]
 ## @api private
-var _stale_async_write_block_count: int = 0
+var _pending_lifecycle_steps: Array[LifecycleStep] = []
 
 ## 初始化失败结算的重入屏障，覆盖作用域取消及失败状态清理，结算结束后复位。
 ## [br]
@@ -747,7 +747,7 @@ func begin_project_installers() -> bool:
 
 	if (
 		_initialization_failure_settlement_in_progress
-		or _stale_async_write_block_count > 0
+		or _has_stale_lifecycle_step()
 		or _runtime.is_quiescing()
 		or _runtime.is_disposing()
 		or _runtime.is_disposed()
@@ -776,7 +776,7 @@ func mark_project_installers_applied() -> void:
 	if (
 		not _project_installers_running
 		or _initialization_failure_settlement_in_progress
-		or _stale_async_write_block_count > 0
+		or _has_stale_lifecycle_step()
 		or _runtime.has_failed()
 		or _runtime.is_quiescing()
 		or _runtime.is_disposing()
@@ -844,9 +844,9 @@ func init(cancellation_token: GFCancellationToken = null) -> bool:
 		var waiting_serial: int = _runtime.get_lifecycle_generation()
 		return await _await_existing_initialization(waiting_serial, cancellation_token)
 
-	if _runtime.has_failed() and _stale_async_write_block_count > 0:
-		return false
 	if _runtime.has_failed():
+		if _has_stale_lifecycle_step():
+			return false
 		if not _runtime.clear_failure():
 			return false
 		last_initialization_error = ""
@@ -3280,21 +3280,39 @@ func register_utility_instance_for_required_plan_for_framework(
 	return registration_error
 
 
-## 供 Gf 的超时 Installer 续体登记迟到写入屏障；实际续体返回后必须对应解除。
+## 在执行用户回调前登记本次工作，供 Installer、模块启动和热替换共用。
 ## [br]
 ## @api framework_internal
-func _begin_stale_async_write_block() -> void:
-	_stale_async_write_block_count += 1
-
-
-## 解除一个迟到写入屏障，计数下限为零；不会恢复已失败的生命周期。
-## [br]
-## @api framework_internal
-func _end_stale_async_write_block() -> void:
-	_stale_async_write_block_count = maxi(
-		_stale_async_write_block_count - 1,
-		0
+func _start_lifecycle_step(scope: GFAsyncScope, work: Callable) -> LifecycleStep:
+	var step: LifecycleStep = LifecycleStep.new(scope)
+	_pending_lifecycle_steps.append(step)
+	_GF_ASYNC_CALL_SCRIPT.run_detached(
+		_run_lifecycle_step,
+		[step, work]
 	)
+	return step
+
+
+## 回调实际返回后，先释放本架构的步骤，再唤醒直接等待它的调用者。
+## [br]
+## @api private
+func _run_lifecycle_step(step: LifecycleStep, work: Callable) -> void:
+	await work.call()
+	_pending_lifecycle_steps.erase(step)
+	step.has_returned = true
+	step.returned.emit()
+
+
+## 失败的架构须等所有旧工作返回。正常工作只有在作用域取消或等待提前结束后才拦截写入。
+## [br]
+## @api private
+func _has_stale_lifecycle_step() -> bool:
+	if _runtime.has_failed():
+		return not _pending_lifecycle_steps.is_empty()
+	for step: LifecycleStep in _pending_lifecycle_steps:
+		if step.blocks_writes():
+			return true
+	return false
 
 
 ## 供 System/Utility 的 tick 配置变化请求调度器重建缓存。
@@ -3740,6 +3758,7 @@ func _call_module_async_init(instance: Object, async_scope: GFAsyncScope) -> voi
 		_lifecycle_hook_depth += 1
 		await async_init_callback.call(async_scope)
 		_lifecycle_hook_depth -= 1
+	_untrack_async_scope(async_scope)
 
 
 ## 按 Model、System 或 Utility 类型调用实例的 ready，并在调用期间增加 lifecycle hook 深度。
@@ -7099,88 +7118,52 @@ func _await_module_async_init(
 	cancellation_token: GFCancellationToken = null
 ) -> bool:
 	var async_scope: GFAsyncScope = _begin_module_async_scope()
+	if cancellation_token != null and cancellation_token.is_cancel_requested():
+		var pre_cancel_reason: String = String(cancellation_token.get_cancel_reason())
+		_cancel_module_async_scope(async_scope, pre_cancel_reason)
+		_fail_initialization(
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % pre_cancel_reason,
+			lifecycle_serial
+		)
+		return false
+
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
-	if scene_tree == null:
-		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var pre_cancel_reason: String = String(cancellation_token.get_cancel_reason())
-			_cancel_module_async_scope(async_scope, pre_cancel_reason)
-			_fail_initialization(
-				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % pre_cancel_reason,
-				lifecycle_serial
-			)
-			return false
-		await _call_module_async_init(instance, async_scope)
-		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var post_cancel_reason: String = String(cancellation_token.get_cancel_reason())
-			_cancel_module_async_scope(async_scope, post_cancel_reason)
-			_fail_initialization(
-				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % post_cancel_reason,
-				lifecycle_serial
-			)
-			return false
-		return _complete_module_async_scope(async_scope, lifecycle_serial)
-
-	var completion_state: Dictionary = { "done": false, "write_blocked": false, }
-	_GF_ASYNC_CALL_SCRIPT.run_detached(
-		Callable(self, &"_complete_module_async_init"),
-		[
-			instance,
-			completion_state,
-			async_scope,
-		]
+	var step: LifecycleStep = _start_lifecycle_step(
+		async_scope,
+		_call_module_async_init.bind(instance, async_scope)
 	)
-	var start_msec: int = Time.get_ticks_msec()
-	var timeout_msec: int = (int(module_async_init_timeout_seconds * 1000.0) if module_async_init_timeout_seconds > 0.0 else -1)
-	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"done",
-		false
-	):
-		if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
-			_cancel_module_async_scope(async_scope, last_initialization_error)
-			return false
-		if cancellation_token != null and cancellation_token.is_cancel_requested():
-			var cancel_reason: String = String(cancellation_token.get_cancel_reason())
-			_cancel_module_async_scope(async_scope, cancel_reason)
-			_fail_initialization(
-				"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % cancel_reason,
-				lifecycle_serial
-			)
-			return false
-		if async_scope.is_cancel_requested():
-			return false
-		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
-		if timeout_msec >= 0 and elapsed_msec >= timeout_msec:
-			completion_state["write_blocked"] = true
-			_begin_stale_async_write_block()
-			var timeout_reason: String = (
-				"[GFArchitecture][architecture.async_init_timeout] async_init timed out: %s exceeded %.2f seconds."
-				% [_get_instance_debug_key(instance), module_async_init_timeout_seconds,]
-			)
-			_cancel_module_async_scope(async_scope, timeout_reason)
-			_fail_initialization(timeout_reason, lifecycle_serial)
-			return false
-		await scene_tree.process_frame
+	if scene_tree == null:
+		await step.wait_for_return()
+	else:
+		var start_msec: int = Time.get_ticks_msec()
+		var timeout_msec: int = (int(module_async_init_timeout_seconds * 1000.0) if module_async_init_timeout_seconds > 0.0 else -1)
+		while not step.has_returned:
+			if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
+				step.abandon(last_initialization_error)
+				return false
+			if cancellation_token != null and cancellation_token.is_cancel_requested():
+				break
+			if async_scope.is_cancel_requested():
+				return false
+			if timeout_msec >= 0 and Time.get_ticks_msec() - start_msec >= timeout_msec:
+				var timeout_reason: String = (
+					"[GFArchitecture][architecture.async_init_timeout] async_init timed out: %s exceeded %.2f seconds."
+					% [_get_instance_debug_key(instance), module_async_init_timeout_seconds]
+				)
+				step.abandon(timeout_reason)
+				_fail_initialization(timeout_reason, lifecycle_serial)
+				return false
+			await scene_tree.process_frame
+
+	if cancellation_token != null and cancellation_token.is_cancel_requested():
+		var cancel_reason: String = String(cancellation_token.get_cancel_reason())
+		step.abandon(cancel_reason)
+		_fail_initialization(
+			"[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: %s." % cancel_reason,
+			lifecycle_serial
+		)
+		return false
 	return _complete_module_async_scope(async_scope, lifecycle_serial)
-
-
-## 等待异步 init 真正返回后解除它持有的迟到写屏障、解除作用域追踪，再设置共享 done 标记。
-## [br]
-## @api private
-func _complete_module_async_init(
-	instance: Object,
-	completion_state: Dictionary,
-	async_scope: GFAsyncScope
-) -> void:
-	await _call_module_async_init(instance, async_scope)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"write_blocked",
-		false
-	):
-		_end_stale_async_write_block()
-	_untrack_async_scope(async_scope)
-	completion_state["done"] = true
 
 
 ## 仅当前代次首次失败可结算；在重入屏障内取消异步工作、清空失败注册集并发出终结信号。
@@ -7902,72 +7885,37 @@ func _prepare_replacement_module(instance: Object, lifecycle_serial: int) -> boo
 ## @api private
 func _await_replacement_module_async_init(instance: Object, lifecycle_serial: int) -> bool:
 	var async_scope: GFAsyncScope = _begin_module_async_scope()
-	if module_async_init_timeout_seconds <= 0.0:
-		await _call_module_async_init(instance, async_scope)
-		return _complete_module_async_scope(async_scope, lifecycle_serial)
-
+	var timeout_seconds: float = module_async_init_timeout_seconds
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
-	if scene_tree == null:
-		await _call_module_async_init(instance, async_scope)
+	var step: LifecycleStep = _start_lifecycle_step(
+		async_scope,
+		_call_module_async_init.bind(instance, async_scope)
+	)
+	if timeout_seconds <= 0.0 or scene_tree == null:
+		await step.wait_for_return()
 		return _complete_module_async_scope(async_scope, lifecycle_serial)
 
-	var completion_state: Dictionary = { "done": false, "write_blocked": false, }
-	_GF_ASYNC_CALL_SCRIPT.run_detached(
-		Callable(self, &"_complete_replacement_module_async_init"),
-		[
-			instance,
-			completion_state,
-			async_scope,
-		]
-	)
 	var start_msec: int = Time.get_ticks_msec()
-	var timeout_msec: int = int(module_async_init_timeout_seconds * 1000.0)
-	while not _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"done",
-		false
-	):
+	var timeout_msec: int = int(timeout_seconds * 1000.0)
+	while not step.has_returned:
 		if not _is_lifecycle_current(lifecycle_serial) or _runtime.has_failed():
-			_cancel_module_async_scope(async_scope, last_initialization_error)
+			step.abandon(last_initialization_error)
 			return false
-		var elapsed_msec: int = Time.get_ticks_msec() - start_msec
-		if elapsed_msec >= timeout_msec:
-			completion_state["write_blocked"] = true
-			_begin_stale_async_write_block()
-			push_error(
+		if Time.get_ticks_msec() - start_msec >= timeout_msec:
+			var label: String = _get_module_label_for_instance(instance)
+			var diagnostic: String = (
 				"[GFArchitecture][architecture.replacement_async_init_timeout] replace_%s timed out: %s.async_init() exceeded %.2f seconds; the previous instance was retained."
 				% [
-					_get_module_label_for_instance(instance),
+					label,
 					_get_instance_debug_key(instance),
-					module_async_init_timeout_seconds,
+					timeout_seconds,
 				]
 			)
-			_cancel_module_async_scope(
-				async_scope,
-				"[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % _get_module_label_for_instance(instance)
-			)
+			step.abandon("[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % label)
+			push_error(diagnostic)
 			return false
 		await scene_tree.process_frame
 	return _complete_module_async_scope(async_scope, lifecycle_serial)
-
-
-## 候选异步 init 真正返回后解除它的超时写屏障并取消追踪，最后置 done，供等待方读取。
-## [br]
-## @api private
-func _complete_replacement_module_async_init(
-	instance: Object,
-	completion_state: Dictionary,
-	async_scope: GFAsyncScope
-) -> void:
-	await _call_module_async_init(instance, async_scope)
-	if _GF_VARIANT_ACCESS_SCRIPT.get_option_bool(
-		completion_state,
-		"write_blocked",
-		false
-	):
-		_end_stale_async_write_block()
-	_untrack_async_scope(async_scope)
-	completion_state["done"] = true
 
 
 ## 集中拒绝冻结生命周期、迟到写屏障、工厂重入、子架构租约、在途事务及生命周期钩子内的注册修改。
@@ -7983,8 +7931,8 @@ func _can_mutate_registration_state(context: String) -> bool:
 	if _runtime.has_failed():
 		push_error("[GFArchitecture][architecture.registry_write_initialization_failed] %s failed: architecture initialization failed; late writes are rejected." % context)
 		return false
-	if _stale_async_write_block_count > 0:
-		push_error("[GFArchitecture][architecture.registry_write_async_timeout] %s failed: a timed-out asynchronous operation is still running; late writes are rejected." % context)
+	if _has_stale_lifecycle_step():
+		push_error("[GFArchitecture][architecture.registry_write_async_timeout] %s failed: a cancelled or timed-out lifecycle step is still running; late writes are rejected." % context)
 		return false
 	if _runtime.is_initializing():
 		push_error("[GFArchitecture][architecture.registry_write_plan_frozen] %s failed: the lifecycle plan is frozen; registry changes are forbidden during initialization." % context)
@@ -8081,7 +8029,7 @@ func _begin_module_async_scope() -> GFAsyncScope:
 	return async_scope
 
 
-## 只有代次有效、架构未失败且作用域未取消才 complete；无论成功与否都解除该作用域追踪。
+## 只有代次有效、架构未失败且作用域未取消才 complete。回调的追踪由其实际返回收尾。
 ## [br]
 ## @api private
 func _complete_module_async_scope(async_scope: GFAsyncScope, lifecycle_serial: int) -> bool:
@@ -8094,14 +8042,13 @@ func _complete_module_async_scope(async_scope: GFAsyncScope, lifecycle_serial: i
 	)
 	if completed:
 		async_scope.complete()
-	_untrack_async_scope(async_scope)
 	return completed
 
 
 ## 取消给定作用域，空原因补充生命周期取消诊断；不在此解除追踪或强行终止异步函数。
 ## [br]
 ## @api private
-func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> void:
+static func _cancel_module_async_scope(async_scope: GFAsyncScope, reason: String) -> void:
 	if async_scope == null:
 		return
 	var cancel_reason: String = reason
@@ -8912,6 +8859,64 @@ func _has_assignable_instance(module_registry: ModuleRegistry, script_cls: Scrip
 
 
 # --- 内部类 ---
+
+## LifecycleStep: 一个 Installer 或模块回调从开始到实际返回的记录。
+## [br]
+## @api framework_internal
+## [br]
+## @layer kernel/core
+class LifecycleStep:
+	extends RefCounted
+
+	## 实际回调及其架构登记都已收尾。
+	## [br]
+	## @api framework_internal
+	signal returned
+
+	## 工作可能在首个 await 前返回。
+	## [br]
+	## @api framework_internal
+	var has_returned: bool = false
+
+	## 生命周期调用者提供给此步骤的同一个作用域。
+	## [br]
+	## @api private
+	var _scope: GFAsyncScope
+
+	## 等待方已提前退出，即使用户已自行 complete 作用域也要拒绝迟到写入。
+	## [br]
+	## @api private
+	var _abandoned: bool = false
+
+	## 保存作用域以便同步观察用户发起的取消。
+	## [br]
+	## @api framework_internal
+	func _init(scope: GFAsyncScope) -> void:
+		_scope = scope
+
+
+	## 无 deadline 时直接等到回调返回，包括取消后仍在运行的工作。
+	## [br]
+	## @api framework_internal
+	func wait_for_return() -> void:
+		if not has_returned:
+			await returned
+
+
+	## 先撤销写入资格。scope.cancel() 的清理回调可能同步恢复旧工作。
+	## [br]
+	## @api framework_internal
+	func abandon(reason: String) -> void:
+		_abandoned = true
+		GFArchitecture._cancel_module_async_scope(_scope, reason)
+
+
+	## 作用域也可能由用户回调主动取消，早于等待者下一帧观察它。
+	## [br]
+	## @api framework_internal
+	func blocks_writes() -> bool:
+		return _abandoned or _scope.is_cancel_requested()
+
 
 ## TopologyMutation: 已接纳模块拓扑事务的所有权与终态描述符。
 ##
