@@ -218,7 +218,11 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
         for engine_log in container.rglob('godot.log'):
             shutil.copyfile(engine_log, logs / 'simulator.log')
             break
-        raise RuntimeError('The installed iOS Simulator app did not produce its runtime report.')
+        saved = next(container.rglob(f'gf-native-{token}.json'), None)
+        if saved is not None:
+            shutil.copyfile(saved, logs / 'simulator-report.json')
+            raise RuntimeError('iOS wrote its runtime result but the engine log did not confirm scene completion.')
+        raise RuntimeError('The installed iOS Simulator app did not write its runtime result.')
     finally:
         invoke([*simctl, 'uninstall', simulator, package])
 

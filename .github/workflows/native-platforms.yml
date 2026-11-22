@@ -211,5 +211,7 @@ jobs:
         if: failure()
         with:
           name: gf-native-apple-diagnostics
-          path: build/native-export-*/*.log
+          path: |
+            build/native-export-*/*.log
+            build/native-export-ios-*/simulator-report.json
           if-no-files-found: ignore

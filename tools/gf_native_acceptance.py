@@ -154,7 +154,7 @@ def prepare_project(workspace: Path, *, standard_only: bool = False, platform_to
     enabled = '[]' if standard_only else '["gf.data_batch"]'
     (workspace / 'project.godot').write_text(
         'config_version=5\n[application]\nconfig/name="GF native acceptance"\nrun/main_scene="res://main.tscn"\n'
-        'config/icon="res://addons/gf/icon.png"\n[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
+        'run/flush_stdout_on_print=true\nconfig/icon="res://addons/gf/icon.png"\n[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
         '[editor_plugins]\nenabled=PackedStringArray("res://addons/gf/plugin.cfg")\n'
         f'[gf]\nextensions/selection_mode="explicit"\nextensions/enabled=Array[String]({enabled})\n'
         '[rendering]\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.mobile="gl_compatibility"\n'
