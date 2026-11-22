@@ -282,6 +282,28 @@ def _close_process_pipes(process: subprocess.Popen[str]) -> None:
 			process.stderr.close()
 
 
+def _darwin_group_contains_only_exited_leader(group_id: int) -> bool:
+	"""Call only with an owned, unreaped, independently confirmed exited leader."""
+	if sys.platform != "darwin" or group_id <= 0:
+		return False
+	import ctypes
+
+	# XNU skips zombies when signalling a group and can return EPERM for a group
+	# containing only its zombie leader. PROC_PGRP_ONLY enumerates live and zombie
+	# members under the kernel process-list lock. Two PID slots detect any companion.
+	try:
+		libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+		list_pids = libproc.proc_listpids
+		list_pids.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int]
+		list_pids.restype = ctypes.c_int
+		members = (ctypes.c_int * 2)()
+		ctypes.set_errno(0)
+		size = list_pids(2, group_id, members, ctypes.sizeof(members))
+		return (size == 0 and ctypes.get_errno() == 0) or (size == ctypes.sizeof(ctypes.c_int) and members[0] == group_id)
+	except (AttributeError, OSError):
+		return False
+
+
 def _linux_process_group_cleanup_state(
 	process_group_id: int,
 	*,
@@ -609,6 +631,9 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 				f"Could not inspect the direct child before POSIX process-group cleanup; "
 				f"continuing with forced cleanup: {error}"
 			)
+		if direct_exited and _darwin_group_contains_only_exited_leader(self.process_group_id):
+			self._termination_succeeded = True
+			return []
 		termination_notes = terminate_posix_process_group_id(
 			self.process_group_id,
 			grace_seconds=0.0 if direct_exited else 0.1,
@@ -639,6 +664,9 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 				self.cleanup_failed = True
 				return ["Owned POSIX process group identity was unavailable during cleanup."]
 		try:
+			if sys.platform == "darwin" and self.wait_for_direct_exit(process, 0.0) and _darwin_group_contains_only_exited_leader(self.process_group_id):
+				self._termination_succeeded = True
+				return []
 			os.killpg(self.process_group_id, signal.SIGKILL)
 		except ProcessLookupError:
 			self._termination_succeeded = True

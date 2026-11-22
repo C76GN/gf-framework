@@ -51,7 +51,7 @@ def invoke(command: list[str], timeout: int = 180, *, cwd: Path = dist.ROOT,
     output = result.stdout + '\n' + result.stderr
     if (result.return_code or result.timed_out or result.cancelled or not result.process_boundary_quiescent
             or result.stdout_truncated or result.stderr_truncated):
-        raise RuntimeError(f'{command[0]} failed (exit {result.return_code}): {output[-4000:]}')
+        raise RuntimeError(f'{command[0]} failed (exit {result.return_code}, {result.notes}): {output[-4000:]}')
     return output
 
 

@@ -26,6 +26,28 @@ if str(TOOLS_ROOT) not in sys.path:
 import gf_process_supervisor
 
 
+class DarwinGroupMembershipTests(unittest.TestCase):
+	def test_only_the_unreaped_leader_can_bypass_signalling(self) -> None:
+		leader = 1234
+		def probe(members: list[int], error: int = 0) -> bool:
+			libproc = mock.Mock()
+			def enumerate_group(kind: int, group: int, output: object, size: int) -> int:
+				self.assertEqual((kind, group, size), (2, leader, 2 * ctypes.sizeof(ctypes.c_int)))
+				for index, pid in enumerate(members):
+					output[index] = pid
+				ctypes.set_errno(error)
+				return len(members) * ctypes.sizeof(ctypes.c_int)
+			libproc.proc_listpids.side_effect = enumerate_group
+			with mock.patch.object(sys, "platform", "darwin"), mock.patch.object(ctypes, "CDLL", return_value=libproc):
+				return gf_process_supervisor._darwin_group_contains_only_exited_leader(leader)
+
+		self.assertTrue(probe([leader]))
+		self.assertTrue(probe([]))
+		self.assertFalse(probe([], 1))
+		self.assertFalse(probe([5678]))
+		self.assertFalse(probe([leader, 5678]))
+
+
 _PROC_SUPER_MAGIC = 0x9FA0
 _TERMINAL_PROCESS_STATES = frozenset(("Z", "X", "x"))
 _SERVICE_ENVIRONMENT = {
