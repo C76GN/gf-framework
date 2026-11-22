@@ -89,7 +89,8 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
         for key, value in [('PATH', str(keystore)), ('USER', 'fixture'), ('PASSWORD', 'android')]:
             os.environ[f'GODOT_ANDROID_KEYSTORE_{kind}_{key}'] = value
     options = (f'package/unique_name="{package}"\narchitectures/armeabi-v7a=false\n'
-               'architectures/arm64-v8a=true\narchitectures/x86=false\narchitectures/x86_64=true')
+               'architectures/arm64-v8a=true\narchitectures/x86=false\narchitectures/x86_64=true\n'
+               'command_line/extra_args="--rendering-method gl_compatibility"')
     apk = logs / 'game.apk'
     export(godot, project, 'Android', options, apk, logs, profile)
     with zipfile.ZipFile(apk) as archive:
@@ -147,6 +148,12 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
     return results
 
 
+def check_simulator_diagnostics(engine_log: Path, logs: Path) -> None:
+    shutil.copyfile(engine_log, logs / 'simulator.log')
+    for name in ('simulator.log', 'simulator.stdout.log', 'simulator.stderr.log'):
+        acceptance.check_engine_diagnostics((logs / name).read_text(encoding='utf-8'), name, logs)
+
+
 def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profile: str) -> dict:
     package = 'org.godotengine.gfnative.t' + token
     options = (f'application/bundle_identifier="{package}"\napplication/app_store_team_id="GFFIXTURE1"\n'
@@ -184,9 +191,7 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
                             pass
                         else:
                             invoke([*simctl, 'terminate', simulator, package])
-                        output = engine_log.read_text(encoding='utf-8')
-                        (logs / 'simulator.log').write_text(output, encoding='utf-8')
-                        acceptance.check_engine_diagnostics(output, 'iOS simulator', logs)
+                        check_simulator_diagnostics(engine_log, logs)
                         return {'arm64-simulator': report(MARKER + encoded, token, 'iOS', 'arm64', profile)}
             time.sleep(1)
         for engine_log in container.rglob('godot.log'):

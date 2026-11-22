@@ -11,6 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools'))
 import gf_native_acceptance as acceptance
 import gf_native_distribution as distribution
+import gf_native_platform_acceptance as platform_acceptance
 import gf_extension_export_acceptance as extension_exports
 from gf_extension_export_check import PASSED, REJECTED, RESULT, export_policy_error, policy_verdict
 from gf_process_supervisor import SupervisedProcessCleanupError, SupervisedProcessResult
@@ -101,6 +102,19 @@ class NativeAcceptanceTests(unittest.TestCase):
                 orders.append([path.relative_to(root).as_posix() for path in distribution.native_inputs()])
         self.assertEqual(orders[0], orders[1])
         self.assertEqual(orders[0], sorted(orders[0]))
+
+    def test_simulator_fails_on_a_diagnostic_reported_only_during_native_shutdown(self):
+        engine = self.directory / 'godot.log'
+        engine.write_text('GF_NATIVE_FINISHED=fixture\n', encoding='utf-8')
+        stdout = self.directory / 'simulator.stdout.log'
+        stderr = self.directory / 'simulator.stderr.log'
+        for stream in (stdout, stderr):
+            with self.subTest(stream=stream.name):
+                stdout.write_text('', encoding='utf-8')
+                stderr.write_text('', encoding='utf-8')
+                stream.write_text("thread 'main' panicked at fixture", encoding='utf-8')
+                with self.assertRaisesRegex(RuntimeError, stream.name):
+                    platform_acceptance.check_simulator_diagnostics(engine, self.directory)
 
     def test_fresh_import_rejects_pre_registered_project_before_launch(self):
         cache = self.directory / '.godot'
