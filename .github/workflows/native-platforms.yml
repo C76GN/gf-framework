@@ -27,11 +27,11 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install the Android NDK
         if: matrix.name == 'linux-android'
         run: |
-          sdkmanager --install "ndk;28.1.13356709"
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.1.13356709"
           echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/28.1.13356709" >> "${GITHUB_ENV}"
       - name: Build target libraries
         working-directory: native/gf_native
@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: actions/download-artifact@v8
         with:
           pattern: gf-native-slices-*
@@ -76,7 +76,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: actions/download-artifact@v8
         with:
           name: gf-native-delivery-overlay
@@ -92,9 +92,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install "build-tools;35.0.1" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;35.0.1" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
           sudo chmod a+rw /dev/kvm
-          echo no | avdmanager create avd --name gf_native --package "system-images;android-35;google_apis;x86_64"
+          echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd --name gf_native --package "system-images;android-35;google_apis;x86_64"
           "${ANDROID_HOME}/emulator/emulator" -avd gf_native -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect >"${RUNNER_TEMP}/emulator.log" 2>&1 &
           trap 'adb -s emulator-5556 emu kill || true' EXIT
           timeout 300 adb -s emulator-5556 wait-for-device
@@ -122,7 +122,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - uses: actions/download-artifact@v8
         with:
           name: gf-native-delivery-overlay
