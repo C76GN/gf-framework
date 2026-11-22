@@ -150,14 +150,14 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
 def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profile: str) -> dict:
     package = 'org.godotengine.gfnative.t' + token
     options = (f'application/bundle_identifier="{package}"\napplication/app_store_team_id="GFFIXTURE1"\n'
-               'application/export_project_only=true\narchitectures/arm64=true')
+               'application/export_project_only=true\narchitectures/arm64=true\nstoryboard/image_scale_mode=1')
     export(godot, project, 'iOS', options, logs / 'Game.ipa', logs, profile)
     xcode = logs / 'Game.xcodeproj'
     common = ['xcodebuild', '-project', str(xcode), '-scheme', 'Game', '-configuration', profile.capitalize(),
-              '-derivedDataPath', str(logs / 'derived'), 'CODE_SIGNING_ALLOWED=NO', 'CODE_SIGNING_REQUIRED=NO']
+              '-derivedDataPath', str(logs / 'derived')]
     for sdk, destination in [('iphoneos', 'generic/platform=iOS'), ('iphonesimulator', 'id=' + simulator)]:
-        output = invoke([*common, '-sdk', sdk, '-destination', destination, 'build'], 900)
-        (logs / (sdk + '.log')).write_text(output, encoding='utf-8')
+        signing = ['CODE_SIGNING_ALLOWED=NO'] if sdk == 'iphoneos' else ['CODE_SIGN_IDENTITY=-', 'DEVELOPMENT_TEAM=']
+        invoke([*common, '-sdk', sdk, '-destination', destination, *signing, 'build'], 900, log=logs / (sdk + '.log'))
         app, = (logs / f'derived/Build/Products/{profile.capitalize()}-{sdk}').glob('*.app')
         framework = app / 'Frameworks/libgf_native.framework/libgf_native'
         native.check_binary(native.IOS if sdk == 'iphoneos' else native.SIM, framework.read_bytes())
@@ -165,7 +165,8 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
     invoke([*simctl, 'install', simulator, str(app)])
     try:
         container = Path(invoke([*simctl, 'get_app_container', simulator, package, 'data']).strip())
-        launch = invoke([*simctl, 'launch', simulator, package]).strip()
+        launch = invoke([*simctl, 'launch', f'--stdout={logs / "simulator.stdout.log"}',
+                         f'--stderr={logs / "simulator.stderr.log"}', simulator, package]).strip()
         pid = int(launch.rsplit(':', 1)[1])
         deadline = time.monotonic() + 150
         while time.monotonic() < deadline:
@@ -188,6 +189,9 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
                         acceptance.check_engine_diagnostics(output, 'iOS simulator', logs)
                         return {'arm64-simulator': report(MARKER + encoded, token, 'iOS', 'arm64', profile)}
             time.sleep(1)
+        for engine_log in container.rglob('godot.log'):
+            shutil.copyfile(engine_log, logs / 'simulator.log')
+            break
         raise RuntimeError('The installed iOS Simulator app did not produce its runtime report.')
     finally:
         invoke([*simctl, 'uninstall', simulator, package])

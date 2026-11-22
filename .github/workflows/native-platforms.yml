@@ -93,6 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;35.0.1" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          export PATH="${ANDROID_HOME}/platform-tools:${PATH}"
           sudo chmod a+rw /dev/kvm
           echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd --name gf_native --package "system-images;android-35;google_apis;x86_64"
           "${ANDROID_HOME}/emulator/emulator" -avd gf_native -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect >"${RUNNER_TEMP}/emulator.log" 2>&1 &

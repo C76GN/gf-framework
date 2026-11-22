@@ -44,11 +44,13 @@ def sha(data: bytes) -> str:
 
 
 def invoke(command: list[str], timeout: int = 180, *, cwd: Path = dist.ROOT,
-           environment: dict[str, str] | None = None) -> str:
+           environment: dict[str, str] | None = None, log: Path | None = None) -> str:
     result = run_supervised_process(command, cwd=cwd, environment=dict(os.environ) if environment is None else environment,
                                     timeout_seconds=timeout, max_stdout_characters=8_000_000, max_stderr_characters=1_000_000,
                                     heartbeat_callback=lambda elapsed, _pid: print(f'{Path(command[0]).name}: {elapsed:.0f}s', flush=True))
     output = result.stdout + '\n' + result.stderr
+    if log is not None:
+        log.write_text(output, encoding='utf-8')
     if (result.return_code or result.timed_out or result.cancelled or not result.process_boundary_quiescent
             or result.stdout_truncated or result.stderr_truncated):
         raise RuntimeError(f'{command[0]} failed (exit {result.return_code}, {result.notes}): {output[-4000:]}')
