@@ -6,6 +6,7 @@ var _failures: Array[String] = []
 
 func _ready() -> void:
 	_failures.append_array(preload("res://tests/native/terrain_rgb/acceptance.gd").check(true))
+	_failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(true))
 	var automatic: GFDataBatchPublication = GFDataBatchPublication.create(
 		_schema(),
 		&"automatic",

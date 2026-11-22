@@ -36,9 +36,10 @@ CASES = {
     "height_queries_64": ("public",), "height_queries_512": ("public",), "surface_scatter_512": ("public",),
     "noise_96": ("public",), "noise_256": ("public",),
     "voronoi_64": ("public", "insertion"), "voronoi_256": ("public", "insertion"),
+    "voronoi_512": ("public", "insertion"),
     "flow_open_32": ("public", "native_probe"), "flow_open_64": ("public", "native_probe"),
-    "wfc_entropy_8": ("public", "native_probe", "mrv"), "wfc_entropy_16": ("public", "native_probe", "mrv"),
-    "wfc_weighted_fixed_12": ("public", "native_probe"),
+    "wfc_entropy_8": ("native", "portable", "mrv"), "wfc_entropy_16": ("native", "portable", "mrv"),
+    "wfc_weighted_fixed_12": ("native", "portable"), "wfc_128_tiles_8": ("native", "portable"),
 }
 MATH_DIR = Path("addons/gf/standard/foundation/math")
 BASELINES = {"height": ("heightfield_3d", "GFHeightfield3D"), "flow": ("grid_path_math_2d", "GFGridPathMath2D"),
@@ -47,21 +48,17 @@ BASELINES = {"height": ("heightfield_3d", "GFHeightfield3D"), "flow": ("grid_pat
              "scatter": ("surface_scatter_sampler_3d", "GFSurfaceScatterSampler3D")}
 
 
-def profile_voronoi(project: Path) -> None:
-    """Time the full insertion loop with two clock reads, retaining the complete public result."""
-    source = (project / MATH_DIR / "gf_voronoi_2d.gd").read_text(encoding="utf-8")
-    for anchor, replacement in (
-        ("class_name GFVoronoi2D", "class_name GfBenchmarkVoronoiProfile"),
-        ("extends RefCounted", "extends RefCounted\n\nstatic var insert_usec: int = 0"),
-        ("\tvar working_triangles: Array[Dictionary] = [first_triangle]",
-         "\tvar started: int = Time.get_ticks_usec()\n\tvar working_triangles: Array[Dictionary] = [first_triangle]"),
-        ("\tvar result: Array[PackedInt32Array] = []\n\tfor triangle: Dictionary in working_triangles:",
-         "\tinsert_usec = Time.get_ticks_usec() - started\n\tvar result: Array[PackedInt32Array] = []\n\tfor triangle: Dictionary in working_triangles:"),
-    ):
-        if source.count(anchor) != 1:
-            raise ValueError("Update the Voronoi insertion timing anchors for the current implementation")
-        source = source.replace(anchor, replacement)
-    (project / "profile_voronoi.gd").write_text(source, encoding="utf-8")
+def profile_voronoi(source_path: Path, target: Path) -> None:
+    """Measure only the insertion loop on a separate copy of the selected implementation."""
+    source = source_path.read_text(encoding="utf-8-sig")
+    source, classes = re.subn(r"(?m)^class_name \w+$", "", source)
+    source, bases = re.subn(r"(?m)^extends RefCounted$", "extends RefCounted\n\nstatic var insert_usec: int = 0", source)
+    loop = r"(?m)^(\tfor point_index: int in range\(points\.size\(\)\):\n\t\t_insert_point\(\n(?:\t\t\t[^\n]*\n)+\t\t\)\n)"
+    source, loops = re.subn(loop, lambda match: "\tvar started: int = Time.get_ticks_usec()\n" + match[0]
+                            + "\tinsert_usec = Time.get_ticks_usec() - started\n", source)
+    if (classes, bases, loops) != (1, 1, 1):
+        raise ValueError(f"Cannot locate the Voronoi insertion loop in {source_path.name}")
+    target.write_text(source, encoding="utf-8")
 
 
 def runtime_sources() -> list[Path]:
@@ -80,7 +77,7 @@ def stage(project: Path, probe: Path, native: Path) -> None:
         (project / f"{dll.stem}.gdextension").write_text(
             '[configuration]\nentry_symbol="gdext_rust_init"\ncompatibility_minimum="4.6"\n'
             f'[libraries]\nwindows.x86_64="./{dll.name}"\n', encoding="utf-8")
-    profile_voronoi(project)
+    profile_voronoi(project / MATH_DIR / 'gf_voronoi_2d.gd', project / 'profile_voronoi.gd')
     (project / "project.godot").write_text(
         'config_version=5\n[application]\nconfig/name="GF Foundation Benchmark"\nrun/main_scene="res://main.tscn"\n'
         '[rendering]\nrenderer/rendering_method="gl_compatibility"\n', encoding="utf-8")
@@ -95,7 +92,7 @@ def stage(project: Path, probe: Path, native: Path) -> None:
 
 def stage_baseline(project: Path, kind: str, path: Path) -> str:
     data = path.read_bytes()
-    source = data.decode("utf-8-sig")
+    source = data.decode("utf-8-sig").replace("\r\n", "\n")
     _, class_name = BASELINES[kind]
     if not re.search(rf"(?m)^class_name {class_name}\s*$", source):
         raise ValueError(f"{path} must declare {class_name}")
@@ -117,6 +114,8 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
     if (report["release"] is not True or report["failures"] or report["warmups"] != 2
             or report["samples"] != 9 or [case["name"] for case in report["cases"]] != list(CASES)):
         raise ValueError(f"Incomplete differential run: {report}")
+    if report.get("geometry_comparisons") != (504 if "voronoi" in baselines else 0):
+        raise ValueError("Incomplete geometry differential corpus")
     medians = {}
     for case in report["cases"]:
         name = case["name"]
@@ -125,6 +124,8 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
         baseline_kind = {"terrain": "height", "surface": "scatter"}.get(kind, kind)
         if baseline_kind in baselines and baseline_kind in {"height", "noise", "voronoi", "flow", "scatter"}:
             required.add("previous")
+        if kind == "voronoi" and "voronoi" in baselines:
+            required.add("previous_insertion")
         if set(case["usec"]) != required:
             raise ValueError(f"Incomplete measurements for {name}")
         medians[name] = case["median_ms"] = {}
@@ -137,10 +138,17 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
     terrain = medians["terrain_rgb8_512"]
     if terrain["native"] > terrain["portable"] * 0.5:
         raise ValueError("Installed Terrain-RGB decoder is not accelerating the public entry point")
+    for workload, fraction in (("wfc_entropy_16", 0.5), ("wfc_weighted_fixed_12", 0.8),
+                               ("wfc_128_tiles_8", 0.8)):
+        wfc = medians[workload]
+        if wfc["native"] > wfc["portable"] * fraction:
+            raise ValueError(f"Installed WFC backend did not accelerate {workload}")
     # A 64-fold area increase should leave eight reads approximately constant. A timer
     # floor and wide ratio tolerate CPU scheduling noise while detecting a full-map scan.
     if medians["height_queries_512"]["public"] > max(0.020, medians["height_queries_64"]["public"]) * 8:
         raise ValueError("Eight height queries scale with grid area")
+    if "voronoi" in baselines and medians["voronoi_512"]["public"] > medians["voronoi_512"]["previous"] * 1.5:
+        raise ValueError("Building the 512-site Voronoi diagram regressed against the reference")
     return report
 
 
@@ -153,6 +161,7 @@ def main() -> None:
     parser.add_argument("--godot", default="godot", help="Godot editor with the matching Windows export template")
     parser.add_argument("--height-baseline", type=Path, help="Older trusted gf_heightfield_3d.gd for a paired comparison")
     parser.add_argument("--baseline-root", type=Path, help="Trusted reference worktree for paired public operations")
+    parser.add_argument("--voronoi-baseline", type=Path, help="Reference geometry implementation for differential tests")
     args = parser.parse_args()
     if sys.platform != "win32":
         parser.error("This fixture qualifies Windows x86_64")
@@ -185,6 +194,10 @@ def main() -> None:
                 baselines[kind] = stage_baseline(project, kind, args.baseline_root / MATH_DIR / f"gf_{filename}.gd")
         if args.height_baseline:
             baselines["height"] = stage_baseline(project, "height", args.height_baseline)
+        if args.voronoi_baseline:
+            baselines["voronoi"] = stage_baseline(project, "voronoi", args.voronoi_baseline)
+        if "voronoi" in baselines:
+            profile_voronoi(project / "voronoi_baseline.gd", project / "profile_previous_voronoi.gd")
         game = sandbox / "export/game.exe"
         game.parent.mkdir()
         editor = [str(godot), "--headless", "--path", str(project)]

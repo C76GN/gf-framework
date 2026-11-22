@@ -1,6 +1,6 @@
 # GF Native
 
-GF Native is the optional Windows x64 addon for packed integer row selection and Terrain-RGB height decoding. The Data Batch and heightfield APIs select the installed capability automatically on the main thread.
+GF Native is the optional Windows x64 addon for packed integer row selection, Terrain-RGB height decoding and tiled WFC entropy solving. Their public GF APIs select the installed capability automatically on the main thread.
 
 ## Install in a game
 
@@ -13,6 +13,8 @@ Extract one archive at the root of the Godot project, beside `project.godot`.
 | Portable GF for other targets or script-only projects | `gf-framework-<version>.zip` |
 
 GFHeightfield3D uses the installed decoder for RGB8 and RGBA8 without enabling Data Batch. The portable package and worker threads run the GDScript decoder. See the [heightfield guide](../../docs/zh/standard/foundation/grid-spatial/heightfield-surface-scatter-3d.md).
+
+The standard WFC API, `GFWaveFunctionCollapse2D.solve_grid()`, accelerates entropy-based selection on grids up to 4096 cells with 1–128 tile types. Worker threads, portable installations, other heuristics and larger caller-approved grids or tile sets use the script solver. Both paths support unrestricted and directional adjacency, fixed cells, periodic boundaries, step limits and the same seeded report. See the [WFC guide](../../docs/zh/standard/foundation/grid-spatial/wave-function-collapse-2d.md).
 
 Enable GF Framework in Project Settings. To use integer gather, enable Data Batch in GF Workspace → GF Extensions. The usual five-argument `GFDataBatchPublication.create()` connects automatically on the main thread. An explicit sixth argument of `null` selects GDScript. A project can also supply its own backend or require a compatible backend. See the [Data Batch guide](../../docs/zh/extensions/data-batch/index.md#可选原生-gather).
 
@@ -27,7 +29,7 @@ python tools/build_gf_release_artifacts.py --output-dir build/release
 python tools/build_gf_release_artifacts.py --manifest build/release/gf-release-artifacts-<version>.json --validate-only
 ```
 
-The builder compiles one release DLL and verifies the dependencies recorded by the linker. It installs the complete ZIP in a fresh project, compares real gather and height samples against GDScript, tests adding the supplement to a portable project at a different path, and runs both exported executables with their own copies of the DLL and notices. The manifest records the size and SHA-256 of each published archive. Validation of transported archives reads the same bytes on any host. To run just the native qualification during development, use `python tools/gf_native_acceptance.py --export`.
+The builder compiles one release DLL and verifies the dependencies recorded by the linker. It installs the complete ZIP in a fresh project, compares gather results, height samples and complete WFC reports against GDScript, tests adding the supplement to a portable project at a different path, and runs both exported executables with their own copies of the DLL and notices. The manifest records the size and SHA-256 of each published archive. Validation of transported archives reads the same bytes on any host. To run just the native qualification during development, use `python tools/gf_native_acceptance.py --export`.
 
 ## Benchmark foundation operations
 
@@ -45,12 +47,12 @@ The reference worktree is optional. It supplies the previous height decoder, fou
 | Height queries and surface scatter | Eight height reads on 64×64 and 512×512 fields and eight placed transforms on the larger field. The runner checks the sampled plane and guards against query cost growing with grid area. |
 | Noise grid | Public FastNoiseLite grid sampling including normalized samples, compared with direct engine noise and standalone normalization. |
 | Flow | Public four-direction unit-cost field versus a benchmark-only Rust FIFO. The native lane includes capturing the passability mask and constructing the public dictionaries. |
-| Voronoi | Complete graph report on 64 and 256 points. A separate copy of the same source times its Delaunay point insertion loop with two clock reads. |
-| WFC | Equal-weight entropy and MRV, then a floor/stone/water layout with unequal weights, adjacency constraints and three fixed cells. The experimental Rust bitset solver returns the full grid, domains, step count and status. |
+| Voronoi | Complete graph reports on 64, 256 and 512 sites. Instrumented copies time the insertion loop. Given a reference implementation, 504 additional cases compare all fields across input orders, duplicate sites, grids, rings, clustered and nearly collinear sites, and three tolerances. |
+| WFC | Equal-weight entropy and MRV, then a floor/stone/water layout with unequal weights, adjacency constraints and three fixed cells. A weighted 128-tile case exercises both words of each domain. Both paths call the public solver and compare the entire report, including partial domains, contradiction locations and step counts. |
 
-The Windows native PR workflow runs this benchmark and retains its JSON report. It checks height query scaling and requires the installed decoder to take at most half the portable time on the same 512×512 RGB8 image.
+The Windows native PR workflow compares geometry with the PR base and retains its JSON report. Use `--voronoi-baseline <gf_voronoi_2d.gd>` to run just the geometry reference alongside the standard workloads. The benchmark flags a 512-site diagram taking over 1.5 times the reference median on the same runner. It checks height query scaling and requires the installed decoder to take at most half the portable time on the same 512×512 RGB8 image.
 
-The benchmark WFC models four cardinal directions, up to 4096 cells and at most 30 tile types with explicit directional rules and positive finite weights whose scaled entropy can be represented. It also exercises step limits, periodic boundaries and contradictions. Only the shipped Terrain-RGB and packed gather services are available to games.
+The 16×16 entropy workload requires the installed solver to take at most half the portable median. The weighted fixed-cell and 128-tile workloads each allow up to 80% of their portable median. Timings include rule normalization and public report construction. The portable timer starts inside the worker.
 
 ## Add a capability
 

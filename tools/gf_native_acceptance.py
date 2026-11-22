@@ -81,6 +81,10 @@ def source_digest(deadline: float) -> str:
     paths = [*(CRATE / name for name in ('Cargo.toml', 'Cargo.lock', '.cargo/config.toml', 'rust-toolchain.toml',
                                        EXTENSION.name, 'THIRD_PARTY_NOTICES.txt', '.gdignore')),
              ROOT / 'addons/gf/standard/foundation/math/gf_heightfield_3d.gd',
+             ROOT / 'addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd',
+             ROOT / 'addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd',
+             ROOT / 'addons/gf/standard/foundation/variant/gf_variant_data.gd',
+             ROOT / 'addons/gf/kernel/core/gf_variant_access.gd',
              *CRATE.glob('src/**/*.rs'), *ROOT.glob('addons/gf/extensions/data_batch/runtime/*.gd'),
              *ROOT.glob('tests/native/**/*.gd'),
              *ROOT.glob('tests/native/test_*.py'), ROOT / 'LICENSE.md',
@@ -135,18 +139,19 @@ def run_fresh_import(godot: str, workspace: Path, logs: Path, deadline: float) -
         raise RuntimeError(f'First import did not register the fixture extension: {expected}')
 
 
-def prepare_project(workspace: Path, *, height_only: bool = False) -> None:
+def prepare_project(workspace: Path, *, standard_only: bool = False) -> None:
     workspace.mkdir()
-    terrain = Path('tests/native/terrain_rgb/acceptance.gd')
-    (workspace / terrain).parent.mkdir(parents=True)
-    shutil.copy2(ROOT / terrain, workspace / terrain)
-    if height_only:
-        shutil.copy2(ROOT / 'tests/native/terrain_rgb/height_only.gd', workspace / 'acceptance.gd')
+    for capability in ('terrain_rgb', 'wfc_entropy'):
+        fixture = Path('tests/native') / capability / 'acceptance.gd'
+        (workspace / fixture).parent.mkdir(parents=True)
+        shutil.copy2(ROOT / fixture, workspace / fixture)
+    if standard_only:
+        shutil.copy2(ROOT / 'tests/native/standard_only.gd', workspace / 'acceptance.gd')
     else:
         fixture = ROOT / 'tests/native/packed_gather'
         shutil.copy2(fixture / 'acceptance.gd', workspace / 'acceptance.gd')
         shutil.copy2(fixture / 'selection.gd', workspace / 'selection.gd')
-    enabled = '[]' if height_only else '["gf.data_batch"]'
+    enabled = '[]' if standard_only else '["gf.data_batch"]'
     (workspace / 'project.godot').write_text(
         'config_version=5\n[application]\nconfig/name="GF native acceptance"\nrun/main_scene="res://main.tscn"\n'
         '[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
@@ -185,30 +190,30 @@ def verify_upgrade(portable: Path, supplement: Path, workspace: Path, godot: str
         raise RuntimeError('The relocated native supplement did not gather through the public API.')
 
 
-def verify_height_only_export(bundle: Path, fixture: Path, presets: Path, godot: str, logs: Path, deadline: float) -> None:
-    """Export the standard heightfield from the complete Windows installation with no GF extensions enabled."""
-    workspace = fixture / 'height-only'
-    prepare_project(workspace, height_only=True)
+def verify_standard_only_export(bundle: Path, fixture: Path, presets: Path, godot: str, logs: Path, deadline: float) -> None:
+    """Export the standard heightfield and WFC APIs from the complete Windows installation with no GF extensions enabled."""
+    workspace = fixture / 'standard-only'
+    prepare_project(workspace, standard_only=True)
     with zipfile.ZipFile(bundle) as archive:
         archive.extractall(workspace)
-    height_logs = logs / 'height-only'
-    height_logs.mkdir()
-    run_fresh_import(godot, workspace, height_logs, deadline)
+    standard_logs = logs / 'standard-only'
+    standard_logs.mkdir()
+    run_fresh_import(godot, workspace, standard_logs, deadline)
     shutil.copy2(presets, workspace / 'export_presets.cfg')
-    output_dir = fixture / 'height-only-release'
+    output_dir = fixture / 'standard-only-release'
     output_dir.mkdir()
-    game = output_dir / 'height.exe'
+    game = output_dir / 'standard.exe'
     output = run([godot, '--headless', '--path', str(workspace), '--export-release', 'Windows', str(game)],
-                 workspace, 'export', 180, height_logs, deadline)
+                 workspace, 'export', 180, standard_logs, deadline)
     error = export_policy_error(0, output)
     if error:
-        raise RuntimeError(f'Height-only export: {error}')
-    logfile = height_logs / 'engine.log'
-    stdout = run([str(game), '--headless', '--log-file', str(logfile)], output_dir, 'runtime', 60, height_logs, deadline)
+        raise RuntimeError(f'Standard-only export: {error}')
+    logfile = standard_logs / 'engine.log'
+    stdout = run([str(game), '--headless', '--log-file', str(logfile)], output_dir, 'runtime', 60, standard_logs, deadline)
     engine_log = logfile.read_text(encoding='utf-8')
-    check_engine_diagnostics(engine_log, 'height-only', height_logs)
-    if not any(text.splitlines().count('GF_NATIVE_TERRAIN_ONLY=passed') == 1 for text in (stdout, engine_log)):
-        raise RuntimeError('Exported height decoder failed with an empty extension selection')
+    check_engine_diagnostics(engine_log, 'standard-only', standard_logs)
+    if not any(text.splitlines().count('GF_NATIVE_STANDARD_ONLY=passed') == 1 for text in (stdout, engine_log)):
+        raise RuntimeError('Exported standard capabilities failed with an empty extension selection')
 
 
 def check_windows_dependencies(dll: Path, logs: Path, deadline: float) -> list[str]:
@@ -303,13 +308,14 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
                     raise RuntimeError(f'{profile} export did not contain the tested {name}.')
             exported = run([str(executable), '--headless'], export_dir, f'run-{profile}', 120, logs, deadline)
             export_reports[profile] = parse_acceptance(exported)
-        verify_height_only_export(bundle, fixture, workspace / 'export_presets.cfg', godot, logs, deadline)
+        verify_standard_only_export(bundle, fixture, workspace / 'export_presets.cfg', godot, logs, deadline)
     if source_digest(deadline) != initial_digest or file_digest(tested_dll, deadline) != tested_dll_digest:
         raise RuntimeError('Native acceptance inputs changed during execution.')
     if {p.name: archive_digest(p, deadline) for p in archives} != archive_digests:
         raise RuntimeError('Installable archives changed during acceptance.')
     summary = {'ok': True, 'toolchain': toolchain, 'dll_sha256': tested_dll_digest, 'dll_imports': imports,
-               'exports_verified': export, 'height_only_export_verified': export, 'source_sha256': initial_digest, 'archives_sha256': archive_digests,
+               'exports_verified': export, 'standard_only_export_verified': export, 'height_only_export_verified': export,
+               'source_sha256': initial_digest, 'archives_sha256': archive_digests,
                'fresh_discovery_verified': True, 'relocation_verified': True, 'portable_verified': True,
                'build_verified': not skip_build, 'logs': str(logs),
                'runtime': runtime_report, 'exports': export_reports, 'extension_exports': extension_exports}

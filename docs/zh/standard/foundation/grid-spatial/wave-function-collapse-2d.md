@@ -96,7 +96,13 @@ if expansion["ok"]:
 - `periodic`：是否把边界视为环绕。
 - `fixed_cells`：`Dictionary[Vector2i, tile id]`，用于预放置或边界约束。
 - `bidirectional_rules`：规则默认是否自动补反向关系，默认 `true`。
-- `max_cells`、`max_tiles`、`max_steps`：纯 GDScript 求解安全上限。
+- `max_cells`、`max_tiles`、`max_steps` 控制单次求解的格数、瓦片种类和坍缩步数预算。
+
+## Windows x64 原生求解
+
+安装同版本 GF Native 后，主线程调用 `solve_grid()` 时，默认的熵选格策略会在最多 4096 格、1 至 128 种瓦片的范围内自动使用 Rust。空规则允许全部邻接。固定格、周期边界和步数预算同样生效。两条路径按同一瓦片顺序和随机序列生成网格、候选域和诊断报告。
+
+工作线程、便携包、MRV、扫描线策略，以及通过自定义预算放行的更大输入会使用 GDScript。若某个候选域的加权熵超出原生计算范围，框架会从原始种子和固定格重新使用 GDScript 求解。
 
 ## 使用边界
 

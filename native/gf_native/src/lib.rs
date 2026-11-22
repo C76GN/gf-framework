@@ -3,6 +3,7 @@ use godot::prelude::*;
 
 mod packed_gather;
 mod terrain_rgb;
+mod wfc_entropy;
 
 struct GfNative;
 

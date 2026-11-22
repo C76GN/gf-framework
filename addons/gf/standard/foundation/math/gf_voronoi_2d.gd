@@ -250,20 +250,38 @@ static func _build_delaunay_triangles(points: PackedVector2Array, epsilon: float
 	if first_triangle.is_empty():
 		return []
 
-	var working_triangles: Array[Dictionary] = [first_triangle]
+	# X 近似相等的点按 Y 排序，实际插入顺序的 X 可能局部回退。
+	var remaining_min_x: PackedFloat64Array = PackedFloat64Array()
+	var _resize_result: int = remaining_min_x.resize(points.size())
+	var minimum_x: float = INF
+	for index: int in range(
+		points.size() - 1,
+		-1,
+		-1
+	):
+		minimum_x = minf(
+			minimum_x,
+			points[index].x
+		)
+		remaining_min_x[index] = minimum_x
+
+	var active: Array[Dictionary] = [first_triangle]
+	var finished: Array[Dictionary] = []
 	for point_index: int in range(points.size()):
 		_insert_point(
-			working_triangles,
+			active,
+			finished,
 			working_points,
 			point_index,
+			remaining_min_x[point_index],
 			epsilon
 		)
 
+	finished.append_array(active)
 	var result: Array[PackedInt32Array] = []
-	for triangle: Dictionary in working_triangles:
-		var indices: PackedInt32Array = _get_triangle_indices(triangle)
-		if indices.size() != 3:
-			continue
+	var seen: Dictionary[Vector3i, bool] = {}
+	for triangle: Dictionary in finished:
+		var indices: PackedInt32Array = triangle["indices"]
 		if (
 			indices[0] >= points.size()
 			or indices[1] >= points.size()
@@ -272,65 +290,60 @@ static func _build_delaunay_triangles(points: PackedVector2Array, epsilon: float
 			continue
 
 		indices.sort()
-		if not _has_triangle(result, indices):
+		var key: Vector3i = Vector3i(
+			indices[0],
+			indices[1],
+			indices[2]
+		)
+		if not seen.has(key):
+			seen[key] = true
 			result.append(indices)
 
 	result.sort_custom(_compare_int_arrays)
 	return result
 
 
-## 移除外接圆包含新点的三角形，并将其边界边与新点重连成三角形。
+## 将后续点已无法触及的三角形移出扫描范围，再用空腔边界重建受影响的三角形。
 ## [br]
 ## @api private
 ## [br]
 static func _insert_point(
-	working_triangles: Array[Dictionary],
+	active: Array[Dictionary],
+	finished: Array[Dictionary],
 	working_points: PackedVector2Array,
 	point_index: int,
+	minimum_x: float,
 	epsilon: float
 ) -> void:
 	var point: Vector2 = working_points[point_index]
-	var bad_triangle_indices: Array[int] = []
-	for triangle_index: int in range(working_triangles.size()):
-		if _is_point_in_circumcircle(
-			point,
-			working_triangles[triangle_index],
-			epsilon
-		):
-			bad_triangle_indices.append(triangle_index)
+	var edge_counts: Dictionary[Vector2i, int] = {}
+	var kept: int = 0
+	for index: int in range(active.size()):
+		var triangle: Dictionary = active[index]
+		var center: Vector2 = triangle["circumcenter"]
+		var radius_squared: float = triangle["circumradius_squared"]
+		var limit_squared: float = radius_squared + epsilon
+		# 水平距离用与二维判定相同的 Vector2 精度；严格大于才可排除圆周上的点。
+		if minimum_x > center.x and Vector2(minimum_x, center.y).distance_squared_to(center) > limit_squared:
+			finished.append(triangle)
+		elif point.distance_squared_to(center) <= limit_squared:
+			var indices: PackedInt32Array = triangle["indices"]
+			_add_triangle_edges(edge_counts, indices)
+		else:
+			active[kept] = triangle
+			kept += 1
+	var _resize_result: int = active.resize(kept)
 
-	if bad_triangle_indices.is_empty():
-		return
-
-	var edge_counts: Dictionary = {}
-	for triangle_index: int in bad_triangle_indices:
-		_add_triangle_edges(
-			edge_counts,
-			_get_triangle_indices(working_triangles[triangle_index])
-		)
-
-	bad_triangle_indices.sort()
-	for remove_index: int in range(
-		bad_triangle_indices.size() - 1,
-		-1,
-		-1
-	):
-		working_triangles.remove_at(bad_triangle_indices[remove_index])
-
-	var boundary_edges: Array[PackedInt32Array] = _get_boundary_edges(edge_counts)
-	for edge: PackedInt32Array in boundary_edges:
-		if edge.size() != 2:
-			continue
-
+	for edge: Vector2i in _get_boundary_edges(edge_counts):
 		var triangle: Dictionary = _make_triangle(
-			edge[0],
-			edge[1],
+			edge.x,
+			edge.y,
 			point_index,
 			working_points,
 			epsilon
 		)
 		if not triangle.is_empty():
-			working_triangles.append(triangle)
+			active.append(triangle)
 
 
 ## 根据输入点包围框中心和跨度生成覆盖点集的三个外接顶点。
@@ -411,36 +424,11 @@ static func _make_triangle(
 	}
 
 
-## 按外心距离与半径平方加容差判断点是否位于三角形外接圆内。
-## [br]
-## @api private
-## [br]
-static func _is_point_in_circumcircle(
-	point: Vector2,
-	triangle: Dictionary,
-	epsilon: float
-) -> bool:
-	var center_variant: Variant = triangle.get("circumcenter", Vector2.ZERO)
-	if not center_variant is Vector2:
-		return false
-
-	var center: Vector2 = center_variant
-	var radius_squared: float = GFVariantData.get_option_float(
-		triangle,
-		"circumradius_squared",
-		-1.0
-	)
-	if radius_squared < 0.0:
-		return false
-
-	return point.distance_squared_to(center) <= radius_squared + epsilon
-
-
 ## 将三角形的三条无向边加入带出现次数的边表。
 ## [br]
 ## @api private
 ## [br]
-static func _add_triangle_edges(edge_counts: Dictionary, indices: PackedInt32Array) -> void:
+static func _add_triangle_edges(edge_counts: Dictionary[Vector2i, int], indices: PackedInt32Array) -> void:
 	if indices.size() != 3:
 		return
 
@@ -461,86 +449,49 @@ static func _add_triangle_edges(edge_counts: Dictionary, indices: PackedInt32Arr
 	)
 
 
-## 以端点排序后的键累计无向边出现次数。
+## 将端点升序的无向边计入边表。
 ## [br]
 ## @api private
 ## [br]
 static func _add_edge(
-	edge_counts: Dictionary,
+	edge_counts: Dictionary[Vector2i, int],
 	a: int,
 	b: int
 ) -> void:
-	var edge: PackedInt32Array = PackedInt32Array([mini(a, b), maxi(a, b)])
-	var key: String = _make_edge_key(
-		edge[0],
-		edge[1]
+	var edge: Vector2i = Vector2i(
+		mini(a, b),
+		maxi(a, b)
 	)
-	var previous_entry: Dictionary = GFVariantData.as_dictionary(edge_counts.get(key, {}))
-	edge_counts[key] = {
-		"edge": edge,
-		"count": GFVariantData.get_option_int(
-			previous_entry,
-			"count",
-			0
-		) + 1,
-	}
+	var previous_count: int = edge_counts.get(edge, 0)
+	edge_counts[edge] = previous_count + 1
 
 
-## 提取在边表中只出现一次的边，并按端点字典序排序。
+## 按端点字典序返回只出现一次的边。
 ## [br]
 ## @api private
 ## [br]
-static func _get_boundary_edges(edge_counts: Dictionary) -> Array[PackedInt32Array]:
-	var result: Array[PackedInt32Array] = []
-	for key: Variant in edge_counts.keys():
-		var entry: Dictionary = GFVariantData.as_dictionary(edge_counts[key])
-		if GFVariantData.get_option_int(
-			entry,
-			"count",
-			0
-		) != 1:
-			continue
-
-		var edge_variant: Variant = entry.get(
-			"edge",
-			PackedInt32Array()
-		)
-		if edge_variant is PackedInt32Array:
-			var edge: PackedInt32Array = edge_variant
-			result.append(edge)
-
-	result.sort_custom(_compare_int_arrays)
-	return result
+static func _get_boundary_edges(edge_counts: Dictionary[Vector2i, int]) -> Array[Vector2i]:
+	var edges: Array[Vector2i] = []
+	for edge: Vector2i in edge_counts:
+		if edge_counts[edge] == 1:
+			edges.append(edge)
+	edges.sort()
+	return edges
 
 
-## 汇总全部三角形的无向边并返回去重排序后的边数组。
+## 汇总全部三角形的唯一无向边，按端点字典序输出。
 ## [br]
 ## @api private
 ## [br]
 static func _collect_edges(triangles: Array[PackedInt32Array]) -> Array[PackedInt32Array]:
-	var edge_counts: Dictionary = {}
+	var edge_counts: Dictionary[Vector2i, int] = {}
 	for triangle: PackedInt32Array in triangles:
 		_add_triangle_edges(edge_counts, triangle)
-	return _get_all_edges(edge_counts)
-
-
-## 从边计数字典提取所有唯一边并按端点字典序排序。
-## [br]
-## @api private
-## [br]
-static func _get_all_edges(edge_counts: Dictionary) -> Array[PackedInt32Array]:
+	var edges: Array = edge_counts.keys()
+	edges.sort()
 	var result: Array[PackedInt32Array] = []
-	for key: Variant in edge_counts.keys():
-		var entry: Dictionary = GFVariantData.as_dictionary(edge_counts[key])
-		var edge_variant: Variant = entry.get(
-			"edge",
-			PackedInt32Array()
-		)
-		if edge_variant is PackedInt32Array:
-			var edge: PackedInt32Array = edge_variant
-			result.append(edge)
-
-	result.sort_custom(_compare_int_arrays)
+	for edge: Vector2i in edges:
+		result.append(PackedInt32Array([edge.x, edge.y]))
 	return result
 
 
@@ -578,15 +529,15 @@ static func _make_voronoi_vertices(
 ## @api private
 ## [br]
 static func _collect_hull_point_flags(triangles: Array[PackedInt32Array]) -> Dictionary:
-	var edge_counts: Dictionary = {}
+	var edge_counts: Dictionary[Vector2i, int] = {}
 	for triangle: PackedInt32Array in triangles:
 		_add_triangle_edges(edge_counts, triangle)
 
 	var hull_points: Dictionary = {}
-	for edge: PackedInt32Array in _get_boundary_edges(edge_counts):
-		if edge.size() == 2:
-			hull_points[edge[0]] = true
-			hull_points[edge[1]] = true
+	for edge: Vector2i in edge_counts:
+		if edge_counts[edge] == 1:
+			hull_points[edge.x] = true
+			hull_points[edge.y] = true
 	return hull_points
 
 
@@ -645,20 +596,6 @@ static func _make_voronoi_cells(
 	return cells
 
 
-## 读取 triangle 的 PackedInt32Array indices 字段，类型不符时返回空数组。
-## [br]
-## @api private
-## [br]
-static func _get_triangle_indices(triangle: Dictionary) -> PackedInt32Array:
-	var indices_variant: Variant = triangle.get(
-		"indices",
-		PackedInt32Array()
-	)
-	if indices_variant is PackedInt32Array:
-		return indices_variant
-	return PackedInt32Array()
-
-
 ## 从字典读取 PackedVector2Array 字段，缺失或类型不符时返回空数组。
 ## [br]
 ## @api private
@@ -691,17 +628,6 @@ static func _get_triangle_array(data: Dictionary) -> Array[PackedInt32Array]:
 	return result
 
 
-## 在线性扫描中判断三角形数组是否已有完全相同的索引序列。
-## [br]
-## @api private
-## [br]
-static func _has_triangle(triangles: Array[PackedInt32Array], target: PackedInt32Array) -> bool:
-	for triangle: PackedInt32Array in triangles:
-		if triangle == target:
-			return true
-	return false
-
-
 ## 判断二维点的两个坐标分量均为有限浮点值。
 ## [br]
 ## @api private
@@ -712,17 +638,6 @@ static func _is_finite_point(point: Vector2) -> bool:
 		and not is_nan(point.y)
 		and not is_inf(point.x)
 		and not is_inf(point.y)
-	)
-
-
-## 按端点升序生成无向边的字符串键。
-## [br]
-## @api private
-## [br]
-static func _make_edge_key(a: int, b: int) -> String:
-	return (
-		"%s:%s"
-		% [mini(a, b), maxi(a, b)]
 	)
 
 

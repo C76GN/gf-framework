@@ -92,7 +92,7 @@ const _INVALID_CELL: Vector2i = Vector2i(-2147483648, -2147483648)
 ## [br]
 const _INVALID_DIRECTION: Vector2i = Vector2i(2147483647, 2147483647)
 
-## 以右、下、左、上的次序枚举四邻接方向。
+## 以右、左、下、上的次序枚举四邻接方向，脚本传播和原生掩码使用相同次序。
 ## [br]
 ## @api private
 ## [br]
@@ -113,6 +113,18 @@ const _OPPOSITE_DIRECTIONS: Dictionary = {
 	Vector2i.DOWN: Vector2i.UP,
 	Vector2i.UP: Vector2i.DOWN,
 }
+
+## 达到坍缩步数预算时返回的公开诊断。
+## [br]
+## @api private
+## [br]
+const _STEP_LIMIT_ERROR: String = "max_steps reached before all cells collapsed."
+
+## 传播使邻居候选域为空时返回的公开诊断。
+## [br]
+## @api private
+## [br]
+const _EMPTY_NEIGHBOR_ERROR: String = "neighbor domain became empty."
 
 
 # --- 公共方法 ---
@@ -248,12 +260,12 @@ static func solve_grid(
 			_INVALID_CELL
 		)
 
-	var tile_ids: Array = GFVariantData.get_option_array(tile_report, "tile_ids")
-	var tile_weights: Dictionary = GFVariantData.get_option_dictionary(tile_report, "weights")
-	var tile_set: Dictionary = GFVariantData.get_option_dictionary(tile_report, "tile_set")
+	var tile_ids: Array = GFVariantData.as_array(tile_report.get("tile_ids"))
+	var tile_weights: Dictionary = _get_dictionary_value(tile_report, "weights")
+	var tile_indices: Dictionary = _get_dictionary_value(tile_report, "tile_indices")
 	var rule_report: Dictionary = _build_adjacency(
 		tile_ids,
-		tile_set,
+		tile_indices,
 		adjacency_rules,
 		GFVariantData.get_option_bool(
 			options,
@@ -284,11 +296,11 @@ static func solve_grid(
 			_INVALID_CELL
 		)
 
-	var domains: Dictionary = _make_initial_domains(grid_size, tile_ids)
-	var fixed_report: Dictionary = _apply_fixed_cells(
-		domains,
+	var fixed_tiles: Dictionary = {}
+	var fixed_report: Dictionary = _parse_fixed_cells(
+		fixed_tiles,
 		grid_size,
-		tile_set,
+		tile_indices,
 		options
 	)
 	if not GFVariantData.get_option_bool(
@@ -310,15 +322,72 @@ static func solve_grid(
 			max_tiles,
 			max_steps,
 			0,
-			domains,
+			_make_initial_domains(
+				grid_size,
+				tile_ids,
+				fixed_tiles
+			),
 			_INVALID_CELL
 		)
 
-	var allowed_by_direction: Dictionary = GFVariantData.get_option_dictionary(rule_report, "allowed_by_direction")
-	var initial_queue: Array[Vector2i] = _get_vector2i_array(fixed_report, "queue")
-	if tile_ids.size() == 1:
-		# 初始域已经全部坍缩，也必须传播邻接约束后才能报告完成。
-		initial_queue.assign(domains.keys())
+	var allowed_by_direction: Dictionary = _get_dictionary_value(rule_report, "allowed_by_direction")
+	if heuristic == &"entropy":
+		var packed: PackedInt64Array = _try_native_entropy(
+			grid_size,
+			tile_indices,
+			tile_weights,
+			allowed_by_direction,
+			fixed_tiles,
+			seed_value,
+			max_steps,
+			periodic
+		)
+		if not packed.is_empty():
+			var outcome: int = packed[1]
+			var status: StringName = STATUS_COMPLETE
+			var error: String = ""
+			var contradiction: Vector2i = _INVALID_CELL
+			if outcome >= 0:
+				status = STATUS_CONTRADICTION
+				error = _EMPTY_NEIGHBOR_ERROR
+				contradiction = Vector2i(
+					outcome % grid_size.x,
+					floori(float(outcome) / grid_size.x)
+				)
+			elif outcome == -2:
+				status = STATUS_STEP_LIMIT
+				error = _STEP_LIMIT_ERROR
+			return _make_report(
+				status == STATUS_COMPLETE,
+				status,
+				error,
+				grid_size,
+				seed_value,
+				heuristic,
+				periodic,
+				cell_count,
+				max_cells,
+				tile_ids,
+				max_tiles,
+				max_steps,
+				packed[0],
+				{},
+				contradiction,
+				_unpack_native_snapshot(
+					packed,
+					grid_size,
+					tile_ids
+				)
+			)
+
+	var domains: Dictionary = _make_initial_domains(
+		grid_size,
+		tile_ids,
+		fixed_tiles
+	)
+	# 单瓦片输入的所有格子都是单元素域，必须全部参与初始传播。
+	var initial_queue: Array[Vector2i] = []
+	initial_queue.assign(domains.keys() if tile_ids.size() == 1 else fixed_tiles.keys())
 	var initial_propagation: Dictionary = _propagate(
 		domains,
 		grid_size,
@@ -403,7 +472,7 @@ static func solve_grid(
 			return _make_report(
 				false,
 				STATUS_STEP_LIMIT,
-				"max_steps reached before all cells collapsed.",
+				_STEP_LIMIT_ERROR,
 				grid_size,
 				seed_value,
 				heuristic,
@@ -672,7 +741,7 @@ static func _parse_tiles(tiles: Array, max_tiles: int) -> Dictionary:
 
 	var tile_ids: Array = []
 	var weights: Dictionary = {}
-	var tile_set: Dictionary = {}
+	var tile_indices: Dictionary = {}
 	for raw_entry: Variant in tiles:
 		var raw_tile_id: Variant = raw_entry
 		var weight: float = 1.0
@@ -694,7 +763,7 @@ static func _parse_tiles(tiles: Array, max_tiles: int) -> Dictionary:
 			return _make_failure(GFVariantData.get_option_string(tile_report, "error"))
 
 		var tile_id: Variant = GFVariantData.get_option_value(tile_report, "id")
-		if tile_set.has(tile_id):
+		if tile_indices.has(tile_id):
 			return _make_failure("duplicate tile id.")
 		if (
 			weight <= 0.0
@@ -705,14 +774,14 @@ static func _parse_tiles(tiles: Array, max_tiles: int) -> Dictionary:
 
 		tile_ids.append(tile_id)
 		weights[tile_id] = weight
-		tile_set[tile_id] = true
+		tile_indices[tile_id] = tile_ids.size() - 1
 
 	return {
 		"ok": true,
 		"error": "",
 		"tile_ids": tile_ids,
 		"weights": weights,
-		"tile_set": tile_set,
+		"tile_indices": tile_indices,
 	}
 
 
@@ -1049,7 +1118,7 @@ static func _make_tile_key(tile_id: Variant) -> String:
 ## [br]
 static func _build_adjacency(
 	tile_ids: Array,
-	tile_set: Dictionary,
+	tile_indices: Dictionary,
 	adjacency_rules: Array[Dictionary],
 	default_bidirectional: bool
 ) -> Dictionary:
@@ -1057,7 +1126,7 @@ static func _build_adjacency(
 		return {
 			"ok": true,
 			"error": "",
-			"allowed_by_direction": _make_unrestricted_allowed(tile_ids),
+			"allowed_by_direction": {},
 		}
 
 	var allowed_by_direction: Dictionary = _make_empty_allowed(tile_ids)
@@ -1079,7 +1148,7 @@ static func _build_adjacency(
 
 		var from_tile: Variant = GFVariantData.get_option_value(from_report, "id")
 		var to_tile: Variant = GFVariantData.get_option_value(to_report, "id")
-		if not tile_set.has(from_tile) or not tile_set.has(to_tile):
+		if not tile_indices.has(from_tile) or not tile_indices.has(to_tile):
 			return _make_failure("rule references unknown tile id.")
 
 		var direction: Vector2i = _normalize_direction(GFVariantData.get_option_value(rule, "direction"))
@@ -1134,23 +1203,6 @@ static func _normalize_direction(value: Variant) -> Vector2i:
 			return Vector2i.UP
 		_:
 			return _INVALID_DIRECTION
-
-
-## 为每个方向及来源瓦片创建包含全部目标瓦片的允许关系。
-## [br]
-## @api private
-## [br]
-static func _make_unrestricted_allowed(tile_ids: Array) -> Dictionary:
-	var allowed_by_direction: Dictionary = {}
-	for direction: Vector2i in _DIRECTIONS:
-		var direction_rules: Dictionary = {}
-		for from_tile: Variant in tile_ids:
-			var targets: Dictionary = {}
-			for to_tile: Variant in tile_ids:
-				targets[to_tile] = true
-			direction_rules[from_tile] = targets
-		allowed_by_direction[direction] = direction_rules
-	return allowed_by_direction
 
 
 ## 为每个方向及来源瓦片创建空的目标集合。
@@ -1224,16 +1276,24 @@ static func _opposite_direction(direction: Vector2i) -> Vector2i:
 	return _INVALID_DIRECTION
 
 
-## 为网格每个坐标建立包含全部瓦片 ID 的初始域。
+## 为固定格建立单瓦片域，为其余格子建立完整候选域。
 ## [br]
 ## @api private
 ## [br]
-static func _make_initial_domains(grid_size: Vector2i, tile_ids: Array) -> Dictionary:
+static func _make_initial_domains(
+	grid_size: Vector2i,
+	tile_ids: Array,
+	fixed_tiles: Dictionary
+) -> Dictionary:
 	var domains: Dictionary = {}
 	for y: int in range(grid_size.y):
 		for x: int in range(grid_size.x):
 			var cell: Vector2i = Vector2i(x, y)
-			domains[cell] = _make_full_domain(tile_ids)
+			if fixed_tiles.has(cell):
+				var fixed_tile: Variant = fixed_tiles[cell]
+				domains[cell] = { fixed_tile: true }
+			else:
+				domains[cell] = _make_full_domain(tile_ids)
 	return domains
 
 
@@ -1248,18 +1308,17 @@ static func _make_full_domain(tile_ids: Array) -> Dictionary:
 	return domain
 
 
-## 校验固定格坐标和瓦片并将其域缩为单项，返回待传播队列。
+## 按输入顺序校验固定格并记录规范化瓦片，出错时保留已经接受的固定格。
 ## [br]
 ## @api private
 ## [br]
-static func _apply_fixed_cells(
-	domains: Dictionary,
+static func _parse_fixed_cells(
+	fixed_tiles: Dictionary,
 	grid_size: Vector2i,
-	tile_set: Dictionary,
+	tile_indices: Dictionary,
 	options: Dictionary
 ) -> Dictionary:
 	var fixed_cells: Dictionary = GFVariantData.get_option_dictionary(options, "fixed_cells")
-	var queue: Array[Vector2i] = []
 	for raw_cell: Variant in fixed_cells.keys():
 		if not raw_cell is Vector2i:
 			return _make_failure("fixed_cells keys must be Vector2i.")
@@ -1276,17 +1335,114 @@ static func _apply_fixed_cells(
 			return _make_failure("fixed cell " + GFVariantData.get_option_string(tile_report, "error"))
 
 		var tile_id: Variant = GFVariantData.get_option_value(tile_report, "id")
-		if not tile_set.has(tile_id):
+		if not tile_indices.has(tile_id):
 			return _make_failure("fixed cell references unknown tile id.")
 
-		domains[cell] = { tile_id: true }
-		queue.append(cell)
+		fixed_tiles[cell] = tile_id
 
-	return {
-		"ok": true,
-		"error": "",
-		"queue": queue,
-	}
+	return { "ok": true, "error": "", }
+
+
+## 调用主线程熵求解能力。协议 1 的结果依次为步数、结束标记、每格的低位和可选高位掩码。
+## [br]
+## 结束标记为 -1（完成）、-2（达到步数上限）或产生矛盾的格子索引。空结果交由脚本求解。
+## [br]
+## @api private
+## [br]
+static func _try_native_entropy(
+	grid_size: Vector2i,
+	tile_indices: Dictionary,
+	weights: Dictionary,
+	allowed: Dictionary,
+	fixed_tiles: Dictionary,
+	seed_value: int,
+	max_steps: int,
+	periodic: bool
+) -> PackedInt64Array:
+	const SERVICE: StringName = &"GfWfcEntropyBackend"
+	var cell_count: int = grid_size.x * grid_size.y
+	var tile_count: int = tile_indices.size()
+	if (
+		not Thread.is_main_thread()
+		or cell_count > 4096
+		or tile_count > 128
+		or not Engine.has_singleton(SERVICE)
+	):
+		return PackedInt64Array()
+	var backend: Object = Engine.get_singleton(SERVICE)
+	if (
+		not is_instance_valid(backend)
+		or not backend.is_class(SERVICE)
+		or not backend.has_method(&"protocol_version")
+		or not backend.has_method(&"solve_entropy")
+	):
+		return PackedInt64Array()
+	var version: Variant = backend.call(&"protocol_version")
+	if not version is int or version != 1:
+		return PackedInt64Array()
+
+	var words: int = (tile_count + 63) >> 6
+	var masks: PackedInt64Array = PackedInt64Array()
+	if not allowed.is_empty():
+		var _resized: int = masks.resize(_DIRECTIONS.size() * tile_count * words)
+		for direction_index: int in range(_DIRECTIONS.size()):
+			var sources: Dictionary = GFVariantData.as_dictionary(allowed[_DIRECTIONS[direction_index]])
+			for source: Variant in sources:
+				var source_index: int = GFVariantData.to_int(tile_indices[source])
+				var offset: int = (direction_index * tile_count + source_index) * words
+				var targets: Dictionary = GFVariantData.as_dictionary(sources[source])
+				for target: Variant in targets:
+					var index: int = GFVariantData.to_int(tile_indices[target])
+					masks[offset + (index >> 6)] |= 1 << (index & 63)
+	var fixed: PackedInt32Array = PackedInt32Array()
+	for cell: Vector2i in fixed_tiles:
+		var _cell_added: bool = fixed.append(cell.y * grid_size.x + cell.x)
+		var fixed_index: int = GFVariantData.to_int(tile_indices[fixed_tiles[cell]])
+		var _tile_added: bool = fixed.append(fixed_index)
+	var result: Variant = backend.call(
+		&"solve_entropy",
+		grid_size,
+		masks,
+		PackedFloat64Array(weights.values()),
+		fixed,
+		seed_value,
+		max_steps,
+		periodic
+	)
+	if result is PackedInt64Array:
+		var packed: PackedInt64Array = result
+		if (
+			packed.size() == 2 + cell_count * words
+			and packed[0] >= 0
+			and packed[0] <= max_steps
+			and packed[1] >= -2
+			and packed[1] < cell_count
+		):
+			return packed
+	return PackedInt64Array()
+
+
+## 直接将原生掩码转换为公开报告所需的独立候选数组，保持瓦片声明顺序。
+## [br]
+## @api private
+## [br]
+static func _unpack_native_snapshot(
+	packed: PackedInt64Array,
+	grid_size: Vector2i,
+	tile_ids: Array
+) -> Dictionary:
+	var snapshot: Dictionary = {}
+	var words: int = (tile_ids.size() + 63) >> 6
+	var offset: int = 2
+	for y: int in range(grid_size.y):
+		for x: int in range(grid_size.x):
+			var candidates: Array = []
+			for index: int in range(tile_ids.size()):
+				if packed[offset + (index >> 6)] & (1 << (index & 63)):
+					candidates.append(tile_ids[index])
+			snapshot[Vector2i(x, y)] = candidates
+			offset += words
+	return snapshot
 
 
 ## 以队列执行邻接约束传播，移除邻居域中没有支持边的瓦片并检测空域。
@@ -1301,7 +1457,9 @@ static func _propagate(
 	initial_queue: Array[Vector2i]
 ) -> Dictionary:
 	var queue: Array[Vector2i] = []
-	queue.append_array(initial_queue)
+	# 空规则允许全部邻接，传播不会改变任何候选域。
+	if not allowed_by_direction.is_empty():
+		queue.append_array(initial_queue)
 	var queue_index: int = 0
 	while queue_index < queue.size():
 		var cell: Vector2i = queue[queue_index]
@@ -1335,7 +1493,7 @@ static func _propagate(
 				changed = true
 
 			if neighbor_domain.is_empty():
-				return _make_contradiction(neighbor, "neighbor domain became empty.")
+				return _make_contradiction(neighbor, _EMPTY_NEIGHBOR_ERROR)
 			if changed:
 				domains[neighbor] = neighbor_domain
 				queue.append(neighbor)
@@ -1545,7 +1703,8 @@ static func _make_report(
 	max_steps: int,
 	step_count: int,
 	domains: Dictionary,
-	contradiction_cell: Vector2i
+	contradiction_cell: Vector2i,
+	domain_snapshot: Dictionary = {}
 ) -> Dictionary:
 	var can_materialize_grid: bool = (
 		grid_size.x > 0
@@ -1553,6 +1712,22 @@ static func _make_report(
 		and cell_count > 0
 		and cell_count <= max_cells
 	)
+	var snapshot: Dictionary = domain_snapshot
+	if can_materialize_grid and snapshot.is_empty():
+		snapshot = {}
+		for y: int in range(grid_size.y):
+			for x: int in range(grid_size.x):
+				var cell: Vector2i = Vector2i(x, y)
+				# 脚本域按瓦片声明顺序创建，传播只删除元素。keys() 会创建独立的候选数组。
+				snapshot[cell] = _get_domain(domains, cell).keys()
+	var grid: Dictionary = {}
+	var undecided: int = 0
+	for cell: Vector2i in snapshot:
+		var candidates: Array = GFVariantData.as_array(snapshot[cell])
+		if candidates.size() == 1:
+			grid[cell] = candidates[0]
+		elif candidates.size() > 1:
+			undecided += 1
 	return {
 		"ok": ok,
 		"error": error,
@@ -1568,67 +1743,12 @@ static func _make_report(
 		"max_tiles": max_tiles,
 		"max_steps": max_steps,
 		"step_count": step_count,
-		"collapsed_count": _count_collapsed_domains(domains),
-		"undecided_count": _count_undecided_domains(domains),
+		"collapsed_count": grid.size(),
+		"undecided_count": undecided,
 		"contradiction_cell": contradiction_cell,
-		"grid": _make_collapsed_grid(domains, grid_size) if can_materialize_grid else {},
-		"domains": _make_domain_snapshot(
-			domains,
-			grid_size,
-			tile_ids
-		) if can_materialize_grid else {},
+		"grid": grid,
+		"domains": snapshot,
 	}
-
-
-## 仅将候选域大小为一的格子写入已坍缩网格报告。
-## [br]
-## @api private
-## [br]
-static func _make_collapsed_grid(domains: Dictionary, grid_size: Vector2i) -> Dictionary:
-	var grid: Dictionary = {}
-	for y: int in range(grid_size.y):
-		for x: int in range(grid_size.x):
-			var cell: Vector2i = Vector2i(x, y)
-			var domain: Dictionary = _get_domain(domains, cell)
-			if domain.size() == 1:
-				grid[cell] = _first_domain_tile(domain)
-	return grid
-
-
-## 按输入瓦片顺序生成每格剩余候选列表的快照。
-## [br]
-## @api private
-## [br]
-static func _make_domain_snapshot(
-	domains: Dictionary,
-	grid_size: Vector2i,
-	tile_ids: Array
-) -> Dictionary:
-	var snapshot: Dictionary = {}
-	for y: int in range(grid_size.y):
-		for x: int in range(grid_size.x):
-			var cell: Vector2i = Vector2i(x, y)
-			var domain: Dictionary = _get_domain(domains, cell)
-			var candidates: Array = []
-			for tile_id: Variant in tile_ids:
-				if domain.has(tile_id):
-					candidates.append(tile_id)
-			snapshot[cell] = candidates
-	return snapshot
-
-
-## 统计值为字典且只剩一个候选项的格子域数量。
-## [br]
-## @api private
-## [br]
-static func _count_collapsed_domains(domains: Dictionary) -> int:
-	var count: int = 0
-	for domain_value: Variant in domains.values():
-		if domain_value is Dictionary:
-			var domain: Dictionary = domain_value
-			if domain.size() == 1:
-				count += 1
-	return count
 
 
 ## 统计值为字典且仍有多个候选项的格子域数量。
@@ -1643,16 +1763,6 @@ static func _count_undecided_domains(domains: Dictionary) -> int:
 			if domain.size() > 1:
 				count += 1
 	return count
-
-
-## 返回候选域字典中的首个键，空域返回 null。
-## [br]
-## @api private
-## [br]
-static func _first_domain_tile(domain: Dictionary) -> Variant:
-	for tile_id: Variant in domain.keys():
-		return tile_id
-	return null
 
 
 ## 判断坐标是否落在从零开始的二维网格范围内。
@@ -1686,20 +1796,6 @@ static func _get_dictionary_value(dictionary: Dictionary, key: Variant) -> Dicti
 		var result: Dictionary = value
 		return result
 	return {}
-
-
-## 从报告数组筛选并返回 Vector2i 元素。
-## [br]
-## @api private
-## [br]
-static func _get_vector2i_array(report: Dictionary, key: String) -> Array[Vector2i]:
-	var values: Array = GFVariantData.get_option_array(report, key)
-	var result: Array[Vector2i] = []
-	for value: Variant in values:
-		if value is Vector2i:
-			var cell: Vector2i = value
-			result.append(cell)
-	return result
 
 
 ## 从报告数组筛选并返回 Dictionary 元素。
