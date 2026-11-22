@@ -143,7 +143,7 @@ def run_phase(
 					"new_project_default_created", "existing_preserves_main_and_installers", "refreshed_existing_main_is_current",
 					"guidance_only_no_writes", "readme_only_no_settings_save", "settings_failure_compensated",
 					"create_only_and_preview_stale", "retired_callbacks_rejected", "recovery_ui_preserved",
-					"legacy_sample_preserved", "canonical_autoload_guarded",
+					"legacy_sample_preserved", "canonical_autoload_guarded", "plugin_autoload_ownership_verified",
 					"failed_retained_sidecar_scan_requested", "failed_creation_does_not_open_scene",
 				)
 			elif name == "runtime_empty":

@@ -186,11 +186,12 @@ func _run() -> void:
 	_exercise_recovery_dock(failure)
 	await _exercise_retained_sidecar_scan()
 	_exercise_installer_opt_out()
+	await _exercise_plugin_autoload_ownership()
 	ProjectSettings.set_setting("gf/project/installers", appended)
 	ProjectSettings.set_setting("application/run/main_scene", "res://existing.tscn")
 	ProjectSettings.set_setting(
 		"editor_plugins/enabled",
-		PackedStringArray()
+		PackedStringArray(["res://addons/gf/plugin.cfg"])
 	)
 	_check(
 		ProjectSettings.save() == OK,
@@ -225,6 +226,7 @@ func _run() -> void:
 						"recovery_ui_preserved": true,
 						"legacy_sample_preserved": true,
 						"canonical_autoload_guarded": true,
+						"plugin_autoload_ownership_verified": true,
 					}
 				)
 			)
@@ -233,6 +235,48 @@ func _run() -> void:
 		&"quit",
 		1 if _failed else 0
 	)
+
+
+func _exercise_plugin_autoload_ownership() -> void:
+	const AUTOLOAD: String = "autoload/Gf"
+	const OWNED: String = "gf/internal/autoload_gf_owned"
+	var project_registration: String = ProjectSettings.get_setting(AUTOLOAD)
+	await _set_gf_plugin_enabled(true)
+	await _set_gf_plugin_enabled(false)
+	_check(
+		ProjectSettings.get_setting(AUTOLOAD, "") == project_registration and not ProjectSettings.has_setting(OWNED),
+		"Disabling GF must preserve the project's own canonical AutoLoad."
+	)
+
+	remove_autoload_singleton("Gf")
+	await _set_gf_plugin_enabled(true)
+	_check(
+		ProjectSettings.has_setting(AUTOLOAD) and ProjectSettings.get_setting(OWNED, false) == true,
+		"Enabling GF in an empty project must register and own its AutoLoad."
+	)
+	await _set_gf_plugin_enabled(false)
+	_check(
+		not ProjectSettings.has_setting(AUTOLOAD) and not ProjectSettings.has_setting(OWNED),
+		"Explicitly disabling GF must remove its own registration and marker."
+	)
+
+	await _set_gf_plugin_enabled(true)
+	ProjectSettings.set_setting(AUTOLOAD, "*res://sentinel.tscn")
+	await _set_gf_plugin_enabled(false)
+	_check(
+		ProjectSettings.get_setting(AUTOLOAD, "") == "*res://sentinel.tscn" and not ProjectSettings.has_setting(OWNED),
+		"Disabling GF must preserve a registration the project has redirected."
+	)
+	remove_autoload_singleton("Gf")
+	# 后续源码游戏从插件保存的登记启动。
+	await _set_gf_plugin_enabled(true)
+
+
+func _set_gf_plugin_enabled(enabled: bool) -> void:
+	EditorInterface.set_plugin_enabled("gf", enabled)
+	# 让编辑器完成本次工具和调试器的延迟安装或回收，再进行下一次切换。
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
 func _new_dock() -> _DOCK_SCRIPT:
