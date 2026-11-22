@@ -60,28 +60,33 @@ func test_wallet_guide_reads_and_rejected_spend_preserve_balance() -> void:
 	)
 	if parse_error != OK:
 		return
-	var wallet: GFModel = wallet_script.new() as GFModel
-	assert_true(wallet.call(&"add_coins", 10))
+	var instance: Variant = wallet_script.new()
+	if not instance is GFModel:
+		fail_test("钱包示例必须创建一个 GFModel。")
+		return
+	var wallet: GFModel = instance
+	var credited: bool = wallet.call(&"add_coins", 10)
+	var first_read: int = wallet.call(&"get_balance")
+	var second_read: int = wallet.call(&"get_balance")
+	assert_true(credited)
+	assert_eq(first_read, 10)
 	assert_eq(
-		wallet.call(&"get_balance"),
-		10
-	)
-	assert_eq(
-		wallet.call(&"get_balance"),
-		10,
+		second_read,
+		first_read,
 		"重复刷新页面只读余额。"
 	)
-	assert_false(wallet.call(&"spend_coins", 11))
-	assert_false(wallet.call(&"add_coins", 0x7fff_ffff_ffff_ffff))
-	assert_eq(
-		wallet.call(&"get_balance"),
-		10
-	)
-	assert_true(wallet.call(&"spend_coins", 4))
-	assert_eq(
-		wallet.call(&"get_balance"),
-		6
-	)
+
+	var overspent: bool = wallet.call(&"spend_coins", 11)
+	var overfilled: bool = wallet.call(&"add_coins", 0x7fff_ffff_ffff_ffff)
+	var balance_after_rejections: int = wallet.call(&"get_balance")
+	assert_false(overspent)
+	assert_false(overfilled)
+	assert_eq(balance_after_rejections, 10)
+
+	var spent: bool = wallet.call(&"spend_coins", 4)
+	var final_balance: int = wallet.call(&"get_balance")
+	assert_true(spent)
+	assert_eq(final_balance, 6)
 
 
 func test_chinese_doc_pages_are_reachable_from_mkdocs_nav() -> void:

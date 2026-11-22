@@ -145,10 +145,10 @@ func test_cancelled_init_blocks_retry_until_module_returns() -> void:
 	architecture.module_async_init_timeout_seconds = 0.0
 	var paused: PausedAsyncUtility = PausedAsyncUtility.new()
 	assert_true(await architecture.register_utility_instance(paused))
-	var owner: GFCancellationSource = GFCancellationSource.new()
-	owner.cancel.call_deferred(&"owner_cancelled")
+	var startup_cancellation: GFCancellationSource = GFCancellationSource.new()
+	startup_cancellation.cancel.call_deferred(&"owner_cancelled")
 
-	assert_false(await architecture.init(owner.get_token()))
+	assert_false(await architecture.init(startup_cancellation.get_token()))
 	assert_push_error("[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: owner_cancelled.")
 	assert_true(paused.scope.is_cancel_requested())
 	assert_false(paused.returned)

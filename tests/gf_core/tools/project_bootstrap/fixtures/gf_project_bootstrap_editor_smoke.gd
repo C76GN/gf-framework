@@ -243,15 +243,17 @@ func _exercise_plugin_autoload_ownership() -> void:
 	var project_registration: String = ProjectSettings.get_setting(AUTOLOAD)
 	await _set_gf_plugin_enabled(true)
 	await _set_gf_plugin_enabled(false)
+	var preserved: String = ProjectSettings.get_setting(AUTOLOAD, "")
 	_check(
-		ProjectSettings.get_setting(AUTOLOAD, "") == project_registration and not ProjectSettings.has_setting(OWNED),
+		preserved == project_registration and not ProjectSettings.has_setting(OWNED),
 		"Disabling GF must preserve the project's own canonical AutoLoad."
 	)
 
 	remove_autoload_singleton("Gf")
 	await _set_gf_plugin_enabled(true)
+	var plugin_owns_registration: bool = ProjectSettings.get_setting(OWNED, false)
 	_check(
-		ProjectSettings.has_setting(AUTOLOAD) and ProjectSettings.get_setting(OWNED, false) == true,
+		ProjectSettings.has_setting(AUTOLOAD) and plugin_owns_registration,
 		"Enabling GF in an empty project must register and own its AutoLoad."
 	)
 	await _set_gf_plugin_enabled(false)
@@ -263,8 +265,9 @@ func _exercise_plugin_autoload_ownership() -> void:
 	await _set_gf_plugin_enabled(true)
 	ProjectSettings.set_setting(AUTOLOAD, "*res://sentinel.tscn")
 	await _set_gf_plugin_enabled(false)
+	var redirected: String = ProjectSettings.get_setting(AUTOLOAD, "")
 	_check(
-		ProjectSettings.get_setting(AUTOLOAD, "") == "*res://sentinel.tscn" and not ProjectSettings.has_setting(OWNED),
+		redirected == "*res://sentinel.tscn" and not ProjectSettings.has_setting(OWNED),
 		"Disabling GF must preserve a registration the project has redirected."
 	)
 	remove_autoload_singleton("Gf")

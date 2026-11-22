@@ -7903,16 +7903,16 @@ func _await_replacement_module_async_init(instance: Object, lifecycle_serial: in
 			return false
 		if Time.get_ticks_msec() - start_msec >= timeout_msec:
 			var label: String = _get_module_label_for_instance(instance)
-			var diagnostic: String = (
+			var instance_key: String = _get_instance_debug_key(instance)
+			step.abandon("[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % label)
+			push_error(
 				"[GFArchitecture][architecture.replacement_async_init_timeout] replace_%s timed out: %s.async_init() exceeded %.2f seconds; the previous instance was retained."
 				% [
 					label,
-					_get_instance_debug_key(instance),
+					instance_key,
 					timeout_seconds,
 				]
 			)
-			step.abandon("[GFArchitecture][architecture.replacement_timeout] replace_%s timed out." % label)
-			push_error(diagnostic)
 			return false
 		await scene_tree.process_frame
 	return _complete_module_async_scope(async_scope, lifecycle_serial)

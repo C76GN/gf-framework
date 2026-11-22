@@ -1773,7 +1773,9 @@ func _await_project_installer_step(
 ) -> bool:
 	var timeout_seconds: float = _get_project_installer_timeout_seconds()
 	var scene_tree: SceneTree = _get_scene_tree_or_null()
-	var target: Object = architecture_instance if stage == &"install" else architecture_instance.create_binder()
+	var target: Object = architecture_instance
+	if stage == &"install_bindings":
+		target = architecture_instance.create_binder()
 	# 捕获 Installer 的强引用，等待者退出后其协程仍须执行到真正返回。
 	var work: Callable = func() -> void:
 		await installer.call(
