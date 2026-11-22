@@ -46,6 +46,49 @@ const REQUIRED_MKDOCS_NOT_IN_NAV_PATTERNS: Array[String] = [
 
 # --- 测试用例 ---
 
+func test_wallet_guide_reads_and_rejected_spend_preserve_balance() -> void:
+	var page: String = _read_text(DOCS_ROOT + "/overview/best-practices/module-boundaries.md").replace("\r\n", "\n")
+	var model_section: String = page.get_slice("## Model\n", 1)
+	var wallet_script: GDScript = GDScript.new()
+	wallet_script.source_code = model_section.get_slice("```gdscript\n", 1).get_slice("\n```", 0)
+	assert_string_contains(wallet_script.source_code, "class_name WalletModel")
+	var parse_error: Error = wallet_script.reload()
+	assert_eq(
+		parse_error,
+		OK,
+		"直接运行指南中的钱包示例。"
+	)
+	if parse_error != OK:
+		return
+	var instance: Variant = wallet_script.new()
+	if not instance is GFModel:
+		fail_test("钱包示例必须创建一个 GFModel。")
+		return
+	var wallet: GFModel = instance
+	var credited: bool = wallet.call(&"add_coins", 10)
+	var first_read: int = wallet.call(&"get_balance")
+	var second_read: int = wallet.call(&"get_balance")
+	assert_true(credited)
+	assert_eq(first_read, 10)
+	assert_eq(
+		second_read,
+		first_read,
+		"重复刷新页面只读余额。"
+	)
+
+	var overspent: bool = wallet.call(&"spend_coins", 11)
+	var overfilled: bool = wallet.call(&"add_coins", 0x7fff_ffff_ffff_ffff)
+	var balance_after_rejections: int = wallet.call(&"get_balance")
+	assert_false(overspent)
+	assert_false(overfilled)
+	assert_eq(balance_after_rejections, 10)
+
+	var spent: bool = wallet.call(&"spend_coins", 4)
+	var final_balance: int = wallet.call(&"get_balance")
+	assert_true(spent)
+	assert_eq(final_balance, 6)
+
+
 func test_chinese_doc_pages_are_reachable_from_mkdocs_nav() -> void:
 	var docs_paths: Array[String] = _collect_markdown_files(DOCS_ROOT)
 	var mkdocs_source: String = _read_text(MKDOCS_CONFIG_PATH)

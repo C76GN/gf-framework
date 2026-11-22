@@ -27,6 +27,11 @@ DIAGNOSTIC = re.compile(r"(?m)^(?:SCRIPT ERROR|ERROR|WARNING):|Parse Error|Objec
 ENABLED_PROBE = '''extends Node
 
 func _ready() -> void:
+	var singleton: Node = get_node_or_null("/root/Gf")
+	if singleton == null or singleton.get_script() != preload("res://addons/gf/kernel/core/gf.gd"):
+		push_error("The GF plugin must register its runtime AutoLoad.")
+		get_tree().quit(3)
+		return
 	var arguments: PackedStringArray = OS.get_cmdline_user_args()
 	if arguments.size() != 1 or ResourceLoader.load(arguments[0]) != GFBehaviorTree:
 		get_tree().quit(2)
@@ -100,7 +105,6 @@ def prepare_project(project: Path, enabled: bool, strong_reference: bool, archiv
     selected = '"gf.behavior_tree"' if enabled else ""
     (project / "project.godot").write_text(
         'config_version=5\n[application]\nconfig/name="GF Extension Export"\nrun/main_scene="res://main.tscn"\n'
-        '[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
         '[editor_plugins]\nenabled=PackedStringArray("res://addons/gf/plugin.cfg")\n'
         '[gf]\nextensions/selection_mode="explicit"\n'
         f'extensions/enabled=Array[String]([{selected}])\n'
@@ -140,6 +144,12 @@ def run_acceptance(godot: str, archive: Path | None = None, *, deadline: float |
             code, output = run_command([*command, "--import"], project, logs, name + "-import", deadline)
             if code or DIAGNOSTIC.search(output):
                 raise RuntimeError(f"{name} import failed; see {logs}")
+            if name == "enabled":
+                # Export starts another editor. Check the project as the first editor left it.
+                code, output = run_command([*command, "--", EXTENSION_PATH], project, logs,
+                                           "enabled-source-run", deadline)
+                if code or DIAGNOSTIC.search(output) or output.splitlines().count("GF_EXTENSION_PROBE=success") != 1:
+                    raise RuntimeError(f"Source game lost its GF AutoLoad or enabled extension after editor exit; see {logs}")
             code, output = run_command([*command, "--export-release", "Windows", str(exe)],
                                        project, logs, name + "-export", deadline)
             policy_error = export_policy_error(code, output)

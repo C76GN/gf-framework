@@ -2,7 +2,7 @@
 
 从 `2.0.0` 起，Installer 路径为空、脚本无法加载或未继承 `GFInstaller` 时会输出错误并中断初始化。此时架构会进入 `has_initialization_failed()` 状态，并记录 `last_initialization_error`。
 
-修正配置后再次调用 `await Gf.init()` 会在新一轮 Installer 开始时清除旧失败状态，并复用同一个架构继续重试初始化。
+修正配置并等本轮 Installer 和模块的 `async_init()` 实际返回后，可调用 `await Gf.init()` 复用同一架构。首个启动者取消或外部代码令启动失败时，旧回调仍可能挂起。这段时间对同一实例重试会立即返回 `false` 并保留失败状态。旧工作收尾后，重试成功的架构可正常登记新模块。并发加入者取消自己的等待，只影响该等待者。
 
 迁移旧项目或原型阶段如果确实需要沿用“跳过错误 Installer”的行为，可把 `Project Settings > gf/project/fail_on_installer_error` 显式设为 `false`，但建议只作为短期过渡。
 
@@ -19,6 +19,8 @@ Installer 主动调用 `scope.cancel(reason)` 并返回时，同样会把本轮�
 超时不抢占首个 `await` 前的同步代码。Installer 如果需要扫描大量文件、解析大型表格或构建索引，应先拆成能让帧的步骤，再在每段之间检查架构状态；否则这段同步工作仍会阻塞编辑器或启动流程。
 
 架构进入初始化失败状态后，模块、工厂和别名注册入口会拒绝迟到写入，避免超时 coroutine 恢复后污染失败架构。
+
+在已启动的架构上热替换模块时，候选超时会使该次替换失败，原实例仍可读取。候选的异步回调实际返回后，新的登记与替换才会放行。项目可在作用域清理回调中释放自己等待的资源，让挂起的工作及时收尾。
 
 Installer 全部完成后，声明依赖缺失、歧义或成环也会直接使初始化失败，不提供 warning-only 模式或初始化期多轮补注册。应在 Installer 中补齐固定模块，并用 `get_dependency_diagnostics()` 做启动前诊断。
 

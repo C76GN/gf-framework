@@ -15,6 +15,8 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 修复关闭编辑器时插件误删 `Gf` AutoLoad、导致下次直接启动游戏缺少单例的问题。显式禁用插件时才清理插件拥有的登记。
+- 修复启动取消或失败后，同一架构在旧异步模块仍挂起时报告重试成功的问题。旧步骤返回后即可重试并正常登记新模块。
 - 高度场在配置阶段校验样本，单点高度、法线和地表散布查询可直接访问相邻格点。RGB8 和 RGBA8 支持批量读取，安装对应平台的原生扩展后主线程自动使用 Rust 解码。
 - 四方向等成本流场使用多目标广度优先搜索。噪声网格复用采样源和归一化所需的极值，Delaunay 插点会跳过后续点无法触及的外接圆，Voronoi 多边形按三角形邻接关系构建。
 - 修复 Windows 桌面导出时禁用扩展的 GDScript 字节码仍可能进入 PCK 的问题。严格引用检查会在导出报告中给出错误，发布验收会核对同一策略结果并实际运行启用、禁用两种导出物。
@@ -30,6 +32,8 @@
 - `GFSpatialCanvas2D` 新增 `resolve_wheel_zoom_target()`，返回输入路由结果和受画布约束的缩放目标。
 
 ### 📘 升级指南 (Migration Guide)
+
+按旧指南缓存 `GFQuery` 实例的项目，请改为每次发送时创建新实例。频繁刷新的界面可订阅数值或在页面作用域内持有只读接口。[查询指南](kernel/messaging/commands-queries-rules/queries.md)
 
 通知队列默认继续串行展示，现有调用方式可直接使用。需要堆叠多条通知时，按[通知队列指南](standard/utilities/runtime/debug-observability/support-notifications/notifications.md#并发通知)设置活动上限，并用通知 ID 管理展示实例。
 

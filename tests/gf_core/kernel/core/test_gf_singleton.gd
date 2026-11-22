@@ -1188,6 +1188,16 @@ func test_send_query_proxy() -> void:
 		"query_success",
 		"Gf.send_query 应当正确执行并返回结果"
 	)
+	var repeated: Variant = Gf.send_query(query)
+	assert_true(
+		repeated == null,
+		"同一个查询实例只能发送一次。"
+	)
+	assert_push_error("[GFQuery][query.already_executed]")
+	assert_eq(
+		GFVariantData.to_text(Gf.send_query(DummyQuery.new())),
+		"query_success"
+	)
 
 
 ## 验证 GFQuery 基类可访问当前架构的 Utility。

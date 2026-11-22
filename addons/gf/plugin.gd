@@ -228,7 +228,7 @@ var _apply_report: _GF_PLUGIN_APPLY_REPORT_SCRIPT = _GF_PLUGIN_APPLY_REPORT_SCRI
 
 # --- Godot 生命周期方法 ---
 
-## 启用插件并建立自动加载、贡献报告、设置、菜单与各编辑器工具；Dock 初始化延迟执行，以等待编辑器界面完成入树。
+## 编辑器加载插件时补齐缺失的 Gf 登记，并建立本次会话的编辑器工具。
 ## [br]
 ## @api private
 func _enter_tree() -> void:
@@ -266,7 +266,14 @@ func _enter_tree() -> void:
 	call_deferred("_setup_dock_tools")
 
 
-## 先停用插件并取消刷新轮询，再按已创建实例逐项清理编辑器工具及自动加载登记，最后清空贡献报告与记录。
+## 用户显式禁用插件时，撤销仍由插件持有的 Gf 登记。
+## [br]
+## @api private
+func _disable_plugin() -> void:
+	GFPluginAutoload.remove(self)
+
+
+## 插件离树时取消待处理的刷新并释放本次编辑器会话的工具和贡献记录。
 ## [br]
 ## @api private
 func _exit_tree() -> void:
@@ -276,7 +283,6 @@ func _exit_tree() -> void:
 		"plugin_disabled"
 	)
 	_cancel_editor_contribution_refresh()
-	GFPluginAutoload.remove(self)
 
 	if _dock_tools != null:
 		_dock_tools.cleanup(self)

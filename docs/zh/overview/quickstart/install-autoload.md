@@ -19,6 +19,8 @@ iOS 设备版可以直接使用 Godot 的官方导出模板。Godot 4.7.2 在 Ap
 Gf -> res://addons/gf/kernel/core/gf.gd
 ```
 
+这个登记保存在项目设置中。关闭编辑器后，直接运行项目或导出的游戏都能使用 `Gf`。在插件面板明确禁用 GF 时，插件只移除自己创建且仍指向 GF 核心脚本的登记。项目原有的同名登记由项目管理。
+
 插件也会默认打开独立的 `GF Workspace`，其中 `GF Extensions` 页面用于查看扩展信息、按需启用默认关闭的可选扩展、控制扩展 Installer 是否自动装配，以及控制导出时是否排除禁用扩展。扩展机制的完整说明见 [GF 内置扩展总览与扩展规范](../../extensions/index.md)。
 
 使用 [Data Batch 的整型行筛选](../../extensions/data-batch/index.md#可选原生-gather)时，在 `GF Extensions` 中启用 Data Batch。相同的业务脚本可以在两种安装包中运行。

@@ -140,6 +140,90 @@ func test_hot_registration_rolls_back_when_async_init_cancels() -> void:
 	architecture.dispose()
 
 
+func test_cancelled_init_blocks_retry_until_module_returns() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	architecture.module_async_init_timeout_seconds = 0.0
+	var paused: PausedAsyncUtility = PausedAsyncUtility.new()
+	assert_true(await architecture.register_utility_instance(paused))
+	var startup_cancellation: GFCancellationSource = GFCancellationSource.new()
+	startup_cancellation.cancel.call_deferred(&"owner_cancelled")
+
+	assert_false(await architecture.init(startup_cancellation.get_token()))
+	assert_push_error("[GFArchitecture][architecture.initialization_cancelled] Initialization was cancelled: owner_cancelled.")
+	assert_true(paused.scope.is_cancel_requested())
+	assert_false(paused.returned)
+	assert_false(
+		await architecture.init(),
+		"旧模块仍挂起时，同一架构不能报告重试成功。"
+	)
+	assert_false(architecture.is_accepting_runtime_work())
+
+	paused.released.emit()
+	assert_true(paused.returned)
+	assert_true(await architecture.init())
+	assert_true(await architecture.register_utility_instance(UnrelatedHotUtility.new()))
+	assert_eq(paused.dispose_count, 1)
+	architecture.dispose()
+
+
+func test_failed_init_blocks_retry_before_waiter_observes_failure() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	var paused: PausedAsyncUtility = PausedAsyncUtility.new()
+	assert_true(await architecture.register_utility_instance(paused))
+	var state: Dictionary = {}
+	@warning_ignore("missing_await")
+	_await_architecture_init(architecture, state)
+	assert_not_null(paused.scope)
+
+	architecture.fail_initialization("[test] external startup failure")
+	assert_push_error("[test] external startup failure")
+	assert_false(
+		await architecture.init(),
+		"同一帧的失败和重试也须等待旧模块返回。"
+	)
+	paused.released.emit()
+	await get_tree().process_frame
+	assert_true(GFVariantData.get_option_bool(state, "done"))
+	assert_false(
+		GFVariantData.get_option_bool(
+			state,
+			"result",
+			true
+		)
+	)
+	assert_true(await architecture.init())
+	assert_true(await architecture.register_utility_instance(UnrelatedHotUtility.new()))
+	architecture.dispose()
+
+
+func test_timed_out_replacement_blocks_writes_until_candidate_returns() -> void:
+	var architecture: GFArchitecture = GFArchitecture.new()
+	architecture.module_async_init_timeout_seconds = 0.01
+	var original: PausedAsyncUtility = PausedAsyncUtility.new()
+	original.pause = false
+	assert_true(await architecture.register_utility_instance(original))
+	assert_true(await architecture.init())
+
+	var candidate: PausedAsyncUtility = PausedAsyncUtility.new()
+	assert_false(await architecture.replace_utility(PausedAsyncUtility, candidate))
+	assert_push_error("[architecture.replacement_async_init_timeout]")
+	assert_true(candidate.scope.is_cancel_requested())
+	assert_false(candidate.returned)
+	assert_eq(
+		architecture.get_utility(PausedAsyncUtility),
+		original
+	)
+	assert_false(await architecture.register_utility_instance(UnrelatedHotUtility.new()))
+	assert_push_error("[architecture.registry_write_async_timeout]")
+
+	candidate.released.emit()
+	assert_true(candidate.returned)
+	assert_true(await architecture.register_utility_instance(UnrelatedHotUtility.new()))
+	assert_eq(candidate.dispose_count, 1)
+	assert_eq(original.dispose_count, 0)
+	architecture.dispose()
+
+
 func test_hot_registration_is_invisible_until_activation_commits() -> void:
 	var architecture: GFArchitecture = GFArchitecture.new()
 	assert_true(
@@ -2053,6 +2137,24 @@ func _assert_plan_hook_invalidation_stopped(candidate: PlanHookInvalidatingUtili
 
 
 # --- 内部类 ---
+
+class PausedAsyncUtility extends GFUtility:
+	signal released
+	var pause: bool = true
+	var scope: GFAsyncScope
+	var returned: bool = false
+	var dispose_count: int = 0
+
+	func async_init(active_scope: GFAsyncScope) -> void:
+		scope = active_scope
+		if pause:
+			await released
+		returned = true
+
+
+	func dispose() -> void:
+		dispose_count += 1
+
 
 class CancellingAsyncUtility extends GFUtility:
 	var disposed: bool = false

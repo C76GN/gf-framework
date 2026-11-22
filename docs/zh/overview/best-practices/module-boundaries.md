@@ -27,34 +27,37 @@ if inventory == null:
 
 ## Model
 
-`GFModel` 不应只剩字段。它至少应封装状态修改入口、快照恢复和必要的校验边界。
+Model 拥有业务状态及其修改规则。示例中的钱包对外提供入账和扣款两个修改入口，查询只返回整数余额。上限由游戏定义。
 
 ```gdscript
-## 项目的钱包状态与余额约束；跨模块业务编排仍交给 System。
+## 项目的钱包状态与余额约束。
 class_name WalletModel
 extends GFModel
 
 
-## 当前余额；业务方通过修改入口维护非负约束。
-var coins: int = 0
+const MAX_COINS: int = 1_000_000
+var _coins: int = 0
 
 
-## 仅接受正数入账，忽略无效金额，避免奖励入口反向扣款。
-func add_coins(amount: int) -> void:
-	if amount <= 0:
-		return
-	coins += amount
+func get_balance() -> int:
+	return _coins
 
 
-## 余额足够且金额为正才扣款；返回 false 时余额保持不变。
-func spend_coins(amount: int) -> bool:
-	if amount <= 0 or coins < amount:
+func add_coins(amount: int) -> bool:
+	if amount <= 0 or amount > MAX_COINS - _coins:
 		return false
-	coins -= amount
+	_coins += amount
+	return true
+
+
+func spend_coins(amount: int) -> bool:
+	if amount <= 0 or amount > _coins:
+		return false
+	_coins -= amount
 	return true
 ```
 
-复杂规则仍应放在 `GFSystem`。Model 负责维护数据一致性，System 负责协调规则、事件和跨模块流程。
+余额不足时，`spend_coins()` 返回 `false`，余额保持原值。负责购买的 System 调用它并处理结果。余额标签只接收 `get_balance()` 返回的整数，重复刷新不会触发扣款。需要组合多个 Model 的数据显示在同一面板时，可用[查询](../../kernel/messaging/commands-queries-rules/queries.md)生成显示结果。
 
 ## System
 

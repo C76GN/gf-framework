@@ -132,6 +132,7 @@ const CANONICAL_SECTION_ORDER: Array[String] = [
 ]
 const SECTION_NAME_ALIASES: Dictionary = { "虚方法": "可重写钩子 / 虚方法", "可重写钩子": "可重写钩子 / 虚方法", }
 const GODOT_CALLBACK_NAMES: Dictionary = {
+	"_disable_plugin": true,
 	"_draw": true,
 	"_enter_tree": true,
 	"_exit_tree": true,
