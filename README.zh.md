@@ -36,7 +36,7 @@ GF Framework 是一个面向 Godot 4 的轻量级游戏架构框架。它把数�
 | 使用场景 | 选择的安装包 |
 | --- | --- |
 | Windows x64 项目，想直接使用原生加速 | `gf-framework-windows-x86_64-<version>.zip`，内含完整 GF 和预编译 DLL |
-| Linux x86_64（glibc）、Android arm64-v8a/x86_64（API 24+）或 iOS arm64（15+） 使用原生加速 | 安装 `gf-framework-<version>.zip` 和同版本 `gf-native-multiplatform-<version>.zip` |
+| Linux x86_64（glibc 2.34+）、Android arm64-v8a/x86_64（API 24+）或 iOS arm64（15+） 使用原生加速 | 安装 `gf-framework-<version>.zip` 和同版本 `gf-native-multiplatform-<version>.zip` |
 | 只需要 GDScript | `gf-framework-<version>.zip`，也可使用 Godot Asset Store / Asset Library 官方包 |
 | 已有同版本 GF，要给 Windows x64 项目加速 | `gf-native-windows-x86_64-<version>.zip`，只添加 `addons/gf_native` |
 

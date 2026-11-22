@@ -10,7 +10,7 @@ Extract the matching archives beside the game's `project.godot`.
 | --- | --- |
 | New Windows x64 project | `gf-framework-windows-x86_64-<version>.zip` |
 | Add Windows x64 acceleration to an existing GF installation | `gf-native-windows-x86_64-<version>.zip` |
-| Linux x86_64 (glibc), Android arm64-v8a/x86_64 (API 24+), or iOS arm64 (15+) | `gf-framework-<version>.zip` plus `gf-native-multiplatform-<version>.zip` |
+| Linux x86_64 (glibc 2.34+), Android arm64-v8a/x86_64 (API 24+), or iOS arm64 (15+) | `gf-framework-<version>.zip` plus `gf-native-multiplatform-<version>.zip` |
 | Portable GF for script-only projects | `gf-framework-<version>.zip` |
 
 GFHeightfield3D uses the installed decoder for RGB8 and RGBA8 without enabling Data Batch. The portable package and worker threads run the GDScript decoder. See the [heightfield guide](../../docs/zh/standard/foundation/grid-spatial/heightfield-surface-scatter-3d.md).
@@ -34,7 +34,7 @@ The release builder takes the Windows DLL from the qualified multi-platform ZIP 
 
 ### Build Linux, Android and iOS libraries
 
-Run `rustup target add` inside `native/gf_native` for the triples you want. From the repository root, build Linux and Android with an x86_64 Linux toolchain and Android NDK r28b. Build Apple targets with Xcode and Python 3.13 or newer on an Apple Silicon Mac. The macOS test runner uses Python’s `os.waitid` support to supervise build and game processes.
+Run `rustup target add` inside `native/gf_native` for the triples you want. From the repository root, build Linux and Android with an x86_64 Linux toolchain, GNU `readelf` and Android NDK r28b. The Linux build verifies that its versioned glibc requirements fit the published 2.34 baseline. Build Apple targets with Xcode and Python 3.13 or newer on an Apple Silicon Mac. The macOS test runner uses Python’s `os.waitid` support to supervise build and game processes.
 
 ```sh
 python tools/gf_native_platforms.py build --targets x86_64-unknown-linux-gnu aarch64-linux-android x86_64-linux-android --ndk "$ANDROID_NDK_ROOT"

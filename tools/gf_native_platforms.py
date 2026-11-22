@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import struct
 import tempfile
 import tomllib
@@ -166,6 +167,16 @@ def stage_record(target: str, data: bytes, source_revision: str) -> dict:
                 source_revision=source_revision, rust_toolchain=TOOLCHAIN)
 
 
+def check_linux_symbol_versions(library: Path) -> None:
+    listing = invoke(['readelf', '--version-info', '--wide', str(library)], environment={**os.environ, 'LC_ALL': 'C'})
+    versions = re.findall(r'\bName: GLIBC_([\w.]+)', listing)
+    if not versions:
+        raise ValueError('Cannot identify the Linux library glibc requirements.')
+    for version in versions:
+        if not re.fullmatch(r'\d+(\.\d+)+', version) or tuple(map(int, version.split('.'))) > (2, 34):
+            raise ValueError(f'Linux library exceeds the glibc 2.34 baseline: GLIBC_{version}')
+
+
 def build(target: str, stage: Path, ndk: Path | None) -> None:
     environment = os.environ.copy()
     if target in (IOS, SIM):
@@ -183,7 +194,10 @@ def build(target: str, stage: Path, ndk: Path | None) -> None:
     print(invoke(['cargo', '+' + TOOLCHAIN, 'build', '--lib', '--locked', '--release', '--target', target,
                   '--target-dir', str(CARGO_TARGET)], 1200, cwd=dist.CRATE, environment=environment).strip())
     name = Path(TARGETS[target][1]).name
-    data = (CARGO_TARGET / target / 'release' / name).read_bytes()
+    library = CARGO_TARGET / target / 'release' / name
+    if target == LINUX:
+        check_linux_symbol_versions(library)
+    data = library.read_bytes()
     check_binary(target, data)
     record = stage_record(target, data, source_revision)
     if record['native_source_sha256'] != input_digest or revision() != source_revision:

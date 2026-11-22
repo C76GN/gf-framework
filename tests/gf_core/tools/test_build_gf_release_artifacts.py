@@ -663,6 +663,20 @@ class ReleaseArtifactTests(unittest.TestCase):
 			with self.assertRaisesRegex(ValueError, "evidence"):
 				acceptance.verify_delivery(directory, VERSION, REVISION)
 
+	def test_linux_build_enforces_the_published_glibc_baseline(self) -> None:
+		platforms = release_builder.gf_native_platforms
+		requirements = [
+			("GLIBC_2.34", True), ("GLIBC_2.3.4", True),
+			("GLIBC_2.35", False), ("GLIBC_ABI_DT_RELR", False), ("GCC_3.0", False),
+		]
+		for requirement, valid in requirements:
+			with self.subTest(requirement=requirement), mock.patch.object(platforms, "invoke", return_value="Name: " + requirement):
+				if valid:
+					platforms.check_linux_symbol_versions(Path("libgf_native.so"))
+				else:
+					with self.assertRaisesRegex(ValueError, "glibc"):
+						platforms.check_linux_symbol_versions(Path("libgf_native.so"))
+
 	def test_platform_slices_reject_swapped_os_and_alignment(self) -> None:
 		platforms = release_builder.gf_native_platforms
 		with tempfile.TemporaryDirectory() as temporary:

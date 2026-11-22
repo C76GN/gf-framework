@@ -36,7 +36,7 @@ Choose a version from [GitHub Releases](https://github.com/C76GN/gf-framework/re
 | Project | Package |
 | --- | --- |
 | Windows x64 with native acceleration | `gf-framework-windows-x86_64-<version>.zip` includes the complete framework and prebuilt DLL |
-| Linux x86_64 (glibc), Android arm64-v8a/x86_64 (API 24+) or iOS arm64 (15+) with native acceleration | Install `gf-framework-<version>.zip` and the same-version `gf-native-multiplatform-<version>.zip` |
+| Linux x86_64 (glibc 2.34+), Android arm64-v8a/x86_64 (API 24+) or iOS arm64 (15+) with native acceleration | Install `gf-framework-<version>.zip` and the same-version `gf-native-multiplatform-<version>.zip` |
 | Portable GDScript | `gf-framework-<version>.zip` or the official Godot Asset Store/Asset Library package |
 | Same GF version already installed in a Windows x64 project | `gf-native-windows-x86_64-<version>.zip` adds only `addons/gf_native` |
 
