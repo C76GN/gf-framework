@@ -147,9 +147,22 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
     return results
 
 
-def check_simulator_diagnostics(engine_log: Path, logs: Path) -> None:
+def check_simulator_diagnostics(engine_log: Path, logs: Path, token: str) -> None:
     shutil.copyfile(engine_log, logs / 'simulator.log')
-    for name in ('simulator.log', 'simulator.stdout.log', 'simulator.stderr.log'):
+    output = engine_log.read_text(encoding='utf-8')
+    start = 'GF_NATIVE_STARTED=' + token
+    lines = output.splitlines()
+    if lines.count(start) != 1:
+        raise ValueError('Missing or duplicate iOS acceptance start marker.')
+    # Godot ed1daf0bf queries the mouse unconditionally when its root window enters the tree.
+    # Keep the captured log intact. Only this one diagnostic before the fixture starts is expected.
+    if lines[0].startswith('Godot Engine v4.7.2.stable.') and '.ed1daf0bf ' in lines[0]:
+        before, marker, after = output.partition(start + '\n')
+        diagnostic = ('ERROR: Mouse is not supported by this display server.\n'
+                      '   at: mouse_get_position (servers/display/display_server.cpp:536)\n')
+        output = re.sub('^' + re.escape(diagnostic), '', before, count=1, flags=re.MULTILINE) + marker + after
+    acceptance.check_engine_diagnostics(output, 'simulator.log', logs)
+    for name in ('simulator.stdout.log', 'simulator.stderr.log'):
         acceptance.check_engine_diagnostics((logs / name).read_text(encoding='utf-8'), name, logs)
 
 
@@ -199,7 +212,7 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
                             pass
                         else:
                             invoke([*simctl, 'terminate', simulator, package])
-                        check_simulator_diagnostics(engine_log, logs)
+                        check_simulator_diagnostics(engine_log, logs, token)
                         return {'arm64-simulator': report(MARKER + encoded, token, 'iOS', 'arm64', profile)}
             time.sleep(1)
         for engine_log in container.rglob('godot.log'):

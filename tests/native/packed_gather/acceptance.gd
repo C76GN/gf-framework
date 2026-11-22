@@ -5,6 +5,9 @@ var _failures: Array[String] = []
 
 
 func _ready() -> void:
+	var token: String = ProjectSettings.get_setting("gf_native_acceptance/run_token", "")
+	if not token.is_empty():
+		print("GF_NATIVE_STARTED=" + token)
 	_failures.append_array(preload("res://tests/native/terrain_rgb/acceptance.gd").check(true))
 	_failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(true))
 	var automatic: GFDataBatchPublication = GFDataBatchPublication.create(
@@ -72,7 +75,6 @@ func _ready() -> void:
 		invalid.is_empty(),
 		"Native bounds use count rather than capacity."
 	)
-	var token: String = ProjectSettings.get_setting("gf_native_acceptance/run_token", "")
 	var foundation: Dictionary = _foundation_timings() if not token.is_empty() else {}
 	var report: Dictionary = {
 		"ok": _failures.is_empty(),

@@ -105,7 +105,7 @@ class NativeAcceptanceTests(unittest.TestCase):
 
     def test_simulator_fails_on_a_diagnostic_reported_only_during_native_shutdown(self):
         engine = self.directory / 'godot.log'
-        engine.write_text('GF_NATIVE_FINISHED=fixture\n', encoding='utf-8')
+        engine.write_text('GF_NATIVE_STARTED=fixture\nGF_NATIVE_FINISHED=fixture\n', encoding='utf-8')
         stdout = self.directory / 'simulator.stdout.log'
         stderr = self.directory / 'simulator.stderr.log'
         for stream in (stdout, stderr):
@@ -114,7 +114,28 @@ class NativeAcceptanceTests(unittest.TestCase):
                 stderr.write_text('', encoding='utf-8')
                 stream.write_text("thread 'main' panicked at fixture", encoding='utf-8')
                 with self.assertRaisesRegex(RuntimeError, stream.name):
-                    platform_acceptance.check_simulator_diagnostics(engine, self.directory)
+                    platform_acceptance.check_simulator_diagnostics(engine, self.directory, 'fixture')
+
+    def test_ios_root_window_diagnostic_is_limited_to_one_before_the_fixture_starts(self):
+        engine = self.directory / 'godot.log'
+        for name in ('simulator.stdout.log', 'simulator.stderr.log'):
+            (self.directory / name).write_text('', encoding='utf-8')
+        header = 'Godot Engine v4.7.2.stable.custom_build.ed1daf0bf (date)\n'
+        diagnostic = ('ERROR: Mouse is not supported by this display server.\n'
+                      '   at: mouse_get_position (servers/display/display_server.cpp:536)\n')
+        start = 'GF_NATIVE_STARTED=fixture\n'
+        engine.write_text(header + diagnostic + start, encoding='utf-8')
+        platform_acceptance.check_simulator_diagnostics(engine, self.directory, 'fixture')
+        self.assertEqual(engine.read_bytes(), (self.directory / 'simulator.log').read_bytes())
+        for output in (header + start + diagnostic, header + diagnostic * 2 + start,
+                       header + diagnostic.replace(':536', ':537') + start,
+                       header.replace('ed1daf0bf', 'abcdef123') + diagnostic + start,
+                       header + 'SCRIPT ' + diagnostic + start, header + 'ERROR: Another engine failure\n' + start,
+                       header + diagnostic):
+            with self.subTest(output=output):
+                engine.write_text(output, encoding='utf-8')
+                with self.assertRaises((RuntimeError, ValueError)):
+                    platform_acceptance.check_simulator_diagnostics(engine, self.directory, 'fixture')
 
     def test_fresh_import_rejects_pre_registered_project_before_launch(self):
         cache = self.directory / '.godot'
