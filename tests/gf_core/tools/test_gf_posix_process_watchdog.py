@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 from dataclasses import dataclass
+import errno
 import json
 import os
 from pathlib import Path
@@ -24,6 +25,62 @@ if str(TOOLS_ROOT) not in sys.path:
 	sys.path.insert(0, str(TOOLS_ROOT))
 
 import gf_process_supervisor
+
+
+class DarwinGroupMembershipTests(unittest.TestCase):
+	def test_only_the_unreaped_leader_can_bypass_signalling(self) -> None:
+		leader = 1234
+		def probe(members: list[int], error: int = 0) -> bool:
+			libproc = mock.Mock()
+			def enumerate_group(kind: int, group: int, output: object, size: int) -> int:
+				self.assertEqual((kind, group, size), (2, leader, 2 * ctypes.sizeof(ctypes.c_int)))
+				for index, pid in enumerate(members):
+					output[index] = pid
+				ctypes.set_errno(error)
+				return len(members) * ctypes.sizeof(ctypes.c_int)
+			libproc.proc_listpids.side_effect = enumerate_group
+			with mock.patch.object(sys, "platform", "darwin"), mock.patch.object(ctypes, "CDLL", return_value=libproc):
+				return gf_process_supervisor._darwin_group_contains_only_exited_leader(leader)
+
+		self.assertTrue(probe([leader]))
+		self.assertTrue(probe([]))
+		self.assertFalse(probe([], 1))
+		self.assertFalse(probe([5678]))
+		self.assertFalse(probe([leader, 5678]))
+
+	@unittest.skipUnless(hasattr(os, "waitid"), "uses POSIX waitid constants")
+	def test_eperm_rechecks_the_unreaped_leader_after_the_last_helper_exits(self) -> None:
+		process = mock.Mock(pid=1234)
+		for bounded in (False, True):
+			for alone in (False, True):
+				with (
+					self.subTest(bounded=bounded, alone=alone),
+					mock.patch.object(sys, "platform", "darwin"),
+					mock.patch.object(os, "waitid", return_value=mock.Mock(si_pid=process.pid)),
+					mock.patch.object(os, "killpg", side_effect=PermissionError(errno.EPERM, "denied")),
+					mock.patch.object(gf_process_supervisor, "_darwin_group_contains_only_exited_leader", side_effect=[False, alone]),
+				):
+					owner = gf_process_supervisor._PosixProcessGroupOwner()
+					owner.process_group_id = process.pid
+					notes = owner.terminate_before_deadline(process, time.perf_counter() + 2) if bounded else owner.terminate(process)
+					self.assertEqual(notes == [], alone)
+					self.assertEqual(owner.cleanup_failed, not alone)
+
+	@unittest.skipUnless(hasattr(os, "waitid"), "uses POSIX waitid constants")
+	def test_leader_can_exit_during_the_term_grace_period(self) -> None:
+		process = mock.Mock(pid=1234)
+		with (
+			mock.patch.object(sys, "platform", "darwin"),
+			mock.patch.object(os, "waitid", side_effect=[None, None, mock.Mock(si_pid=process.pid)]),
+			mock.patch.object(os, "killpg", side_effect=[None, PermissionError(errno.EPERM, "denied")]) as killpg,
+			mock.patch.object(gf_process_supervisor, "_darwin_group_contains_only_exited_leader", return_value=True),
+			mock.patch.object(time, "sleep"),
+		):
+			owner = gf_process_supervisor._PosixProcessGroupOwner()
+			owner.process_group_id = process.pid
+			self.assertEqual(owner.terminate(process), [])
+			self.assertFalse(owner.cleanup_failed)
+			killpg.assert_has_calls([mock.call(process.pid, signal.SIGTERM), mock.call(process.pid, signal.SIGKILL)])
 
 
 _PROC_SUPER_MAGIC = 0x9FA0

@@ -1,9 +1,7 @@
 //! Benchmark-only GDExtension. This example is never linked into gf_native.dll.
-use godot::builtin::{PackedByteArray, PackedFloat64Array, PackedInt32Array, PackedInt64Array};
+use godot::builtin::{PackedByteArray, PackedInt32Array};
 use godot::prelude::*;
 use std::collections::VecDeque;
-
-mod wfc;
 
 struct FoundationProbe;
 
@@ -50,7 +48,7 @@ impl GfFoundationProbe {
             }
         }
         while let Some(cell) = queue.pop_front() {
-            for neighbor in neighbors(cell, size, false).into_iter().flatten() {
+            for neighbor in neighbors(cell, size).into_iter().flatten() {
                 if mask[neighbor] != 0 && distance[neighbor] < 0 {
                     next[neighbor] = cell as i32;
                     distance[neighbor] = distance[cell] + 1;
@@ -59,31 +57,6 @@ impl GfFoundationProbe {
             }
         }
         result
-    }
-
-    #[func]
-    fn collapse(
-        &self,
-        size: Vector2i,
-        allowed: PackedInt32Array,
-        weights: PackedFloat64Array,
-        fixed: PackedInt32Array,
-        settings: PackedInt64Array,
-    ) -> PackedInt32Array {
-        let &[seed, limit, periodic] = settings.as_slice() else {
-            return PackedInt32Array::new();
-        };
-        wfc::solve(
-            size,
-            allowed.as_slice(),
-            weights.as_slice(),
-            fixed.as_slice(),
-            seed as u32,
-            limit,
-            periodic != 0,
-        )
-        .map(PackedInt32Array::from)
-        .unwrap_or_default()
     }
 }
 
@@ -95,14 +68,12 @@ fn cell_count(size: Vector2i) -> Option<usize> {
 }
 
 // Right, left, down, up. Equal-cost ties in GF's queue preserve insertion order.
-fn neighbors(cell: usize, size: Vector2i, periodic: bool) -> [Option<usize>; 4] {
+fn neighbors(cell: usize, size: Vector2i) -> [Option<usize>; 4] {
     let width = size.x as usize;
     let x = (cell % width) as i32;
     let y = (cell / width) as i32;
     [(x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)].map(|(nx, ny)| {
-        if periodic {
-            Some(ny.rem_euclid(size.y) as usize * width + nx.rem_euclid(size.x) as usize)
-        } else if (0..size.x).contains(&nx) && (0..size.y).contains(&ny) {
+        if (0..size.x).contains(&nx) && (0..size.y).contains(&ny) {
             Some(ny as usize * width + nx as usize)
         } else {
             None

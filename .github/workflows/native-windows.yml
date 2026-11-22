@@ -11,6 +11,9 @@ on:
       - "addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd"
       - "addons/gf/standard/foundation/math/gf_voronoi_2d.gd"
       - "addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd"
+      - "addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd"
+      - "addons/gf/standard/foundation/variant/gf_variant_data.gd"
+      - "addons/gf/kernel/core/gf_variant_access.gd"
       - "tools/gf_foundation_benchmark.py"
       - "tests/gf_core/benchmarks/foundation/**"
       - "addons/gf/kernel/editor/extension/**"
@@ -24,6 +27,9 @@ on:
       - "tools/build_gf_release_artifacts.py"
       - ".github/scripts/setup_gf_native_windows.py"
       - ".github/workflows/native-windows.yml"
+      - ".github/scripts/setup_gf_native_platforms.py"
+      - ".github/scripts/prepare_godot_ios_simulator.py"
+      - ".github/workflows/native-platforms.yml"
       - ".github/workflows/release.yml"
 
 permissions:
@@ -34,7 +40,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-platform-libraries:
+    uses: ./.github/workflows/native-platforms.yml
+
   native-exports:
+    needs: native-platform-libraries
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -44,10 +54,24 @@ jobs:
           python-version: "3.12"
       - name: Set up Windows native build and export
         run: python .github/scripts/setup_gf_native_windows.py
+      - name: Download the qualified native addon and reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: gf-native-delivery-*
+          merge-multiple: true
+          path: build/native-delivery
       - name: Verify native installation and exported games
         run: python tools/build_gf_release_artifacts.py --output-dir build/native-preview
+      - name: Check out the PR base geometry for differential tests
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: build/foundation-base
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: addons/gf/standard/foundation/math/gf_voronoi_2d.gd
       - name: Verify foundation workloads in a release export
-        run: python tools/gf_foundation_benchmark.py
+        run: python tools/gf_foundation_benchmark.py --voronoi-baseline build/foundation-base/addons/gf/standard/foundation/math/gf_voronoi_2d.gd
       - uses: actions/upload-artifact@v7
         with:
           name: foundation-benchmark

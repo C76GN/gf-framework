@@ -20,6 +20,8 @@ import build_asset_store_package
 import build_gf_ai_developer_kit
 import gf_native_acceptance
 import gf_native_distribution
+import gf_native_platforms
+import gf_native_platform_acceptance
 from gf_path_security import absolute_lexical_path
 from gf_path_security import path_has_reparse_component
 from gf_path_security import path_is_inside_lexical
@@ -35,10 +37,10 @@ from gf_process_supervisor import SupervisedProcessCleanupError
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / "build"
-MANIFEST_SCHEMA_VERSION = 4
+MANIFEST_SCHEMA_VERSION = 5
 MANIFEST_MAX_BYTES = 1024 * 1024
 FULL_GIT_OBJECT_ID_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
-RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64")
+RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64", "native_multiplatform")
 
 
 def archive_names(version: str) -> dict[str, str]:
@@ -47,6 +49,7 @@ def archive_names(version: str) -> dict[str, str]:
 		"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip",
 		"framework_windows_x86_64": f"gf-framework-{gf_native_distribution.TARGET}-{version}.zip",
 		"native_windows_x86_64": f"gf-native-{gf_native_distribution.TARGET}-{version}.zip",
+		"native_multiplatform": f"gf-native-multiplatform-{version}.zip",
 	}
 
 
@@ -188,12 +191,19 @@ def build_release_artifacts(
 				list(ai_kit_audit.get("issues", [])),
 			)
 
+		overlay, qualified_digest = gf_native_platform_acceptance.verify_delivery(
+			BUILD_ROOT / "native-delivery", version, source_revision)
+		shutil.copyfile(overlay, archives["native_multiplatform"])
+		if sha256_file(archives["native_multiplatform"]) != qualified_digest:
+			raise ValueError("The multi-platform addon changed after its exported-game acceptance.")
+		with zipfile.ZipFile(archives["native_multiplatform"]) as package:
+			windows_dll = package.read(gf_native_distribution.ADDON + gf_native_distribution.DLL)
 		native_result = gf_native_acceptance.qualify(
 			framework_path, archives["native_windows_x86_64"], archives["framework_windows_x86_64"],
-			version, source_revision, export=True,
+			version, source_revision, export=True, candidate_library=windows_dll,
 		)
 		artifacts = [artifact_record(archives[role], role) for role in RELEASE_ARTIFACT_ROLES]
-		qualified = {entry["name"]: entry["sha256"] for entry in artifacts if entry["role"] != "ai_developer_kit"}
+		qualified = {entry["name"]: entry["sha256"] for entry in artifacts if entry["role"] not in ("ai_developer_kit", "native_multiplatform")}
 		if qualified != native_result["archives_sha256"]:
 			raise ValueError("Release ZIPs changed after native acceptance.")
 		manifest_path = candidate / f"gf-release-artifacts-{version}.json"
@@ -437,7 +447,9 @@ def audit_artifact_entries(
 			framework_path, paths_by_role["native_windows_x86_64"], paths_by_role["framework_windows_x86_64"],
 			version, source_revision,
 		)
-	except (OSError, RuntimeError, ValueError, zipfile.BadZipFile) as error:
+		gf_native_platforms.verify(paths_by_role["native_multiplatform"], set(gf_native_platforms.TARGETS),
+			version, source_revision, paths_by_role["native_windows_x86_64"])
+	except (OSError, RuntimeError, ValueError, KeyError, zipfile.BadZipFile) as error:
 		issues.append(f"GF native archives: {error}")
 	ai_kit_audit = build_gf_ai_developer_kit.audit_plugin_archive(
 		paths_by_role["ai_developer_kit"],
@@ -461,7 +473,7 @@ def audit_artifact_entries(
 	else:
 		if actual_entries != expected_files:
 			issues.append(
-				"Release directory must contain only the four archives and their manifest."
+				"Release directory must contain only the five archives and their manifest."
 			)
 	return issues
 

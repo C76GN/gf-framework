@@ -212,7 +212,7 @@ RELEASE_WORKFLOW_ACTION_COUNTS = {
 	"actions/checkout": 3,
 	"actions/setup-python": 3,
 	"actions/upload-artifact": 2,
-	"actions/download-artifact": 1,
+	"actions/download-artifact": 2,
 }
 GOVERNED_WORKFLOW_ACTION_RE = re.compile(
 	r"^\s*(?:-\s*)?uses\s*:\s+(?P<quote>['\"]?)"

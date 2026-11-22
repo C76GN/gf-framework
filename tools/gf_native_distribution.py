@@ -25,7 +25,7 @@ MAX_NATIVE_FILE = 64 * 1024 * 1024
 
 def native_inputs() -> list[Path]:
     paths = [*(CRATE / name for name in (
-        'Cargo.toml', 'Cargo.lock', '.cargo/config.toml', 'rust-toolchain.toml', LOADER, 'THIRD_PARTY_NOTICES.txt',
+        'Cargo.toml', 'Cargo.lock', 'build.rs', '.cargo/config.toml', 'rust-toolchain.toml', LOADER, 'THIRD_PARTY_NOTICES.txt',
     )), *CRATE.glob('src/**/*.rs')]
     # Windows and POSIX path objects order mixed-case names differently.
     return sorted(paths, key=lambda path: path.relative_to(CRATE).as_posix())
@@ -33,6 +33,7 @@ def native_inputs() -> list[Path]:
 
 def native_source_digest() -> str:
     digest = hashlib.sha256()
+    digest.update(b'../../LICENSE.md\0' + hashlib.sha256(read_package_source_bytes(ROOT / 'LICENSE.md')).digest())
     for path in native_inputs():
         digest.update(path.relative_to(CRATE).as_posix().encode() + b'\0')
         digest.update(hashlib.sha256(read_package_source_bytes(path)).digest())
@@ -48,6 +49,20 @@ def notice_bytes() -> bytes:
     if sources != listed:
         raise ValueError('Update third-party notices for the exact dependencies in Cargo.lock.')
     return b'GF Framework\n\n' + read_package_source_bytes(ROOT / 'LICENSE.md') + b'\n\n' + notices
+
+
+def descriptor(features: set[str]) -> bytes:
+    """Select only libraries actually installed with this copy of the addon."""
+    template = read_package_source_bytes(CRATE / LOADER).decode()
+    config, libraries = template.split('[libraries]\n')
+    mappings, windows_dependencies = libraries.split('\n[dependencies]\n')
+    lines = [line for line in mappings.splitlines() if line.partition(' = ')[0] in features]
+    if {line.partition(' = ')[0] for line in lines} != features:
+        raise ValueError(f'Missing native library mappings for {features}.')
+    result = config + '[libraries]\n' + '\n'.join(lines) + '\n'
+    if 'windows.x86_64' in features:
+        result += '\n[dependencies]\n' + windows_dependencies
+    return result.encode()
 
 
 def check_dll(data: bytes) -> None:
@@ -78,7 +93,7 @@ def write_entry(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
 def assemble(portable: Path, supplement: Path, bundle: Path, library: bytes,
              std_notices: bytes, version: str, revision: str) -> None:
     check_dll(library)
-    contents = {LOADER: read_package_source_bytes(CRATE / LOADER), DLL: library,
+    contents = {LOADER: descriptor({'windows.x86_64'}), DLL: library,
                 NOTICES: notice_bytes(), STD_NOTICES: std_notices}
     contents[METADATA] = build_metadata(version, revision, contents)
     with zipfile.ZipFile(supplement, 'x') as archive:
@@ -102,7 +117,7 @@ def verify(portable: Path, supplement: Path, bundle: Path, version: str, revisio
                 raise ValueError(f'Invalid native file size: {info.filename}')
         contents = {name: extra.read(ADDON + name) for name in (LOADER, DLL, NOTICES, STD_NOTICES)}
         check_dll(contents[DLL])
-        if contents[LOADER] != read_package_source_bytes(CRATE / LOADER) or contents[NOTICES] != notice_bytes():
+        if contents[LOADER] != descriptor({'windows.x86_64'}) or contents[NOTICES] != notice_bytes():
             raise ValueError('Packaged native descriptor or license notices differ from source.')
         if extra.read(ADDON + METADATA) != build_metadata(version, revision, contents):
             raise ValueError('Native package version, source or file hashes do not match.')

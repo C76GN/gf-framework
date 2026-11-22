@@ -5,7 +5,11 @@ var _failures: Array[String] = []
 
 
 func _ready() -> void:
+	var token: String = ProjectSettings.get_setting("gf_native_acceptance/run_token", "")
+	if not token.is_empty():
+		print("GF_NATIVE_STARTED=" + token)
 	_failures.append_array(preload("res://tests/native/terrain_rgb/acceptance.gd").check(true))
+	_failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(true))
 	var automatic: GFDataBatchPublication = GFDataBatchPublication.create(
 		_schema(),
 		&"automatic",
@@ -71,16 +75,68 @@ func _ready() -> void:
 		invalid.is_empty(),
 		"Native bounds use count rather than capacity."
 	)
-	print(
-		"GF_NATIVE_DATA_BATCH=" + JSON.stringify(
-			{
-				"ok": _failures.is_empty(),
-				"failures": _failures,
-				"samples": samples,
-			}
-		)
-	)
+	var foundation: Dictionary = _foundation_timings() if not token.is_empty() else {}
+	var report: Dictionary = {
+		"ok": _failures.is_empty(),
+		"failures": _failures,
+		"samples": samples,
+		"platform": OS.get_name(),
+		"debug_build": OS.is_debug_build(),
+		"architecture": Engine.get_architecture_name(),
+		"run_token": token,
+		"foundation": foundation,
+	}
+	var encoded: String = JSON.stringify(report)
+	if not token.is_empty():
+		var file: FileAccess = FileAccess.open("user://gf-native-" + token + ".json", FileAccess.WRITE)
+		if file != null:
+			file.store_string(encoded)
+			file.close()
+	print("GF_NATIVE_DATA_BATCH=" + encoded)
+	queue_free()
 	get_tree().quit(0 if _failures.is_empty() else 1)
+
+
+func _exit_tree() -> void:
+	var token: String = ProjectSettings.get_setting("gf_native_acceptance/run_token", "")
+	if not token.is_empty():
+		print("GF_NATIVE_FINISHED=" + token)
+
+
+func _foundation_timings() -> Dictionary:
+	var image: Image = Image.create(256, 256, false, Image.FORMAT_RGB8)
+	image.fill(Color8(61, 123, 217))
+	var decode: Callable = GFHeightfield3D.samples_from_terrain_rgb_image.bind(image)
+	var adjacency_rules: Array[Dictionary] = []
+	var solve: Callable = GFWaveFunctionCollapse2D.solve_grid.bind(Vector2i(16, 16), [0, 1, 2, 3], adjacency_rules, {"seed": 927})
+	return {"terrain_rgb_256": _time_public_paths(decode), "wfc_entropy_16": _time_public_paths(solve)}
+
+
+func _time_public_paths(operation: Callable) -> Dictionary:
+	var native_usec: Array[int] = []
+	var script_usec: Array[int] = []
+	for sample: int in range(6):
+		var native: Dictionary = {}
+		if sample % 2 == 0:
+			native = _timed_call(operation)
+		var worker: Thread = Thread.new()
+		if worker.start(_timed_call.bind(operation)) != OK:
+			_failures.append("Could not start the portable performance case.")
+			break
+		var scripted: Dictionary = worker.wait_to_finish()
+		if sample % 2 == 1:
+			native = _timed_call(operation)
+		_expect(native.result.get("ok") == true and native.result == scripted.result, "Timed public reports differ.")
+		if sample > 0:
+			native_usec.append(native.usec)
+			script_usec.append(scripted.usec)
+	return {"script_usec": script_usec, "native_usec": native_usec}
+
+
+func _timed_call(operation: Callable) -> Dictionary:
+	var started: int = Time.get_ticks_usec()
+	var result: Dictionary = operation.call()
+	return {"usec": Time.get_ticks_usec() - started, "result": result}
 
 
 func _check_worker_gather(owner: GFDataBatchPublication, expected: Error) -> void:

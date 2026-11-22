@@ -1,0 +1,217 @@
+name: Native platform qualification
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build-slices:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: windows-latest
+            name: windows
+            targets: x86_64-pc-windows-msvc
+          - host: ubuntu-22.04
+            name: linux-android
+            targets: x86_64-unknown-linux-gnu aarch64-linux-android x86_64-linux-android
+          - host: macos-26
+            name: apple
+            targets: aarch64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim
+    runs-on: ${{ matrix.host }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install the Android NDK
+        if: matrix.name == 'linux-android'
+        run: |
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.1.13356709"
+          echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/28.1.13356709" >> "${GITHUB_ENV}"
+      - name: Check macOS process group cleanup
+        if: matrix.name == 'apple'
+        run: python tests/gf_core/tools/test_gf_posix_process_watchdog.py DarwinGroupMembershipTests
+      - name: Build target libraries
+        working-directory: native/gf_native
+        shell: bash
+        env:
+          TARGETS: ${{ matrix.targets }}
+        run: |
+          rustup target add ${TARGETS}
+          python ../../tools/gf_native_platforms.py build --targets ${TARGETS}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-native-slices-${{ matrix.name }}
+          path: build/native-platforms/
+          if-no-files-found: error
+
+  simulator-engine:
+    # The official Godot 4.7.2 simulator archive contains only x86_64.
+    runs-on: macos-26
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [debug, release]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: godotengine/godot
+          ref: ed1daf0bf001b61586d9930840f2f1394092c079
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - id: inputs
+        run: echo "key=$(git rev-parse HEAD)-$(xcodebuild -version | awk 'END {print $NF}')" >> "${GITHUB_OUTPUT}"
+      - uses: actions/cache/restore@v5
+        id: archives
+        with:
+          path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
+          key: gf-ios-simulator-${{ steps.inputs.outputs.key }}-${{ matrix.profile }}-1
+      - name: Compile the matching arm64 simulator engine
+        if: steps.archives.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install scons==4.9.1
+          scons -j"$(sysctl -n hw.logicalcpu)" platform=ios target=template_${{ matrix.profile }} simulator=yes arch=arm64
+      - uses: actions/cache/save@v5
+        if: steps.archives.outputs.cache-hit != 'true'
+        with:
+          path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
+          key: ${{ steps.archives.outputs.cache-primary-key }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-godot-simulator-${{ matrix.profile }}
+          path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
+          if-no-files-found: error
+          retention-days: 1
+
+  package:
+    needs: build-slices
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: gf-native-slices-*
+          merge-multiple: true
+          path: build/native-platforms
+      - run: python tools/gf_native_platforms.py package --archive build/native-delivery/overlay.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-native-delivery-overlay
+          path: build/native-delivery/overlay.zip
+          if-no-files-found: error
+
+  linux-android:
+    needs: package
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v8
+        with:
+          name: gf-native-delivery-overlay
+          path: build/native-delivery
+      - name: Install the pinned Godot editor and templates
+        run: python .github/scripts/setup_gf_native_platforms.py
+      - name: Run Linux exports of the complete addon
+        run: |
+          for profile in debug release; do
+            python tools/gf_native_platform_acceptance.py linux --profile "$profile" --archive build/native-delivery/overlay.zip --output "build/native-export-linux-$profile" --receipts build/native-reports
+          done
+      - name: Run signed APKs on an Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;35.0.1" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64"
+          export PATH="${ANDROID_HOME}/platform-tools:${PATH}"
+          sudo chmod a+rw /dev/kvm
+          echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd --name gf_native --package "system-images;android-35;google_apis;x86_64"
+          "${ANDROID_HOME}/emulator/emulator" -avd gf_native -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swangle >build/native-emulator.log 2>&1 &
+          trap 'adb -s emulator-5556 emu kill || true' EXIT
+          timeout 300 adb -s emulator-5556 wait-for-device
+          timeout 300 bash -c 'until [[ "$(adb -s emulator-5556 shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
+          for profile in debug release; do
+            python tools/gf_native_platform_acceptance.py android --device emulator-5556 --require-android-abis arm64-v8a x86_64 --profile "$profile" --archive build/native-delivery/overlay.zip --output "build/native-export-android-$profile" --receipts build/native-reports
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-native-delivery-linux-android
+          path: build/native-reports/*.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: gf-native-linux-android-diagnostics
+          path: |
+            build/native-export-*/*.log
+            build/native-emulator.log
+          if-no-files-found: ignore
+
+  apple:
+    needs: [package, simulator-engine]
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v8
+        with:
+          name: gf-native-delivery-overlay
+          path: build/native-delivery
+      - name: Install the pinned Godot editor and templates
+        run: python .github/scripts/setup_gf_native_platforms.py
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: gf-godot-simulator-*
+          path: build/simulator-libraries
+          merge-multiple: true
+      - name: Prepare the arm64 simulator export template
+        shell: bash
+        run: |
+          template="$(python -c 'import sys; sys.path.insert(0, ".github/scripts"); from setup_gf_native_windows import VERSION; print(VERSION.replace("-", "."))')"
+          python .github/scripts/prepare_godot_ios_simulator.py --template "${HOME}/Library/Application Support/Godot/export_templates/${template}/ios.zip" --libraries build/simulator-libraries --output build/native-simulator-template/ios.zip
+          echo "GF_IOS_EXPORT_TEMPLATE=${GITHUB_WORKSPACE}/build/native-simulator-template/ios.zip" >> "${GITHUB_ENV}"
+      - name: Link device apps and run the exported simulator games
+        shell: bash
+        run: |
+          set -euo pipefail
+          udid="$(xcrun simctl list devices available -j | python -c 'import json,sys; print(next(d["udid"] for runtime, devices in sorted(json.load(sys.stdin)["devices"].items(), reverse=True) if ".iOS-" in runtime for d in devices if d["name"].startswith("iPhone")))')"
+          xcrun simctl bootstatus "${udid}" -b
+          for profile in debug release; do
+            python tools/gf_native_platform_acceptance.py ios --device "${udid}" --profile "$profile" --archive build/native-delivery/overlay.zip --output "build/native-export-ios-$profile" --receipts build/native-reports
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-native-delivery-apple
+          path: build/native-reports/*.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: godot-ios-simulator-template
+          path: build/native-simulator-template/ios.zip
+          if-no-files-found: error
+          retention-days: 3
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: gf-native-apple-diagnostics
+          path: |
+            build/native-export-*/*.log
+            build/native-export-ios-*/simulator-report.json
+          if-no-files-found: ignore

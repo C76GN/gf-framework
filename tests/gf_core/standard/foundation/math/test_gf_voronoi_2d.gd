@@ -86,6 +86,90 @@ func test_delaunay_deduplicates_points_by_epsilon() -> void:
 	)
 
 
+func test_delaunay_tolerance_selects_the_diagonal_of_nearly_cocircular_sites() -> void:
+	var points: PackedVector2Array = PackedVector2Array(
+		[
+			Vector2.ZERO,
+			Vector2.DOWN,
+			Vector2.RIGHT,
+			Vector2(1, 1.00001),
+			Vector2(2, 0),
+			Vector2(2, 1),
+		]
+	)
+	var strict: Dictionary = GF_VORONOI_2D.build_delaunay(points)
+	var tolerant: Dictionary = GF_VORONOI_2D.build_delaunay(
+		points,
+		{ "epsilon": 0.01, }
+	)
+	var lower_diagonal: PackedInt32Array = PackedInt32Array([1, 2])
+	var upper_diagonal: PackedInt32Array = PackedInt32Array([0, 3])
+	var strict_edges: Array = _get_edges(strict)
+	var tolerant_edges: Array = _get_edges(tolerant)
+	assert_has(strict_edges, lower_diagonal)
+	assert_does_not_have(strict_edges, upper_diagonal)
+	assert_has(tolerant_edges, upper_diagonal)
+	assert_does_not_have(tolerant_edges, lower_diagonal)
+
+
+func test_delaunay_handles_decreasing_x_within_a_nearly_equal_column() -> void:
+	var points: PackedVector2Array = PackedVector2Array(
+		[
+			Vector2(98, 0),
+			Vector2(99, -1),
+			Vector2(99, 1),
+			Vector2(100.0003, -3),
+			Vector2(99.9997, 0),
+		]
+	)
+	var report: Dictionary = GF_VORONOI_2D.build_voronoi(points)
+	var ordered: PackedVector2Array = report["points"]
+	assert_gt(
+		ordered[3].x,
+		ordered[4].x
+	)
+	var edges: Array = _get_edges(report)
+	assert_has(
+		edges,
+		PackedInt32Array([0, 4])
+	)
+	assert_does_not_have(
+		edges,
+		PackedInt32Array([1, 2])
+	)
+	points.reverse()
+	assert_eq(
+		GF_VORONOI_2D.build_voronoi(points),
+		report
+	)
+
+
+func test_delaunay_keeps_a_site_on_the_rounded_circumcircle_limit() -> void:
+	var right_site: Vector2 = Vector2(4.000000476837158, 0)
+	var points: PackedVector2Array = PackedVector2Array(
+		[
+			Vector2(-4, 0),
+			Vector2(0, -4),
+			Vector2(0, 4),
+			right_site,
+		]
+	)
+	var epsilon: float = right_site.length_squared() - 16.0
+	var report: Dictionary = GF_VORONOI_2D.build_delaunay(
+		points,
+		{ "epsilon": epsilon, }
+	)
+	var edges: Array = _get_edges(report)
+	assert_has(
+		edges,
+		PackedInt32Array([0, 3])
+	)
+	assert_does_not_have(
+		edges,
+		PackedInt32Array([1, 2])
+	)
+
+
 func test_delaunay_omits_collinear_triangles() -> void:
 	var result: Dictionary = GF_VORONOI_2D.build_delaunay(
 		PackedVector2Array(

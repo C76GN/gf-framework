@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import errno
 import json
 import math
 import os
@@ -280,6 +281,28 @@ def _close_process_pipes(process: subprocess.Popen[str]) -> None:
 	finally:
 		if process.stderr is not None:
 			process.stderr.close()
+
+
+def _darwin_group_contains_only_exited_leader(group_id: int) -> bool:
+	"""Call only with an owned, unreaped, independently confirmed exited leader."""
+	if sys.platform != "darwin" or group_id <= 0:
+		return False
+	import ctypes
+
+	# XNU skips zombies when signalling a group and can return EPERM for a group
+	# containing only its zombie leader. PROC_PGRP_ONLY enumerates live and zombie
+	# members under the kernel process-list lock. Two PID slots detect any companion.
+	try:
+		libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
+		list_pids = libproc.proc_listpids
+		list_pids.argtypes = [ctypes.c_uint32, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_int]
+		list_pids.restype = ctypes.c_int
+		members = (ctypes.c_int * 2)()
+		ctypes.set_errno(0)
+		size = list_pids(2, group_id, members, ctypes.sizeof(members))
+		return (size == 0 and ctypes.get_errno() == 0) or (size == ctypes.sizeof(ctypes.c_int) and members[0] == group_id)
+	except (AttributeError, OSError):
+		return False
 
 
 def _linux_process_group_cleanup_state(
@@ -609,9 +632,13 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 				f"Could not inspect the direct child before POSIX process-group cleanup; "
 				f"continuing with forced cleanup: {error}"
 			)
+		if direct_exited and _darwin_group_contains_only_exited_leader(self.process_group_id):
+			self._termination_succeeded = True
+			return []
 		termination_notes = terminate_posix_process_group_id(
 			self.process_group_id,
 			grace_seconds=0.0 if direct_exited else 0.1,
+			unreaped_leader=process,
 		)
 		notes.extend(termination_notes)
 		if termination_notes:
@@ -639,10 +666,12 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 				self.cleanup_failed = True
 				return ["Owned POSIX process group identity was unavailable during cleanup."]
 		try:
-			os.killpg(self.process_group_id, signal.SIGKILL)
-		except ProcessLookupError:
-			self._termination_succeeded = True
-			return []
+			if sys.platform == "darwin" and self.wait_for_direct_exit(process, 0.0) and _darwin_group_contains_only_exited_leader(self.process_group_id):
+				self._termination_succeeded = True
+				return []
+			if not _signal_posix_group(self.process_group_id, signal.SIGKILL, process):
+				self._termination_succeeded = True
+				return []
 		except OSError as error:
 			self.cleanup_failed = True
 			return [f"Could not kill owned POSIX process group before its deadline: {error}"]
@@ -6843,27 +6872,46 @@ def terminate_remaining_descendants(root_pid: int) -> list[str]:
 	return terminate_posix_process_group_id(root_pid)
 
 
+def _signal_posix_group(group_id: int, sig: int, unreaped_leader: subprocess.Popen[Any] | None) -> bool:
+	try:
+		os.killpg(group_id, sig)
+	except ProcessLookupError:
+		return False
+	except PermissionError as error:
+		# A Darwin helper can exit after the membership check or during the TERM grace period.
+		# Reconfirm the pinned zombie and its membership before accepting a denied signal.
+		if (
+			error.errno == errno.EPERM and sys.platform == "darwin"
+			and unreaped_leader is not None and unreaped_leader.pid == group_id
+		):
+			status = os.waitid(os.P_PID, group_id, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+			if (
+				status is not None and status.si_pid == group_id
+				and _darwin_group_contains_only_exited_leader(group_id)
+			):
+				return False
+		raise
+	return True
+
+
 def terminate_posix_process_group_id(
 	process_group_id: int,
 	*,
 	grace_seconds: float = 0.1,
+	unreaped_leader: subprocess.Popen[Any] | None = None,
 ) -> list[str]:
-	notes: list[str] = []
 	try:
-		os.killpg(process_group_id, signal.SIGTERM)
-	except ProcessLookupError:
-		return notes
+		if not _signal_posix_group(process_group_id, signal.SIGTERM, unreaped_leader):
+			return []
 	except OSError as exc:
 		return [f"Could not terminate remaining process group {process_group_id}: {exc}"]
 	if grace_seconds > 0.0:
 		time.sleep(grace_seconds)
 	try:
-		os.killpg(process_group_id, signal.SIGKILL)
-	except ProcessLookupError:
-		pass
+		_signal_posix_group(process_group_id, signal.SIGKILL, unreaped_leader)
 	except OSError as exc:
-		notes.append(f"Could not kill remaining process group {process_group_id}: {exc}")
-	return notes
+		return [f"Could not kill remaining process group {process_group_id}: {exc}"]
+	return []
 
 
 def run_supervised_completed_process(

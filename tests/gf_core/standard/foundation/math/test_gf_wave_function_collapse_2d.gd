@@ -311,6 +311,90 @@ func test_solve_grid_rejects_invalid_tile_and_fixed_cell_inputs() -> void:
 	)
 
 
+func test_invalid_fixed_cell_keeps_prior_assignments_and_domain_order() -> void:
+	var tiles: Array = [
+		7,
+		"7",
+		&"A",
+	]
+	var fixed: Dictionary = { Vector2i.RIGHT: "A", Vector2i.LEFT: 7 }
+	var report: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(
+		Vector2i(2, 1),
+		tiles,
+		[],
+		{ "fixed_cells": fixed }
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		&"invalid_input"
+	)
+	assert_eq(
+		GFVariantData.get_option_string(report, "error"),
+		"fixed cell is outside grid_size."
+	)
+	assert_eq(
+		GFVariantData.get_option_dictionary(report, "grid"),
+		{ Vector2i.RIGHT: &"A" }
+	)
+	var domains: Dictionary = GFVariantData.as_dictionary(report.get("domains"))
+	assert_eq(
+		GFVariantData.get_option_array(domains, Vector2i.ZERO),
+		[
+			7,
+			&"7",
+			&"A",
+		]
+	)
+	assert_eq(
+		GFVariantData.get_option_array(domains, Vector2i.RIGHT),
+		[&"A"]
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "collapsed_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "undecided_count"),
+		1
+	)
+
+
+func test_unrestricted_step_limit_preserves_wide_independent_snapshots() -> void:
+	var tiles: Array = range(128)
+	var report: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.solve_grid(
+		Vector2i(4, 1),
+		tiles,
+		[],
+		{
+			"heuristic": &"scanline",
+			"max_steps": 0,
+			"seed": -1,
+		}
+	)
+	assert_eq(
+		GFVariantData.get_option_string_name(report, "status"),
+		&"step_limit"
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "step_count"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "max_steps"),
+		1
+	)
+	assert_eq(
+		GFVariantData.get_option_int(report, "undecided_count"),
+		3
+	)
+	var domains: Dictionary = GFVariantData.as_dictionary(report.get("domains"))
+	var first_unresolved: Array = GFVariantData.as_array(domains[Vector2i.RIGHT])
+	var next_unresolved: Array = GFVariantData.as_array(domains[Vector2i(2, 0)])
+	assert_eq(first_unresolved, tiles)
+	first_unresolved.clear()
+	assert_eq(next_unresolved, tiles)
+
+
 func test_expand_transformed_adjacency_rules_rotates_direction_and_tile_ids() -> void:
 	var expansion: Dictionary = GF_WAVE_FUNCTION_COLLAPSE_2D_SCRIPT.expand_transformed_adjacency_rules(
 		[

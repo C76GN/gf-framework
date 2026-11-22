@@ -17,7 +17,7 @@ TEMPLATES_SHA256 = "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea24
 def download(directory: Path, filename: str, expected: str) -> Path:
     path = directory / filename
     url = f"https://github.com/godotengine/godot-builds/releases/download/{VERSION}/{filename}"
-    subprocess.run(["curl.exe", "--fail", "--silent", "--show-error", "--location", "--retry", "3",
+    subprocess.run(["curl.exe" if os.name == "nt" else "curl", "--fail", "--silent", "--show-error", "--location", "--retry", "3",
                     "--max-time", "600", "--output", str(path), url], check=True, timeout=900)
     with path.open("rb") as stream:
         if hashlib.file_digest(stream, "sha256").hexdigest() != expected:
