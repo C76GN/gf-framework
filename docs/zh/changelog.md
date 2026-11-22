@@ -33,6 +33,8 @@
 
 ### 📘 升级指南 (Migration Guide)
 
+按旧指南缓存 `GFQuery` 实例的项目，请改为每次发送时创建新实例。频繁刷新的界面可订阅数值或在页面作用域内持有只读接口。[查询指南](kernel/messaging/commands-queries-rules/queries.md)
+
 通知队列默认继续串行展示，现有调用方式可直接使用。需要堆叠多条通知时，按[通知队列指南](standard/utilities/runtime/debug-observability/support-notifications/notifications.md#并发通知)设置活动上限，并用通知 ID 管理展示实例。
 
 已安装 GF Framework 12.0.x 的项目可以继续使用当前版本。下一正式版发布后，请按对应的升级说明迁移。
