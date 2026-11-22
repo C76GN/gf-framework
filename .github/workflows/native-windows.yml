@@ -28,6 +28,7 @@ on:
       - ".github/scripts/setup_gf_native_windows.py"
       - ".github/workflows/native-windows.yml"
       - ".github/scripts/setup_gf_native_platforms.py"
+      - ".github/scripts/prepare_godot_ios_simulator.py"
       - ".github/workflows/native-platforms.yml"
       - ".github/workflows/release.yml"
 

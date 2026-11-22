@@ -89,8 +89,7 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
         for key, value in [('PATH', str(keystore)), ('USER', 'fixture'), ('PASSWORD', 'android')]:
             os.environ[f'GODOT_ANDROID_KEYSTORE_{kind}_{key}'] = value
     options = (f'package/unique_name="{package}"\narchitectures/armeabi-v7a=false\n'
-               'architectures/arm64-v8a=true\narchitectures/x86=false\narchitectures/x86_64=true\n'
-               'command_line/extra_args="--rendering-method gl_compatibility"')
+               'architectures/arm64-v8a=true\narchitectures/x86=false\narchitectures/x86_64=true')
     apk = logs / 'game.apk'
     export(godot, project, 'Android', options, apk, logs, profile)
     with zipfile.ZipFile(apk) as archive:
@@ -158,6 +157,8 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
     package = 'org.godotengine.gfnative.t' + token
     options = (f'application/bundle_identifier="{package}"\napplication/app_store_team_id="GFFIXTURE1"\n'
                'application/export_project_only=true\narchitectures/arm64=true\nstoryboard/image_scale_mode=1')
+    if template := os.environ.get('GF_IOS_EXPORT_TEMPLATE'):
+        options += f'\ncustom_template/{profile}=' + json.dumps(str(Path(template).resolve()))
     export(godot, project, 'iOS', options, logs / 'Game.ipa', logs, profile)
     xcode = logs / 'Game.xcodeproj'
     # Keep build products outside Godot's recursive Xcode framework search path.

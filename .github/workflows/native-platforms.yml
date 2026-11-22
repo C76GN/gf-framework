@@ -50,6 +50,42 @@ jobs:
           path: build/native-platforms/
           if-no-files-found: error
 
+  simulator-engine:
+    # The official Godot 4.7.2 simulator archive contains only x86_64.
+    runs-on: macos-26
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [debug, release]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: godotengine/godot
+          ref: ed1daf0bf001b61586d9930840f2f1394092c079
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - id: inputs
+        run: echo "key=$(git rev-parse HEAD)-$(xcodebuild -version | awk 'END {print $NF}')" >> "${GITHUB_OUTPUT}"
+      - uses: actions/cache@v5
+        id: archives
+        with:
+          path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
+          key: gf-ios-simulator-${{ steps.inputs.outputs.key }}-${{ matrix.profile }}-1
+      - name: Compile the matching arm64 simulator engine
+        if: steps.archives.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install scons==4.9.1
+          scons -j"$(sysctl -n hw.logicalcpu)" platform=ios target=template_${{ matrix.profile }} simulator=yes arch=arm64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: gf-godot-simulator-${{ matrix.profile }}
+          path: bin/libgodot*.ios.template_${{ matrix.profile }}.arm64.simulator.a
+          if-no-files-found: error
+          retention-days: 1
+
   package:
     needs: build-slices
     runs-on: ubuntu-latest
@@ -99,7 +135,7 @@ jobs:
           export PATH="${ANDROID_HOME}/platform-tools:${PATH}"
           sudo chmod a+rw /dev/kvm
           echo no | "${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager" create avd --name gf_native --package "system-images;android-35;google_apis;x86_64"
-          "${ANDROID_HOME}/emulator/emulator" -avd gf_native -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect >"${RUNNER_TEMP}/emulator.log" 2>&1 &
+          "${ANDROID_HOME}/emulator/emulator" -avd gf_native -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swangle >build/native-emulator.log 2>&1 &
           trap 'adb -s emulator-5556 emu kill || true' EXIT
           timeout 300 adb -s emulator-5556 wait-for-device
           timeout 300 bash -c 'until [[ "$(adb -s emulator-5556 shell getprop sys.boot_completed | tr -d "\r")" == 1 ]]; do sleep 2; done'
@@ -115,11 +151,13 @@ jobs:
         if: failure()
         with:
           name: gf-native-linux-android-diagnostics
-          path: build/native-export-*/*.log
+          path: |
+            build/native-export-*/*.log
+            build/native-emulator.log
           if-no-files-found: ignore
 
   apple:
-    needs: package
+    needs: [package, simulator-engine]
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -133,6 +171,17 @@ jobs:
           path: build/native-delivery
       - name: Install the pinned Godot editor and templates
         run: python .github/scripts/setup_gf_native_platforms.py
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: gf-godot-simulator-*
+          path: build/simulator-libraries
+          merge-multiple: true
+      - name: Prepare the arm64 simulator export template
+        shell: bash
+        run: |
+          template="$(python -c 'import sys; sys.path.insert(0, ".github/scripts"); from setup_gf_native_windows import VERSION; print(VERSION.replace("-", "."))')"
+          python .github/scripts/prepare_godot_ios_simulator.py --template "${HOME}/Library/Application Support/Godot/export_templates/${template}/ios.zip" --libraries build/simulator-libraries --output build/native-simulator-template/ios.zip
+          echo "GF_IOS_EXPORT_TEMPLATE=${GITHUB_WORKSPACE}/build/native-simulator-template/ios.zip" >> "${GITHUB_ENV}"
       - name: Link device apps and run the exported simulator games
         shell: bash
         run: |
@@ -147,6 +196,12 @@ jobs:
           name: gf-native-delivery-apple
           path: build/native-reports/*.json
           if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: godot-ios-simulator-template
+          path: build/native-simulator-template/ios.zip
+          if-no-files-found: error
+          retention-days: 3
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

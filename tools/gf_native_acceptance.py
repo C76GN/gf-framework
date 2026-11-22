@@ -157,7 +157,8 @@ def prepare_project(workspace: Path, *, standard_only: bool = False, platform_to
         'config/icon="res://addons/gf/icon.png"\n[autoload]\nGf="*res://addons/gf/kernel/core/gf.gd"\n'
         '[editor_plugins]\nenabled=PackedStringArray("res://addons/gf/plugin.cfg")\n'
         f'[gf]\nextensions/selection_mode="explicit"\nextensions/enabled=Array[String]({enabled})\n'
-        '[rendering]\nrenderer/rendering_method="gl_compatibility"\ntextures/vram_compression/import_etc2_astc=true\n'
+        '[rendering]\nrenderer/rendering_method="gl_compatibility"\nrenderer/rendering_method.mobile="gl_compatibility"\n'
+        'textures/vram_compression/import_etc2_astc=true\n'
         '[debug]\nfile_logging/enable_file_logging=true\n'
         f'[gf_native_acceptance]\nrun_token="{platform_token}"\n', encoding='utf-8')
     (workspace / 'main.tscn').write_text(
