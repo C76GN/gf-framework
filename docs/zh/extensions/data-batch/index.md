@@ -98,6 +98,8 @@ func sum_offsets(publication: GFDataBatchPublication) -> int:
 
 `get_debug_snapshot()` 返回独立的小型诊断字典，包含当前载荷，以及最近成功发布的峰值、复制和转交字节。`last_required_payload_bytes` 记录最近进入字节预算检查的尝试所需载荷；形状、索引或版本等更早阶段的拒绝会保留前值，不能将它与本次拒绝原因直接配对。诊断不追踪外部历史引用，不能用这些数值替代进程内存测量。
 
+<a name="可选原生-gather"></a>
+
 ## 可选原生 gather
 
 安装适合目标平台的 GF Native 后，在主线程按常规方式创建发布者即可。框架会让可用的原生库执行整型行筛选；使用通用包时，同一行 GDScript 会选择脚本实现。安装包选择见[安装与 AutoLoad](../../overview/quickstart/install-autoload.md)。

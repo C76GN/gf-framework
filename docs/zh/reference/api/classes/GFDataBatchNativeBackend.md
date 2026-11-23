@@ -9,7 +9,7 @@
 - 类别：运行时服务 (`runtime_service`)
 - 首次版本：`12.0.0`
 
-连接可选的原生 PackedArray gather 服务。 仅连接项目已经安装并加载的 GDExtension，不安装二进制、不运行编译器。 发布者默认尝试连接，当前分发 Windows x64 实现。项目也可以显式取得适配器。
+连接可选的原生 PackedArray gather 服务。 发布者默认在主线程查找由 GDExtension 注册的 GfPackedGatherBackend 引擎服务，确认服务提供 gather 方法且协议版本为 1。 项目也可调用 create() 显式连接。服务未加载或不兼容时，create() 返回 null，默认发布者使用 GDScript。各平台和架构的安装包见同版本手册「入门 → 快速开始 → 安装与 AutoLoad」。
 
 ## 成员概览
 

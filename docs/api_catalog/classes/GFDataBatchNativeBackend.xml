@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFDataBatchNativeBackend" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd" module="extensions/data_batch" extends="GFDataBatchBackend" classDigest="324a5934eaffc12f3117711c38cb33015974da0a3b4a1b57cada6ed4ae6a2e84">
+<class name="GFDataBatchNativeBackend" path="addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd" module="extensions/data_batch" extends="GFDataBatchBackend" classDigest="23d51ebd9d15ff7c99b80b407f400f9402aa935234a2ba8a7da4a33fb80cc5fe">
 	<description>GFDataBatchNativeBackend: 连接可选的原生 PackedArray gather 服务。
-仅连接项目已经安装并加载的 GDExtension，不安装二进制、不运行编译器。
-发布者默认尝试连接，当前分发 Windows x64 实现。项目也可以显式取得适配器。</description>
+发布者默认在主线程查找由 GDExtension 注册的 GfPackedGatherBackend 引擎服务，确认服务提供 gather 方法且协议版本为 1。
+项目也可调用 create() 显式连接。服务未加载或不兼容时，create() 返回 null，默认发布者使用 GDScript。各平台和架构的安装包见同版本手册「入门 → 快速开始 → 安装与 AutoLoad」。</description>
 	<tags>
 		<tag name="api">public</tag>
 		<tag name="category">runtime_service</tag>

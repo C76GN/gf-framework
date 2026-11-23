@@ -11,7 +11,7 @@
 
 打开 Godot，在 `Project > Project Settings > Plugins` 启用 `GF Framework`。Godot 在导入时加载原生库。项目开发者和玩家都无需安装 Rust。请在项目中仅保留一份原生库；如需移动，可以整体移动 `gf_native` 目录。
 
-iOS 设备版可以直接使用 Godot 的官方导出模板。Godot 4.7.2 在 Apple Silicon 模拟器上还需要带 arm64 引擎的模板。在本仓库原生 CI 的成功运行中下载 `godot-ios-simulator-template`，解压出 `ios.zip`，将 iOS 导出预设的 **Custom Template → Debug / Release** 都设为此文件，并为移动端选择 **Compatibility** 渲染器。CI 下载过期后，可以在 Mac 上从对应的 Godot 源码重建模板。[重建模板](https://github.com/C76GN/gf-framework/blob/main/native/gf_native/README.md#rebuild-the-godot-472-simulator-template) · [Godot 上游问题](https://github.com/godotengine/godot/issues/122379)
+iOS 设备版可以直接使用 Godot 的官方导出模板。Godot 4.7.2 在 Apple Silicon 模拟器上还需要带 arm64 引擎的模板。在本仓库原生 CI 的成功运行中下载 `godot-ios-simulator-template`，解压出 `ios.zip`，将 iOS 导出预设的 **Custom Template → Debug / Release** 都设为此文件，并为移动端选择 **Compatibility** 渲染器。下载过期后，可在 Apple Silicon Mac 上按同版本 GF 源码中 `native/gf_native/README.md` 的步骤重建模板。[Godot 4.7.2 模板重建步骤](https://github.com/C76GN/gf-framework/blob/b684edaddb221a340d597dcd6767a5cfc6515f0c/native/gf_native/README.md#rebuild-the-godot-472-simulator-template) · [Godot 上游问题](https://github.com/godotengine/godot/issues/122379)
 
 插件启用后会自动注册：
 
