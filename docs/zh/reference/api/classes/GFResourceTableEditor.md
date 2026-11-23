@@ -330,7 +330,7 @@ func apply_selected_property() -> Dictionary:
 func preview_column_paste(clipboard: String) -> Dictionary:
 ```
 
-根据当前可见选择和属性预览一列文本。再次调用会替换预览。
+根据当前可见选择和属性预览一列文本。再次调用会关闭旧预览。提交需要同一有效撤销管理器。
 
 参数：
 
@@ -342,7 +342,7 @@ func preview_column_paste(clipboard: String) -> Dictionary:
 
 结构：
 
-- `return`: Dictionary 含 error:String（空为可提交）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。
+- `return`: Dictionary 含 error:String（空表示各行输入有效）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。
 
 <a id="member-gfresourcetableeditor-methods-apply_column_paste"></a>
 

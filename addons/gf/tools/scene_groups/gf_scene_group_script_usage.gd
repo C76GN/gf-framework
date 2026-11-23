@@ -97,24 +97,33 @@ func scan(
 		return result
 	var statements: Array[Dictionary] = _statements(source)
 	var constants: Dictionary = {}
-	var shadows: Dictionary = {}
-	var types: Dictionary = {}
+	var member_types: Dictionary = {}
+	var member_shadows: Dictionary = {}
+	var scope: Dictionary = {}
 	var base: String = ""
 	for statement: Dictionary in statements:
 		var words: PackedStringArray = statement["words"]
 		var top: bool = statement["top"]
-		if (
+		if scope.is_empty() or top:
+			scope = { "types": {}, "shadows": {} }
+		statement["scope"] = scope
+		if top and words[0] in ["class_name", "extends"]:
+			var extends_at: int = words.find("extends")
+			if extends_at >= 0 and extends_at == words.size() - 2:
+				base = words[-1]
+		var member: bool = (
 			top
-			and words[0] == "extends"
-			and words.size() == 2
-		):
-			base = words[1]
+			and words[0] != "class"
+			and not words.has("func")
+		)
+		var declarations: Dictionary = member_types if member else scope["types"]
+		var shadows: Dictionary = member_shadows if member else scope["shadows"]
 		_collect_bindings(
 			words,
 			top,
 			constants,
 			shadows,
-			types
+			declarations
 		)
 	var builtin: String = _native_base(base)
 	var in_inner_class: bool = false
@@ -122,6 +131,9 @@ func scan(
 	for statement: Dictionary in statements:
 		var words: PackedStringArray = statement["words"]
 		var lines: PackedInt32Array = statement["lines"]
+		var bindings: Dictionary = statement["scope"]
+		var local_types: Dictionary = bindings["types"]
+		var local_shadows: Dictionary = bindings["shadows"]
 		if statement["top"]:
 			in_inner_class = words[0] == "class"
 		for index: int in range(words.size() - 1):
@@ -136,7 +148,8 @@ func scan(
 				index,
 				method,
 				"" if in_inner_class else builtin,
-				types
+				local_types,
+				{} if in_inner_class else member_types
 			)
 			if receiver == "unrelated":
 				continue
@@ -150,7 +163,9 @@ func scan(
 			if (
 				group.is_empty()
 				and constants.has(argument)
-				and not shadows.has(argument)
+				and not local_shadows.has(argument)
+				and not member_shadows.has(argument)
+				and not in_inner_class
 			):
 				group = constants[argument]
 			var resolution: String = "fixed" if not group.is_empty() else "dynamic_group"
@@ -274,11 +289,14 @@ func _collect_bindings(
 			"for",
 		] and not own_constant:
 			shadows[words[index]] = true
-			_remember_type(
-				words,
-				index,
-				types
-			)
+			if top and not words.has("func"):
+				_remember_type(
+					words,
+					index,
+					types
+				)
+			else:
+				types[words[index]] = ""
 		var named_function: bool = index >= 2 and words[index - 2] == "func"
 		var function_name: bool = named_function or previous == "func"
 		if words[index] == "(" and function_name:
@@ -287,11 +305,14 @@ func _collect_bindings(
 		if in_parameters:
 			if previous in ["(", ","] and depth == 1:
 				shadows[words[index]] = true
-				_remember_type(
-					words,
-					index,
-					types
-				)
+				if top:
+					_remember_type(
+						words,
+						index,
+						types
+					)
+				else:
+					types[words[index]] = ""
 			if words[index] == "(":
 				depth += 1
 			elif words[index] == ")":
@@ -337,7 +358,8 @@ func _receiver(
 	index: int,
 	method: String,
 	builtin: String,
-	types: Dictionary
+	types: Dictionary,
+	members: Dictionary
 ) -> String:
 	var expected: String = "Node" if method in _NODE_METHODS else "SceneTree"
 	var receiver: String = builtin
@@ -371,7 +393,10 @@ func _receiver(
 					"%",
 				]:
 					return "unknown"
-				receiver = types.get(name_key, "")
+				receiver = types.get(
+					name_key,
+					members.get(name_key, "")
+				)
 	if receiver.is_empty():
 		return "unknown"
 	if ClassDB.is_parent_class(receiver, expected):
@@ -423,7 +448,8 @@ func _group_argument(
 ## [br]
 ## @api private
 func _literal(word: String) -> String:
-	var quoted: String = word.trim_prefix("&")
+	var raw: bool = word.begins_with("r")
+	var quoted: String = word.trim_prefix("r") if raw else word.trim_prefix("&")
 	if quoted.length() < 2 or quoted.contains("\n"):
 		return ""
 	var mark: String = quoted.left(1)
@@ -439,6 +465,8 @@ func _literal(word: String) -> String:
 	)
 	if not content.contains("\\"):
 		return content
+	if raw:
+		return content if not content.contains(mark) else ""
 	var value: String = ""
 	var index: int = 0
 	while index < content.length():

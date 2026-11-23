@@ -45,9 +45,7 @@ static func build(
 	if normalized.contains("\t"):
 		result["error"] = "检测到制表符，请只复制一列。"
 		return result
-	var lines: PackedStringArray = normalized.split("\n", true)
-	if lines.size() == targets.size() + 1 and lines[-1].is_empty():
-		var _resized: int = lines.resize(targets.size())
+	var lines: PackedStringArray = normalized.trim_suffix("\n").split("\n", true)
 	if lines.size() != targets.size():
 		result["error"] = (
 			"文本有 %d 行，已选择 %d 行。"
@@ -171,7 +169,14 @@ static func _parse_value(
 		if increment <= 0.0:
 			return null
 		var units: float = (float_value - minimum) / increment
-		if not is_finite(units) or absf(units - roundf(units)) > 0.000001:
+		if not is_finite(units):
+			return null
+		var nearest: float = minimum + roundf(units) * increment
+		var tolerance: float = maxf(
+			absf(float_value),
+			absf(nearest)
+		) * 8.881784197001252e-16
+		if not is_finite(nearest) or absf(float_value - nearest) > tolerance:
 			return null
 	return float_value
 

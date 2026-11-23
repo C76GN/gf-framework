@@ -1142,6 +1142,7 @@ func test_column_paste_respects_text_empty_cells_and_property_hints() -> void:
 	for invalid: String in [
 		"0.5\n1.25",
 		"0.5\n0.4",
+		"0.5\n0.0000001",
 		"0.5\n1e999",
 		"0.5\nnan",
 	]:
@@ -1180,6 +1181,12 @@ func test_column_paste_respects_text_empty_cells_and_property_hints() -> void:
 	)
 	if not _select_rows_and_property(table, &"label"):
 		return
+	_preview = table.preview_column_paste("keep\n")
+	assert_ne(
+		_string_field(_preview, "error"),
+		""
+	)
+	assert_eq(second.label, "clear me")
 	_preview = table.preview_column_paste("  keep  \n\n")
 	assert_eq(
 		_string_field(
@@ -1235,6 +1242,47 @@ func test_paste_rolls_back_a_rejected_setter_and_refuses_duplicate_targets() -> 
 	)
 	assert_eq(first.amount, 0)
 	assert_eq(manager.action_count, 1)
+
+
+func test_column_preview_expires_on_new_preview_and_undo_manager_change() -> void:
+	var resource: PasteResource = PasteResource.new()
+	var first_manager: RecordingUndoManager = RecordingUndoManager.new()
+	var other_manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table(
+		[resource],
+		null
+	)
+	var context: GFEditorToolContext = GFEditorToolContext.new()
+	context.undo_manager = first_manager
+	table.set_editor_context(context)
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	var preview: Dictionary = table.preview_column_paste("1")
+	assert_eq(
+		_string_field(preview, "error"),
+		""
+	)
+	var dialog: ConfirmationDialog = table.find_child(
+		"PasteColumnPreview",
+		true,
+		false
+	) as ConfirmationDialog
+	dialog.show()
+	preview = table.preview_column_paste("2")
+	assert_false(dialog.visible)
+	context.undo_manager = other_manager
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"stale_preview"
+	)
+	assert_eq(resource.amount, 0)
+	assert_eq(
+		[first_manager.action_count, other_manager.action_count],
+		[0, 0]
+	)
 
 
 func _bool_field(source: Dictionary, key: String) -> bool:

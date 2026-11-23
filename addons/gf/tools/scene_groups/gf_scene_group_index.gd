@@ -503,9 +503,14 @@ func is_script_location_current(row: Dictionary) -> bool:
 	):
 		return false
 	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if file == null or file.get_length() > _limit("max_script_bytes"):
+	if file == null:
 		return false
-	var bytes: PackedByteArray = file.get_buffer(file.get_length())
+	var size: int = file.get_length()
+	if size > _limit("max_script_bytes"):
+		return false
+	var bytes: PackedByteArray = file.get_buffer(size)
+	if bytes.size() != size or file.get_length() != size:
+		return false
 	var source: String = bytes.get_string_from_utf8().replace("\r\n", "\n")
 	var line: int = line_value
 	return (

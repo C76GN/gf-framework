@@ -1068,6 +1068,62 @@ func test_script_query_bounds_shadowed_constants_and_cancellation() -> void:
 	)
 
 
+func test_class_header_and_parameter_types_stay_in_their_declaring_scope() -> void:
+	_make_directory(_temporary_root)
+	var path: String = _temporary_root.path_join("scopes.gd")
+	_write_text(
+		path,
+		"\n".join(
+			PackedStringArray(
+				[
+					"class_name GroupScopeFixture extends Node3D",
+					"const FIELD = &\"water\"",
+					"func inspect(owner: Resource, FIELD: String):",
+					"\towner.is_in_group(\"unrelated\")",
+					"\tadd_to_group(FIELD)",
+					"func probe(actor: Node):",
+					"\tactor.add_to_group(r\"literal\")",
+					"\tadd_to_group(FIELD)",
+					"\towner.is_in_group(\"unknown\")",
+					"",
+				]
+			)
+		)
+	)
+	var index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+	assert_eq(
+		index.begin_script_scan(_temporary_root),
+		OK
+	)
+	_finish(index)
+	assert_eq(
+		_int_field(
+			index.query_script_usage("literal"),
+			"total"
+		),
+		1
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage("water"),
+			"total"
+		),
+		1
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage(
+				"",
+				0,
+				100,
+				true
+			),
+			"total"
+		),
+		2
+	)
+
+
 func _finish(index: GFSceneGroupIndex, budget: int = 64) -> void:
 	for _iteration: int in range(2_000):
 		if not index.advance(budget):

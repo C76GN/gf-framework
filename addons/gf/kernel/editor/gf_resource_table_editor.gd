@@ -233,6 +233,11 @@ var _paste_rows: Tree
 ## @api private
 var _paste_text: String = ""
 
+## 预览所属撤销历史的对象身份。
+## [br]
+## @api private
+var _paste_undo_id: int = 0
+
 ## 等待确认的资源、属性声明与旧值。
 ## [br]
 ## @api private
@@ -345,7 +350,7 @@ func apply_selected_property() -> Dictionary:
 	return _commit_multi_changes(changes, "Edit Selected Resource Properties")
 
 
-## 根据当前可见选择和属性预览一列文本。再次调用会替换预览。
+## 根据当前可见选择和属性预览一列文本。再次调用会关闭旧预览。提交需要同一有效撤销管理器。
 ## [br]
 ## @api public
 ## [br]
@@ -355,9 +360,11 @@ func apply_selected_property() -> Dictionary:
 ## [br]
 ## @return 可供自定义 UI 展示的预览副本。
 ## [br]
-## @schema return: Dictionary 含 error:String（空为可提交）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。
+## @schema return: Dictionary 含 error:String（空表示各行输入有效）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。
 func preview_column_paste(clipboard: String) -> Dictionary:
 	_ensure_tree()
+	_clear_column_paste()
+	_paste_undo_id = _editor_context.undo_manager.get_instance_id() if _has_multi_edit_undo() else 0
 	_paste_text = clipboard
 	_paste_preview = _COLUMN_PASTE.build(
 		_selected_resources(),
@@ -382,7 +389,8 @@ func apply_column_paste() -> Dictionary:
 		return get_multi_edit_report()
 	if not _has_multi_edit_undo():
 		return _finish_multi_edit(ERR_UNCONFIGURED, "unconfigured")
-	if _paste_preview.is_empty():
+	if _paste_preview.is_empty() or _editor_context.undo_manager.get_instance_id() != _paste_undo_id:
+		_clear_column_paste()
 		return _finish_multi_edit(ERR_INVALID_DATA, "stale_preview")
 	var current: Dictionary = _COLUMN_PASTE.build(
 		_selected_resources(),
@@ -1036,6 +1044,7 @@ func _ensure_tree() -> void:
 	var _paste_connection: int = _paste_button.pressed.connect(_on_paste_pressed)
 	buttons.add_child(_paste_button)
 	_paste_dialog = ConfirmationDialog.new()
+	_paste_dialog.name = "PasteColumnPreview"
 	_paste_dialog.title = "粘贴一列"
 	_paste_dialog.ok_button_text = "应用"
 	var _confirmed: int = _paste_dialog.confirmed.connect(_on_paste_confirmed)
@@ -1133,6 +1142,7 @@ func _selected_resources() -> Array[Resource]:
 func _clear_column_paste() -> void:
 	_paste_preview = {}
 	_paste_text = ""
+	_paste_undo_id = 0
 	if is_instance_valid(_paste_dialog):
 		_paste_dialog.hide()
 		_paste_rows.clear()
