@@ -448,6 +448,234 @@ func test_item_queries_use_priority_stable_ids_and_exact_hit_hook() -> void:
 	)
 
 
+func test_pick_radius_filters_nearby_handles_at_the_original_world_point() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var pointer: Vector2 = Vector2(103.0, 100.0)
+	var calls: Array[StringName] = []
+	var hit_test: Callable = func(
+		item_id: StringName,
+		point: Vector2,
+		bounds: Rect2
+	) -> bool:
+		calls.append(item_id)
+		assert_eq(point, pointer)
+		assert_eq(
+			bounds.size,
+			Vector2(2.0, 2.0)
+		)
+		return point.distance_squared_to(bounds.get_center()) <= 36.0
+	var a_bounds: Rect2 = Rect2(
+		Vector2(99.0, 99.0),
+		Vector2(2.0, 2.0)
+	)
+	var b_bounds: Rect2 = Rect2(
+		Vector2(105.0, 105.0),
+		a_bounds.size
+	)
+	var options: Dictionary = { "exact_hit": hit_test }
+	assert_true(
+		canvas.upsert_item(
+			&"B",
+			b_bounds,
+			options
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"A",
+			a_bounds,
+			options
+		)
+	)
+
+	assert_true(canvas.query_items_at(pointer).is_empty())
+	assert_true(canvas.query_items_at(pointer, 0.0).is_empty())
+	var window: Rect2 = Rect2(
+		pointer - Vector2(6.0, 6.0),
+		Vector2(12.0, 12.0)
+	)
+	assert_eq(
+		canvas.query_items_in_rect(window),
+		PackedStringArray(["A", "B"])
+	)
+	assert_true(calls.is_empty())
+	assert_eq(
+		canvas.query_items_at(pointer, 6.0),
+		PackedStringArray(["A"])
+	)
+	assert_eq(
+		calls,
+		[&"A", &"B"]
+	)
+
+	assert_true(canvas.set_view(pointer, 2.0))
+	var canvas_point: Vector2 = canvas.world_to_canvas(pointer)
+	assert_true(canvas.select_point(canvas_point).is_empty())
+	assert_eq(
+		canvas.select_point(
+			canvas_point,
+			GFSpatialCanvas2D.SelectionMode.REPLACE,
+			6.0 / canvas.get_zoom()
+		),
+		PackedStringArray(["A"])
+	)
+	calls.clear()
+	assert_true(canvas.select_rect(Rect2(canvas_point, Vector2.ONE)).is_empty())
+	assert_true(calls.is_empty())
+
+
+func test_pick_radius_applies_selectability_priority_and_budget_before_exact_hit() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var bounds: Rect2 = Rect2(
+		Vector2(4.0, -1.0),
+		Vector2(2.0, 2.0)
+	)
+	var canvas_point: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
+	var visible_items: Array[StringName] = []
+	assert_true(canvas.configure_budgets({ "max_query_candidates": 1 }))
+	assert_true(canvas.upsert_item(&"b", bounds))
+	assert_true(
+		canvas.upsert_item(
+			&"a",
+			bounds,
+			{
+				"exact_hit": func(
+					item_id: StringName,
+					_point: Vector2,
+					_bounds: Rect2
+				) -> bool:
+					return visible_items.has(item_id),
+			}
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"locked",
+			bounds,
+			{ "selectable": false, "selection_priority": 10 }
+		)
+	)
+	assert_eq(
+		canvas.query_items_at(Vector2.ZERO, 4.0),
+		PackedStringArray(["locked"])
+	)
+	assert_true(
+		canvas.select_point(
+			canvas_point,
+			GFSpatialCanvas2D.SelectionMode.REPLACE,
+			4.0
+		).is_empty()
+	)
+	var snapshot: Dictionary = canvas.get_debug_snapshot()
+	assert_eq(
+		GFVariantData.get_option_int(snapshot, "last_query_candidate_count"),
+		2
+	)
+	assert_true(GFVariantData.get_option_bool(snapshot, "last_query_truncated"))
+	visible_items.append(&"a")
+	assert_eq(
+		canvas.select_point(
+			canvas_point,
+			GFSpatialCanvas2D.SelectionMode.REPLACE,
+			4.0
+		),
+		PackedStringArray(["a"])
+	)
+	assert_true(
+		canvas.select_point(
+			canvas_point,
+			GFSpatialCanvas2D.SelectionMode.TOGGLE,
+			4.0
+		).is_empty()
+	)
+
+
+func test_invalid_pick_radius_preserves_selection_and_query_diagnostics() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var canvas_point: Vector2 = canvas.world_to_canvas(Vector2.ZERO)
+	assert_true(
+		canvas.upsert_item(
+			&"selected",
+			Rect2(Vector2.ONE, Vector2.ONE)
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"other",
+			Rect2(Vector2.ZERO, Vector2.ONE)
+		)
+	)
+	var selected: PackedStringArray = canvas.set_selection(PackedStringArray(["selected"]))
+	assert_eq(
+		canvas.query_items_at(Vector2.ZERO),
+		PackedStringArray(["other"])
+	)
+	var before: Dictionary = canvas.get_debug_snapshot()
+	watch_signals(canvas)
+	for invalid_radius: float in [
+		-1.0,
+		NAN,
+		INF,
+		-INF,
+	]:
+		assert_true(canvas.query_items_at(Vector2.ZERO, invalid_radius).is_empty())
+		assert_eq(
+			canvas.select_point(
+				canvas_point,
+				GFSpatialCanvas2D.SelectionMode.REPLACE,
+				invalid_radius
+			),
+			selected
+		)
+	assert_eq(
+		canvas.get_debug_snapshot(),
+		before
+	)
+	assert_signal_not_emitted(canvas, "selection_changed")
+
+
+func test_radius_callbacks_reject_reentry_and_expired_owners() -> void:
+	var canvas: GFSpatialCanvas2D = _make_canvas()
+	var owner_node: Node = Node.new()
+	add_child(owner_node)
+	var bounds: Rect2 = Rect2(
+		Vector2(2.0, 0.0),
+		Vector2.ONE
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"owner",
+			bounds,
+			{ "exact_hit": owner_node.is_inside_tree.unbind(3) }
+		)
+	)
+	assert_true(
+		canvas.upsert_item(
+			&"reentrant",
+			bounds,
+			{
+				"exact_hit": func(
+					item_id: StringName,
+					point: Vector2,
+					_bounds: Rect2
+				) -> bool:
+					assert_true(canvas.query_items_at(point, 2.0).is_empty())
+					assert_false(canvas.remove_item(item_id))
+					return true,
+			}
+		)
+	)
+	assert_eq(
+		canvas.query_items_at(Vector2.ZERO, 2.0),
+		PackedStringArray(["owner", "reentrant"])
+	)
+	owner_node.free()
+	assert_eq(
+		canvas.query_items_at(Vector2.ZERO, 2.0),
+		PackedStringArray(["reentrant"])
+	)
+
+
 func test_point_and_containment_queries_include_shared_rect_boundaries() -> void:
 	var canvas: GFSpatialCanvas2D = _make_canvas()
 	var bounds: Rect2 = Rect2(

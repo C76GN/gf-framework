@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "f1ce7060c118fbb6dd6fbb2969b0db4317abda6559ca3b9f89b37c381269386b",
+  "source_digest": "cc4efd21793f606ee3d5fa5f7226563aa29c6ddb43f1b3e1fc7b465a6b0af9d8",
   "class_count": 915,
   "autoload_count": 1,
   "package_count": 62,
@@ -65796,7 +65796,7 @@
           "kind": "func",
           "name": "query_radius",
           "signature": "func query_radius(center: Vector2, radius: float) -> Array[int]",
-          "summary": "圆形范围查询：返回包围矩形与圆有交集的所有实体 ID。",
+          "summary": "返回包围矩形与闭合圆相交的实体 ID，包含相切的边和角。",
           "visibility": "public"
         },
         {
@@ -85757,8 +85757,8 @@
         {
           "kind": "func",
           "name": "query_items_at",
-          "signature": "func query_items_at(world_position: Vector2) -> PackedStringArray",
-          "summary": "查询包含世界点的条目。",
+          "signature": "func query_items_at(world_position: Vector2, world_radius: float = 0.0) -> PackedStringArray",
+          "summary": "查询世界点及其指定半径内的条目。",
           "visibility": "public"
         },
         {
@@ -85778,8 +85778,8 @@
         {
           "kind": "func",
           "name": "select_point",
-          "signature": "func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray",
-          "summary": "在画布坐标点选最高优先级条目。",
+          "signature": "func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE, world_radius: float = 0.0 ) -> PackedStringArray",
+          "summary": "在画布坐标点选给定世界半径内最高优先级的可选条目。",
           "visibility": "public"
         },
         {

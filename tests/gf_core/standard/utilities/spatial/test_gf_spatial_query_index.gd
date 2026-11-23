@@ -756,6 +756,68 @@ func test_spatial_query_index_2d_radius_zero_uses_point_query_semantics() -> voi
 	)
 
 
+func test_spatial_query_index_2d_radius_includes_tangencies_in_both_strategies() -> void:
+	var region: Rect2 = Rect2(
+		Vector2(-8.0, -8.0),
+		Vector2(16.0, 16.0)
+	)
+	for strategy: StringName in [GFSpatialQueryIndex2D.STRATEGY_LINEAR, GFSpatialQueryIndex2D.STRATEGY_QUADTREE]:
+		var index: GFSpatialQueryIndex2D = GFSpatialQueryIndex2D.new()
+		var _configured: GFSpatialQueryIndex2D = index.configure(
+			region,
+			strategy,
+			{ "quadtree_max_entities": 1, "quadtree_max_depth": 3 }
+		)
+		var edge: Rect2 = Rect2(
+			Vector2(5.0, -1.0),
+			Vector2(1.0, 2.0)
+		)
+		var corner: Rect2 = Rect2(
+			Vector2(3.0, 4.0),
+			Vector2.ONE
+		)
+		var outside: Rect2 = Rect2(
+			Vector2(4.0, 4.0),
+			Vector2.ONE
+		)
+		assert_true(index.upsert(1, edge))
+		assert_true(index.upsert(2, corner))
+		assert_true(index.upsert(3, outside))
+		assert_eq(
+			index.query_radius(Vector2.ZERO, 5.0),
+			[1, 2]
+		)
+		assert_eq(
+			index.query_radius(
+				Vector2(11.0, 0.0),
+				5.0
+			),
+			[1]
+		)
+		assert_eq(
+			index.query_radius(Vector2.ZERO, 4.99),
+			[]
+		)
+		assert_eq(
+			index.query_radius(
+				Vector2(1e25, 0.0),
+				2e25
+			),
+			[
+				1,
+				2,
+				3,
+			]
+		)
+		assert_eq(
+			GFVariantData.get_option_string_name(
+				index.get_debug_snapshot(),
+				"active_strategy"
+			),
+			strategy
+		)
+
+
 func test_spatial_query_index_3d_radius_zero_uses_point_query_semantics() -> void:
 	var index: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = GF_SPATIAL_QUERY_INDEX_3D_SCRIPT.new()
 	var _configured: GF_SPATIAL_QUERY_INDEX_3D_SCRIPT = index.configure(
