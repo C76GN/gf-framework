@@ -15,6 +15,7 @@
 
 ### 🐛 Bug 修复 (Fixed)
 
+- 二维空间索引和四叉树的圆形查询现在能命中恰好与圆周相切的矩形边和角。
 - Data Batch 类参考补充了原生 gather 的主线程连接条件。各平台的安装包与 Godot 4.7.2 的 iOS 模拟器模板重建步骤见[安装与 AutoLoad](overview/quickstart/install-autoload.md)。
 - 修复关闭编辑器时插件误删 `Gf` AutoLoad、导致下次直接启动游戏缺少单例的问题。显式禁用插件时才清理插件拥有的登记。
 - 修复启动取消或失败后，同一架构在旧异步模块仍挂起时报告重试成功的问题。旧步骤返回后即可重试并正常登记新模块。
@@ -28,11 +29,14 @@
 
 ### 🔧 API 变动说明 (API Changes)
 
+- `GFSpatialCanvas2D.query_items_at()` 和 `select_point()` 新增可选参数 `world_radius`，可按世界单位扩大缩放画布上小手柄的点选范围。默认半径为 0。[点选容差示例](standard/input-flow/spatial-canvas-2d.md#pick-radius)
 - `GFCurve2DMath` 新增 `split_cubic_bezier()` 和 `project_point_to_cubic_bezier()`。输入采用同一坐标系中的绝对控制点，投影结果包含原始曲线参数和距离误差界。
 - `GFNotificationUtility` 新增 `max_active_notifications`、`get_active_notifications()`、`dismiss_notification()` 和 `invoke_notification_action()`。
 - `GFSpatialCanvas2D` 新增 `resolve_wheel_zoom_target()`，返回输入路由结果和受画布约束的缩放目标。
 
 ### 📘 升级指南 (Migration Guide)
+
+覆写 `GFSpatialCanvas2D.query_items_at()` 或 `select_point()` 的 GDScript 子类，需要在覆写签名末尾添加 `world_radius: float = 0.0`。委托给 `super` 时也传入该半径。普通调用方可以继续省略半径。
 
 按旧指南缓存 `GFQuery` 实例的项目，请改为每次发送时创建新实例。频繁刷新的界面可订阅数值或在页面作用域内持有只读接口。[查询指南](kernel/messaging/commands-queries-rules/queries.md)
 

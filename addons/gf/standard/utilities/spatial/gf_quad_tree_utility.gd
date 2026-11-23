@@ -40,6 +40,12 @@ const DEFAULT_MAX_ENTITIES: int = 8
 ## [br]
 const _GF_REPORT_VALUE_CODEC_SCRIPT = preload("res://addons/gf/kernel/core/gf_report_value_codec.gd")
 
+## 与线性空间索引共用闭合圆和矩形的距离判定。
+## [br]
+## @api private
+## [br]
+const _SPATIAL_BOUNDS_MATH = preload("res://addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd")
+
 
 # --- 公共变量 ---
 
@@ -305,48 +311,32 @@ func query_rect(area: Rect2) -> Array[int]:
 	return result
 
 
-## 圆形范围查询：返回包围矩形与圆有交集的所有实体 ID。
+## 返回包围矩形与闭合圆相交的实体 ID，包含相切的边和角。
 ## [br]
 ## @api public
 ## [br]
+## @since 3.17.0
+## [br]
 ## @param center: 圆心坐标。
 ## [br]
-## @param radius: 查询半径。
+## @param radius: 有限、非负的查询半径。
 ## [br]
 ## @return 匹配的实体 ID 数组。
 func query_radius(center: Vector2, radius: float) -> Array[int]:
-	if radius < 0.0:
+	if (
+		not _SPATIAL_BOUNDS_MATH.is_finite_vector2(center)
+		or not _is_finite_float(radius)
+		or radius < 0.0
+	):
 		return []
-
-	var query_bounds: Rect2 = Rect2(
-		center - Vector2(radius, radius),
-		Vector2(
-			radius * 2.0,
-			radius * 2.0
-		)
-	)
-	var candidates: Array[int] = query_rect(query_bounds)
+	_ensure_root()
 	var result: Array[int] = []
-	var radius_sq: float = radius * radius
-
-	for entity_id: int in candidates:
-		if _entity_rects.has(entity_id):
-			var rect: Rect2 = _variant_to_rect2(_entity_rects[entity_id])
-			var closest: Vector2 = Vector2(
-				clampf(
-					center.x,
-					rect.position.x,
-					rect.position.x + rect.size.x
-				),
-				clampf(
-					center.y,
-					rect.position.y,
-					rect.position.y + rect.size.y
-				),
-			)
-			if center.distance_squared_to(closest) <= radius_sq:
-				result.append(entity_id)
-
+	_root._query_radius(
+		center,
+		radius * radius,
+		result,
+		{}
+	)
 	return result
 
 
@@ -811,6 +801,33 @@ class _QTNode:
 					result,
 					visited
 				)
+
+
+	## 在节点和条目上使用相同的闭合圆判定，跨象限的条目只需检查一次。
+	## [br]
+	## @api private
+	func _query_radius(
+		center: Vector2,
+		radius_squared: float,
+		result: Array[int],
+		visited: Dictionary
+	) -> void:
+		if _SPATIAL_BOUNDS_MATH.distance_squared_to_rect2(center, _node_bounds) > radius_squared:
+			return
+		for entity_id: int in _entities:
+			if visited.has(entity_id):
+				continue
+			visited[entity_id] = true
+			var rect: Rect2 = GFQuadTreeUtility._variant_to_rect2(_entity_rects[entity_id])
+			if _SPATIAL_BOUNDS_MATH.distance_squared_to_rect2(center, rect) <= radius_squared:
+				result.append(entity_id)
+		for child: _QTNode in _children:
+			child._query_radius(
+				center,
+				radius_squared,
+				result,
+				visited
+			)
 
 
 	## 使用包含边界的点测试剪枝，先查本地再查子树；共享 visited 对分界线上的重复候选去重。

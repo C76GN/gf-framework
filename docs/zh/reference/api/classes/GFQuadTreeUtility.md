@@ -333,19 +333,20 @@ func query_rect(area: Rect2) -> Array[int]:
 ### `query_radius`
 
 - API：`public`
+- 首次版本：`3.17.0`
 
 ```gdscript
 func query_radius(center: Vector2, radius: float) -> Array[int]:
 ```
 
-圆形范围查询：返回包围矩形与圆有交集的所有实体 ID。
+返回包围矩形与闭合圆相交的实体 ID，包含相切的边和角。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `center` | 圆心坐标。 |
-| `radius` | 查询半径。 |
+| `radius` | 有限、非负的查询半径。 |
 
 返回：匹配的实体 ID 数组。
 

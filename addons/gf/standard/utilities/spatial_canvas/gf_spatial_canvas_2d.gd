@@ -1286,10 +1286,10 @@ func get_item(item_id: StringName) -> Dictionary:
 	return _item_public_snapshot(GFVariantData.as_dictionary(_items[normalized_id]))
 
 
-## 查询包含世界点的条目。
+## 查询世界点及其指定半径内的条目。
 ##
-## 候选先以有界 top-K 保留全局 selection_priority 最高、稳定 ID 最小的窗口，
-## 再在预算内执行 exact_hit。
+## 包围矩形与闭合查询圆相交即成为候选。按 selection_priority 降序、稳定 ID 升序
+## 截取候选后，exact_hit 收到原始世界点和登记边界。未配置回调的候选直接命中。
 ## [br]
 ## @api public
 ## [br]
@@ -1297,9 +1297,17 @@ func get_item(item_id: StringName) -> Dictionary:
 ## [br]
 ## @param world_position: 世界坐标。
 ## [br]
-## @return 匹配的稳定 ID。
-func query_items_at(world_position: Vector2) -> PackedStringArray:
-	return _query_items_at_internal(world_position, false)
+## @param world_radius: 有限、非负的世界单位半径。默认 0 表示只查询包含该点的条目。
+## [br]
+## @return 匹配的稳定 ID。坐标或半径无效时返回空数组。
+func query_items_at(world_position: Vector2, world_radius: float = 0.0) -> PackedStringArray:
+	if not _can_query_point(world_position, world_radius):
+		return PackedStringArray()
+	return _query_items_at_internal(
+		world_position,
+		world_radius,
+		false
+	)
 
 
 ## 查询与世界矩形相交的条目。
@@ -1374,7 +1382,9 @@ func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionM
 	return get_selection()
 
 
-## 在画布坐标点选最高优先级条目。
+## 在画布坐标点选给定世界半径内最高优先级的可选条目。
+##
+## 使用与 query_items_at 相同的半径和精确命中规则，先剔除不可选条目再应用候选上限。
 ## [br]
 ## @api public
 ## [br]
@@ -1384,15 +1394,22 @@ func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionM
 ## [br]
 ## @param mode: [enum SelectionMode] 值。
 ## [br]
-## @return 更新后的选择。
-func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:
-	if not _is_finite_vector2(canvas_position) or not _is_selection_mode_valid(mode):
+## @param world_radius: 有限、非负的世界单位半径，默认 0。调用方负责换算局部像素容差。
+## [br]
+## @return 更新后的选择。参数无效时返回当前选择。
+func select_point(
+	canvas_position: Vector2,
+	mode: SelectionMode = SelectionMode.REPLACE,
+	world_radius: float = 0.0
+) -> PackedStringArray:
+	if not _can_query_point(canvas_position, world_radius) or not _is_selection_mode_valid(mode):
 		return get_selection()
 	var world_position_result: Dictionary = _try_canvas_to_world(canvas_position)
 	if not GFVariantData.get_option_bool(world_position_result, "ok"):
 		return get_selection()
 	var hits: PackedStringArray = _query_items_at_internal(
 		GFVariantData.get_option_vector2(world_position_result, "value"),
+		world_radius,
 		true
 	)
 	var top_hit: PackedStringArray = PackedStringArray()
@@ -2296,14 +2313,29 @@ func _try_snap_rotation(rotation_radians: float) -> Dictionary:
 	return { "ok": true, "value": wrapped_rotation }
 
 
-## 拒绝非法坐标或回调重入后，查询点候选并应用精确命中与可选选择性过滤。
+## 两个点查询入口在更新选择或查询诊断前共用同一输入与重入检查。
 ## [br]
 ## @api private
 ## [br]
-func _query_items_at_internal(world_position: Vector2, selectable_only: bool) -> PackedStringArray:
-	if not _is_finite_vector2(world_position) or _callback_active:
-		return PackedStringArray()
-	var records: Array[Dictionary] = _query_index.query_records_radius(world_position, 0.0)
+func _can_query_point(position_value: Vector2, world_radius: float) -> bool:
+	return (
+		not _callback_active
+		and _is_finite_vector2(position_value)
+		and _is_finite_float(world_radius)
+		and world_radius >= 0.0
+	)
+
+
+## 用已校验的世界点和半径检索候选，并将原始点交给预算内的精确命中回调。
+## [br]
+## @api private
+## [br]
+func _query_items_at_internal(
+	world_position: Vector2,
+	world_radius: float,
+	selectable_only: bool
+) -> PackedStringArray:
+	var records: Array[Dictionary] = _query_index.query_records_radius(world_position, world_radius)
 	return _filter_query_records(
 		records,
 		world_position,

@@ -55,10 +55,10 @@
 | 方法 | [`remove_item`](#member-gfspatialcanvas2d-methods-remove_item) | `func remove_item(item_id: StringName) -> bool:` |
 | 方法 | [`clear_items`](#member-gfspatialcanvas2d-methods-clear_items) | `func clear_items() -> void:` |
 | 方法 | [`get_item`](#member-gfspatialcanvas2d-methods-get_item) | `func get_item(item_id: StringName) -> Dictionary:` |
-| 方法 | [`query_items_at`](#member-gfspatialcanvas2d-methods-query_items_at) | `func query_items_at(world_position: Vector2) -> PackedStringArray:` |
+| 方法 | [`query_items_at`](#member-gfspatialcanvas2d-methods-query_items_at) | `func query_items_at(world_position: Vector2, world_radius: float = 0.0) -> PackedStringArray:` |
 | 方法 | [`query_items_in_rect`](#member-gfspatialcanvas2d-methods-query_items_in_rect) | `func query_items_in_rect(world_rect: Rect2, fully_contained: bool = false) -> PackedStringArray:` |
 | 方法 | [`set_selection`](#member-gfspatialcanvas2d-methods-set_selection) | `func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:` |
-| 方法 | [`select_point`](#member-gfspatialcanvas2d-methods-select_point) | `func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:` |
+| 方法 | [`select_point`](#member-gfspatialcanvas2d-methods-select_point) | `func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE, world_radius: float = 0.0 ) -> PackedStringArray:` |
 | 方法 | [`select_rect`](#member-gfspatialcanvas2d-methods-select_rect) | `func select_rect( canvas_rect: Rect2, mode: SelectionMode = SelectionMode.REPLACE, fully_contained: bool = false ) -> PackedStringArray:` |
 | 方法 | [`clear_selection`](#member-gfspatialcanvas2d-methods-clear_selection) | `func clear_selection() -> void:` |
 | 方法 | [`get_selection`](#member-gfspatialcanvas2d-methods-get_selection) | `func get_selection() -> PackedStringArray:` |
@@ -901,18 +901,19 @@ func get_item(item_id: StringName) -> Dictionary:
 - 首次版本：`10.0.0`
 
 ```gdscript
-func query_items_at(world_position: Vector2) -> PackedStringArray:
+func query_items_at(world_position: Vector2, world_radius: float = 0.0) -> PackedStringArray:
 ```
 
-查询包含世界点的条目。 候选先以有界 top-K 保留全局 selection_priority 最高、稳定 ID 最小的窗口， 再在预算内执行 exact_hit。
+查询世界点及其指定半径内的条目。 包围矩形与闭合查询圆相交即成为候选。按 selection_priority 降序、稳定 ID 升序 截取候选后，exact_hit 收到原始世界点和登记边界。未配置回调的候选直接命中。
 
 参数：
 
 | 名称 | 说明 |
 |---|---|
 | `world_position` | 世界坐标。 |
+| `world_radius` | 有限、非负的世界单位半径。默认 0 表示只查询包含该点的条目。 |
 
-返回：匹配的稳定 ID。
+返回：匹配的稳定 ID。坐标或半径无效时返回空数组。
 
 <a id="member-gfspatialcanvas2d-methods-query_items_in_rect"></a>
 
@@ -966,10 +967,10 @@ func set_selection(item_ids: PackedStringArray, mode: SelectionMode = SelectionM
 - 首次版本：`10.0.0`
 
 ```gdscript
-func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -> PackedStringArray:
+func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE, world_radius: float = 0.0 ) -> PackedStringArray:
 ```
 
-在画布坐标点选最高优先级条目。
+在画布坐标点选给定世界半径内最高优先级的可选条目。 使用与 query_items_at 相同的半径和精确命中规则，先剔除不可选条目再应用候选上限。
 
 参数：
 
@@ -977,8 +978,9 @@ func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.
 |---|---|
 | `canvas_position` | 本 Control 的画布坐标。 |
 | `mode` | [enum SelectionMode] 值。 |
+| `world_radius` | 有限、非负的世界单位半径，默认 0。调用方负责换算局部像素容差。 |
 
-返回：更新后的选择。
+返回：更新后的选择。参数无效时返回当前选择。
 
 <a id="member-gfspatialcanvas2d-methods-select_rect"></a>
 

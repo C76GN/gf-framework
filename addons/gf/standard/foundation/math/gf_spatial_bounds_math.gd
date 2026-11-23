@@ -67,6 +67,31 @@ static func is_finite_rect2(rect: Rect2) -> bool:
 	)
 
 
+## 计算点到闭合矩形的最短距离平方。标量运算保留大坐标下的距离精度。
+## [br]
+## @api framework_internal
+## [br]
+## @since unreleased
+## [br]
+## @param point: 有限坐标点。
+## [br]
+## @param rect: 已归一化的有限矩形。
+## [br]
+## @return 点位于矩形内部或边界时为零。
+static func distance_squared_to_rect2(point: Vector2, rect: Rect2) -> float:
+	var dx: float = point.x - clampf(
+		point.x,
+		rect.position.x,
+		rect.position.x + rect.size.x
+	)
+	var dy: float = point.y - clampf(
+		point.y,
+		rect.position.y,
+		rect.position.y + rect.size.y
+	)
+	return dx * dx + dy * dy
+
+
 ## 判断 AABB 的起点、尺寸和终点是否都有限。
 ## [br]
 ## @api framework_internal

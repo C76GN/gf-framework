@@ -756,37 +756,17 @@ func _query_rect_linear_keys(area: Rect2) -> Array[String]:
 	return result
 
 
-## 先按圆的包围矩形筛选，再以最近点距离精确过滤实体矩形。
+## 以最近点距离扫描实体矩形，包含与查询圆相切的边和角。
 ## [br]
 ## @api private
 ## [br]
 func _query_radius_linear_keys(center: Vector2, radius: float) -> Array[String]:
-	var area: Rect2 = Rect2(
-		center - Vector2(radius, radius),
-		Vector2(
-			radius * 2.0,
-			radius * 2.0
-		)
-	)
-	var candidates: Array[String] = _query_rect_linear_keys(area)
 	var result: Array[String] = []
 	var radius_sq: float = radius * radius
-	for entity_key: String in candidates:
+	for entity_key: String in _records:
 		var entity_record: Dictionary = GFVariantData.as_dictionary(_records[entity_key])
 		var entity_bounds: Rect2 = _get_record_bounds(entity_record)
-		var closest: Vector2 = Vector2(
-			clampf(
-				center.x,
-				entity_bounds.position.x,
-				entity_bounds.position.x + entity_bounds.size.x
-			),
-			clampf(
-				center.y,
-				entity_bounds.position.y,
-				entity_bounds.position.y + entity_bounds.size.y
-			)
-		)
-		if center.distance_squared_to(closest) <= radius_sq:
+		if _SPATIAL_BOUNDS_MATH.distance_squared_to_rect2(center, entity_bounds) <= radius_sq:
 			result.append(entity_key)
 	return result
 

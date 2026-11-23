@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="f5413bfd6e0d44a83486aab819986d9cd051572c7ebae02cdc2d99c53352483d">
+<class name="GFSpatialCanvas2D" path="addons/gf/standard/utilities/spatial_canvas/gf_spatial_canvas_2d.gd" module="standard" extends="Control" classDigest="d8b6fd6b052aa230293d5352a66e963688c98fa043085382d012f4876ced91ab">
 	<description>GFSpatialCanvas2D: 有界运行时 2D 空间交互画布。
 统一管理画布视图、世界/画布/格子坐标转换、显式条目查询、稳定选择和项目校验的
 放置会话。项目仍拥有内容节点、占位与权限规则、业务命令、存档和网络同步。</description>
@@ -439,14 +439,15 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			</tags>
 		</member>
 		<member kind="method" name="query_items_at">
-			<signature>func query_items_at(world_position: Vector2) -&gt; PackedStringArray:</signature>
-			<description>查询包含世界点的条目。
-候选先以有界 top-K 保留全局 selection_priority 最高、稳定 ID 最小的窗口，
-再在预算内执行 exact_hit。</description>
+			<signature>func query_items_at(world_position: Vector2, world_radius: float = 0.0) -&gt; PackedStringArray:</signature>
+			<description>查询世界点及其指定半径内的条目。
+包围矩形与闭合查询圆相交即成为候选。按 selection_priority 降序、稳定 ID 升序
+截取候选后，exact_hit 收到原始世界点和登记边界。未配置回调的候选直接命中。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">world_position: 世界坐标。</tag>
-				<tag name="return">匹配的稳定 ID。</tag>
+				<tag name="param">world_radius: 有限、非负的世界单位半径。默认 0 表示只查询包含该点的条目。</tag>
+				<tag name="return">匹配的稳定 ID。坐标或半径无效时返回空数组。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>
@@ -474,13 +475,15 @@ GF 只更新该节点的位置与缩放，不扫描、重挂或主动释放项�
 			</tags>
 		</member>
 		<member kind="method" name="select_point">
-			<signature>func select_point(canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE) -&gt; PackedStringArray:</signature>
-			<description>在画布坐标点选最高优先级条目。</description>
+			<signature>func select_point( canvas_position: Vector2, mode: SelectionMode = SelectionMode.REPLACE, world_radius: float = 0.0 ) -&gt; PackedStringArray:</signature>
+			<description>在画布坐标点选给定世界半径内最高优先级的可选条目。
+使用与 query_items_at 相同的半径和精确命中规则，先剔除不可选条目再应用候选上限。</description>
 			<tags>
 				<tag name="api">public</tag>
 				<tag name="param">canvas_position: 本 Control 的画布坐标。</tag>
 				<tag name="param">mode: [enum SelectionMode] 值。</tag>
-				<tag name="return">更新后的选择。</tag>
+				<tag name="param">world_radius: 有限、非负的世界单位半径，默认 0。调用方负责换算局部像素容差。</tag>
+				<tag name="return">更新后的选择。参数无效时返回当前选择。</tag>
 				<tag name="since">10.0.0</tag>
 			</tags>
 		</member>

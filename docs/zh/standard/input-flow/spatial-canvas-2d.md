@@ -128,6 +128,36 @@ var selected_ids := canvas.set_selection(
 
 `exact_hit` 是同步、受信的项目回调。回调只应做快速纯判断，不应重入画布、执行 IO 或承载任意项目载荷；已配置但目标失效的回调会失败关闭。
 
+### 缩放画布上的点选容差 {#pick-radius}
+
+小手柄可以始终登记真实的世界边界，每次点选时再给 `query_items_at()` 或 `select_point()` 传入世界单位的半径。下面用 6 个画布局部像素作为容差。随画布缩放重新计算半径，就能维持相同的局部点击范围。
+
+```gdscript
+var canvas_point := canvas.get_local_mouse_position()
+var pointer_world := canvas.canvas_to_world(canvas_point)
+var world_radius := 6.0 / canvas.get_zoom()
+var hits := canvas.query_items_at(pointer_world, world_radius)
+```
+
+需要直接选中最高优先级的可选条目时，调用 `canvas.select_point(canvas_point, GFSpatialCanvas2D.SelectionMode.REPLACE, world_radius)`。内置鼠标和触摸点选使用默认半径 0。若容差按 Viewport 屏幕像素定义，还需用 `screen_to_world()` 换算父节点和 `CanvasLayer` 的变换。存在非均匀缩放时，可用覆盖屏幕容差区的世界半径取候选，再在屏幕坐标中判定距离。
+
+半径为 0 时只匹配包含点击点的登记矩形，包含边界。正半径查询圆与登记矩形相交即产生候选，边、角相切也计入。未配置 `exact_hit` 的候选直接命中。有回调时，画布把**原始世界点击点和登记矩形**交给回调。圆形手柄可以在回调中按点到手柄中心的距离判断，同时读取项目当前的可见性和访问权限。项目隐藏节点时应同步这些条件，销毁节点时应移除登记。回调目标失效或返回非布尔值时，该项被排除。半径为负数、无穷或 `NaN` 时，查询返回空数组，点选保留当前选择。
+
+查询按优先级从高到低、同优先级按稳定 ID 升序取候选。达到 `max_query_candidates` 上限时，窗口内的回调即使拒绝命中，也不会从窗口外递补。可通过 `get_debug_snapshot().last_query_truncated` 判断是否发生截断。`query_items_at()` 会返回通过命中判定的不可选条目，`select_point()` 在截断前先排除不可选条目。
+
+项目若已维护自己的形状与权限判断，也可以沿用矩形查询加过滤。以下示例使用上面的正半径，`project_handles.can_pick()` 由项目实现。
+
+```gdscript
+var extent := Vector2.ONE * world_radius
+var window := Rect2(pointer_world - extent, extent * 2.0)
+var filtered := PackedStringArray()
+for item_id in canvas.query_items_in_rect(window):
+	if project_handles.can_pick(item_id, pointer_world, world_radius):
+		filtered.append(item_id)
+```
+
+这种查询沿用矩形的候选上限和边缘相交规则，矩形外沿仅与条目相切时可能漏掉该项。`query_items_in_rect()` 和框选都使用真实登记边界，并且跳过 `exact_hit`。
+
 ### 已选条目的默认轮廓
 
 画布默认根据已选条目的世界边界绘制矩形轮廓。项目采用圆形标记、动画或其他选中装饰时，可独立关闭这一默认视觉：
