@@ -6,7 +6,7 @@
 
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
-| Kernel | 79 | 1155 | [Kernel](#module-kernel) |
+| Kernel | 79 | 1157 | [Kernel](#module-kernel) |
 | Standard | 516 | 7912 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
@@ -27,7 +27,7 @@
 | Physics | 4 | 50 | [Physics](#module-extensions-physics) |
 | Save | 54 | 687 | [Save](#module-extensions-save) |
 | Turn Based | 5 | 50 | [Turn Based](#module-extensions-turn_based) |
-| Tools | 28 | 239 | [Tools](#module-tools) |
+| Tools | 28 | 242 | [Tools](#module-tools) |
 
 ## 模块索引
 
@@ -109,7 +109,7 @@
 | [`GFExtensionUsageAudit`](GFExtensionUsageAudit.md#gfextensionusageaudit) | 编辑器 API (`editor_api`) | `RefCounted` | 18 | `addons/gf/kernel/extension/gf_extension_usage_audit.gd` |
 | [`GFGeneratedArtifactReport`](GFGeneratedArtifactReport.md#gfgeneratedartifactreport) | 编辑器 API (`editor_api`) | `RefCounted` | 12 | `addons/gf/kernel/editor/gf_generated_artifact_report.gd` |
 | [`GFResourcePathHint`](GFResourcePathHint.md#gfresourcepathhint) | 编辑器 API (`editor_api`) | `Object` | 2 | `addons/gf/kernel/editor/gf_resource_path_hint.gd` |
-| [`GFResourceTableEditor`](GFResourceTableEditor.md#gfresourcetableeditor) | 编辑器 API (`editor_api`) | `VBoxContainer` | 37 | `addons/gf/kernel/editor/gf_resource_table_editor.gd` |
+| [`GFResourceTableEditor`](GFResourceTableEditor.md#gfresourcetableeditor) | 编辑器 API (`editor_api`) | `VBoxContainer` | 39 | `addons/gf/kernel/editor/gf_resource_table_editor.gd` |
 | [`GFSceneSignalAudit`](GFSceneSignalAudit.md#gfscenesignalaudit) | 编辑器 API (`editor_api`) | `RefCounted` | 11 | `addons/gf/kernel/editor/gf_scene_signal_audit.gd` |
 | [`GFScriptPatchUtility`](GFScriptPatchUtility.md#gfscriptpatchutility) | 编辑器 API (`editor_api`) | `RefCounted` | 3 | `addons/gf/kernel/editor/gf_script_patch_utility.gd` |
 | [`GFSourceBuilder`](GFSourceBuilder.md#gfsourcebuilder) | 编辑器 API (`editor_api`) | `RefCounted` | 8 | `addons/gf/kernel/editor/gf_source_builder.gd` |
@@ -1122,5 +1122,5 @@
 | [`GFProjectLayoutAnalyzer`](GFProjectLayoutAnalyzer.md#gfprojectlayoutanalyzer) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/project_layout/gf_project_layout_analyzer.gd` |
 | [`GFProjectLayoutPlanner`](GFProjectLayoutPlanner.md#gfprojectlayoutplanner) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/project_layout/gf_project_layout_planner.gd` |
 | [`GFProjectLayoutSession`](GFProjectLayoutSession.md#gfprojectlayoutsession) | 工具 API (`tool_api`) | `RefCounted` | 9 | `addons/gf/tools/project_layout/gf_project_layout_session.gd` |
-| [`GFSceneGroupIndex`](GFSceneGroupIndex.md#gfscenegroupindex) | 工具 API (`tool_api`) | `RefCounted` | 5 | `addons/gf/tools/scene_groups/gf_scene_group_index.gd` |
+| [`GFSceneGroupIndex`](GFSceneGroupIndex.md#gfscenegroupindex) | 工具 API (`tool_api`) | `RefCounted` | 8 | `addons/gf/tools/scene_groups/gf_scene_group_index.gd` |
 | [`GFScenePlacementOperation`](GFScenePlacementOperation.md#gfsceneplacementoperation) | 工具 API (`tool_api`) | `GFEditorPickOperation` | 9 | `addons/gf/tools/scene_placement/gf_scene_placement_operation.gd` |

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="49916c825152e036804fc5bb4fe9868f5d59317771428883d3281f27e36821e0">
+<class name="GFSceneGroupIndex" path="addons/gf/tools/scene_groups/gf_scene_group_index.gd" module="tools" extends="RefCounted" classDigest="96a68c7c360f4ea7f91912a0690d965d7ecf6ccf50627e4a227e2e25b989cff3">
 	<description>GFSceneGroupIndex: 编辑器期已保存场景 Group 声明位置索引。
 只读取磁盘 .tscn / .scn 自身 SceneState 中的持久化声明，不实例化场景节点，
 不把继承或嵌套来源已有的组复制到引用场景。隐藏条目与 .gdignore 子树不在扫描范围内。
@@ -29,6 +29,18 @@
 				<tag name="since">12.0.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="begin_script_scan">
+			<signature>func begin_script_scan(root_path: String = "res://", options: Dictionary = {}) -&gt; Error:</signature>
+			<description>开始独立的已保存 GDScript 用法扫描。query() 只返回场景声明，脚本结果用 query_script_usage() 查询。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">root_path: 规范的 res:// 目录。</tag>
+				<tag name="param">options: 可降低本次脚本扫描的预算。</tag>
+				<tag name="return">与 begin_scan() 相同的请求状态。</tag>
+				<tag name="schema">options: Dictionary 支持 max_depth（0..32）、max_entries（1..100000）、max_scripts（1..10000）、max_rows（1..50000）、max_script_bytes（1..131072），均为 int。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="advance">
 			<signature>func advance(entry_budget: int = 64) -&gt; bool:</signature>
 			<description>在主线程推进有界工作量。每个目录项、目录打开、场景加载、节点或组占一个单位。
@@ -52,6 +64,7 @@
 		<member kind="method" name="get_snapshot">
 			<signature>func get_snapshot() -&gt; Dictionary:</signature>
 			<description>返回摘要和最多 64 条诊断的副本，不包含整个索引。
+begin_script_scan() 的摘要另含 script_count 与 script_row_count，分别统计脚本和调用。
 complete 仅表示已完成本次范围的声明扫描；不是运行时成员、实例展开或同时刻的文件系统快照。</description>
 			<tags>
 				<tag name="api">public</tag>
@@ -72,6 +85,31 @@ complete 仅表示已完成本次范围的声明扫描；不是运行时成员�
 				<tag name="return">有界分页与匹配总数。</tag>
 				<tag name="schema">return: Dictionary，包含 rows（Array[Dictionary]，每项 group:String、scene_path:String、node_path:String）、total:int、offset:int、limit:int。node_path 相对声明场景根，根节点为 .。</tag>
 				<tag name="since">12.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="query_script_usage">
+			<signature>func query_script_usage( text: String = "", offset: int = 0, limit: int = 100, unresolved: bool = false ) -&gt; Dictionary:</signature>
+			<description>从已收集的脚本调用中分页查询。固定组名和待确认调用分别查询，结果按脚本路径、行号排列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">text: 忽略大小写的组名、方法或脚本路径子串。</tag>
+				<tag name="param">offset: 起始偏移，负数按零处理。</tag>
+				<tag name="param">limit: 页大小，限制到 0..200。</tag>
+				<tag name="param">unresolved: 为 true 时只返回动态组名或接收者未确认的调用。</tag>
+				<tag name="return">匹配页与完整匹配数。</tag>
+				<tag name="schema">return: Dictionary 含 rows:Array[Dictionary]、total:int、offset:int、limit:int；每行含 group、path、method、resolution、digest（均为 String）及 line:int（从 1 开始）。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_script_location_current">
+			<signature>func is_script_location_current(row: Dictionary) -&gt; bool:</signature>
+			<description>确认脚本位置仍对应扫描时读取的磁盘内容，供打开脚本前使用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">row: query_script_usage() 返回的单条记录。</tag>
+				<tag name="return">路径仍可读取且源码摘要一致时为 true。</tag>
+				<tag name="schema">row: Dictionary，须含 path:String、digest:String 和 line:int。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 	</methods>

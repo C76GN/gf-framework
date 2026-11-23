@@ -139,6 +139,11 @@ const _SCRIPT_TYPE_INSPECTOR = preload("res://addons/gf/kernel/core/gf_script_ty
 ## @api private
 const _MULTI_PROPERTY_FIELD_SCRIPT = preload("res://addons/gf/kernel/editor/gf_editor_multi_property_field.gd")
 
+## 构建粘贴预览并复核属性声明。
+## [br]
+## @api private
+const _COLUMN_PASTE = preload("res://addons/gf/kernel/editor/gf_resource_column_paste.gd")
+
 
 # --- 公共变量 ---
 
@@ -208,6 +213,36 @@ var _multi_property_field: GFEditorMultiPropertyField = null
 ## @api private
 var _multi_apply: Button = null
 
+## 显式读取剪贴板的按钮。
+## [br]
+## @api private
+var _paste_button: Button
+
+## 展示逐行差异的确认窗口。
+## [br]
+## @api private
+var _paste_dialog: ConfirmationDialog
+
+## 显示当前预览的只读列表。
+## [br]
+## @api private
+var _paste_rows: Tree
+
+## 确认时重新解析的剪贴板快照。
+## [br]
+## @api private
+var _paste_text: String = ""
+
+## 预览所属撤销历史的对象身份。
+## [br]
+## @api private
+var _paste_undo_id: int = 0
+
+## 等待确认的资源、属性声明与旧值。
+## [br]
+## @api private
+var _paste_preview: Dictionary = {}
+
 ## 取消多选属性草稿的按钮。
 ## [br]
 ## @api private
@@ -253,6 +288,13 @@ func _ready() -> void:
 	_ensure_tree()
 
 
+## 离开树时释放粘贴预览。
+## [br]
+## @api private
+func _exit_tree() -> void:
+	_clear_column_paste()
+
+
 # --- 公共方法 ---
 
 ## 设置多选编辑使用的编辑器上下文。必须提供有效 undo_manager 才可从 UI 应用草稿。
@@ -265,6 +307,7 @@ func _ready() -> void:
 ## [br]
 ## @param context: 编辑器工具上下文；null 使多选应用入口不可用。
 func set_editor_context(context: GFEditorToolContext) -> void:
+	_clear_column_paste()
 	_editor_context = context
 	_ensure_tree()
 	_multi_property_field.cancel_edit()
@@ -304,35 +347,83 @@ func apply_selected_property() -> Dictionary:
 				changes.append(change)
 	if changes.is_empty():
 		return _finish_multi_edit(ERR_UNAVAILABLE, "empty_draft")
-	var command: _MultiEditCommand = _MultiEditCommand.new()
-	command._table_reference = weakref(self)
-	command._property = _selected_property
-	command._auto_save = auto_save_committed_resources
-	for change: Dictionary in changes:
-		var target_value: Variant = change.get("target")
-		if target_value is Resource:
-			var resource: Resource = target_value
-			if not command._resources.has(resource):
-				command._resources.append(resource)
-	var _configured: GFEditorPropertyBatchCommand = command.configure(
-		changes,
-		{ "command_name": "Edit Selected Resource Properties" }
+	return _commit_multi_changes(changes, "Edit Selected Resource Properties")
+
+
+## 根据当前可见选择和属性预览一列文本。再次调用会关闭旧预览。提交需要同一有效撤销管理器。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param clipboard: 每个选中资源一行的文本，可有一个末尾换行。
+## [br]
+## @return 可供自定义 UI 展示的预览副本。
+## [br]
+## @schema return: Dictionary 含 error:String（空表示各行输入有效）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。
+func preview_column_paste(clipboard: String) -> Dictionary:
+	_ensure_tree()
+	_clear_column_paste()
+	_paste_undo_id = _editor_context.undo_manager.get_instance_id() if _has_multi_edit_undo() else 0
+	_paste_text = clipboard
+	_paste_preview = _COLUMN_PASTE.build(
+		_selected_resources(),
+		_selected_property,
+		clipboard
 	)
-	var validation: Dictionary = command.validate()
-	if validation.get("ok") != true:
-		return _finish_multi_edit(
-			ERR_INVALID_DATA,
-			"preflight_failed",
-			command
+	return _paste_preview.duplicate(true)
+
+
+## 复核最近一次预览并提交一条可撤销命令。所有值相同返回 unchanged，已有恢复请求优先。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @return 提交结果。资源、顺序、属性或旧值变化后须重新预览。
+## [br]
+## @schema return: Dictionary 与 apply_selected_property 相同；未预览或已过期时 status 为 stale_preview，预览含错误时为 invalid_preview。
+func apply_column_paste() -> Dictionary:
+	_ensure_tree()
+	if _multi_recovery_command != null:
+		return get_multi_edit_report()
+	if not _has_multi_edit_undo():
+		return _finish_multi_edit(ERR_UNCONFIGURED, "unconfigured")
+	if _paste_preview.is_empty() or _editor_context.undo_manager.get_instance_id() != _paste_undo_id:
+		_clear_column_paste()
+		return _finish_multi_edit(ERR_INVALID_DATA, "stale_preview")
+	var current: Dictionary = _COLUMN_PASTE.build(
+		_selected_resources(),
+		_selected_property,
+		_paste_text
+	)
+	var previous: Dictionary = _paste_preview
+	_clear_column_paste()
+	if current != previous:
+		return _finish_multi_edit(ERR_INVALID_DATA, "stale_preview")
+	if current.get("error") != "":
+		return _finish_multi_edit(ERR_INVALID_DATA, "invalid_preview")
+	var changes: Array[Dictionary] = []
+	var rows: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(current, "rows")
+	var has_changes: bool = false
+	for row: Dictionary in rows:
+		if row["old_value"] != row["new_value"]:
+			has_changes = true
+		changes.append(
+			{
+				"target": row["target"],
+				"property_name": _selected_property,
+				"new_value": row["new_value"],
+			}
 		)
-	var error: Error = _editor_context.commit_command(command)
-	if error == OK:
-		error = command.get_last_execute_error()
-	return _finish_multi_edit(
-		error,
-		"committed" if error == OK else "failed",
-		command
-	)
+	if not has_changes:
+		return _finish_multi_edit(
+			OK,
+			"unchanged",
+			null,
+			false
+		)
+	return _commit_multi_changes(changes, "Paste Resource Property Column")
 
 
 ## 恢复待处理事务最近一次失败尝试前的属性状态；不移动原生撤销历史的游标。
@@ -880,6 +971,41 @@ func refresh() -> void:
 
 # --- 私有/辅助方法 ---
 
+## 创建绑定资源身份的命令，共享撤销、通知、保存与失败恢复逻辑。
+## [br]
+## @api private
+func _commit_multi_changes(changes: Array[Dictionary], title: String) -> Dictionary:
+	var command: _MultiEditCommand = _MultiEditCommand.new()
+	command._table_reference = weakref(self)
+	command._property = _selected_property
+	command._auto_save = auto_save_committed_resources
+	for change: Dictionary in changes:
+		var target_value: Variant = change.get("target")
+		if target_value is Resource:
+			var resource: Resource = target_value
+			if not command._resources.has(resource):
+				command._resources.append(resource)
+	var _configured: GFEditorPropertyBatchCommand = command.configure(
+		changes,
+		{ "command_name": title }
+	)
+	var validation: Dictionary = command.validate()
+	if validation.get("ok") != true:
+		return _finish_multi_edit(
+			ERR_INVALID_DATA,
+			"preflight_failed",
+			command
+		)
+	var error: Error = _editor_context.commit_command(command)
+	if error == OK:
+		error = command.get_last_execute_error()
+	return _finish_multi_edit(
+		error,
+		"committed" if error == OK else "failed",
+		command
+	)
+
+
 ## 按需创建 Tree、多选字段、属性选择器、结果标签与按钮，并连接各自信号。
 ## 控件已存在时直接返回。
 ## [br]
@@ -912,6 +1038,35 @@ func _ensure_tree() -> void:
 	_multi_apply.text = "应用"
 	var _apply_connection: int = _multi_apply.pressed.connect(_on_multi_apply_pressed)
 	buttons.add_child(_multi_apply)
+	_paste_button = Button.new()
+	_paste_button.name = "PasteColumn"
+	_paste_button.text = "粘贴一列…"
+	var _paste_connection: int = _paste_button.pressed.connect(_on_paste_pressed)
+	buttons.add_child(_paste_button)
+	_paste_dialog = ConfirmationDialog.new()
+	_paste_dialog.name = "PasteColumnPreview"
+	_paste_dialog.title = "粘贴一列"
+	_paste_dialog.ok_button_text = "应用"
+	var _confirmed: int = _paste_dialog.confirmed.connect(_on_paste_confirmed)
+	var _cancelled: int = _paste_dialog.canceled.connect(_clear_column_paste)
+	add_child(_paste_dialog)
+	_paste_rows = Tree.new()
+	_paste_rows.hide_root = true
+	_paste_rows.columns = 4
+	_paste_rows.column_titles_visible = true
+	_paste_rows.custom_minimum_size = Vector2(500, 220)
+	var titles: PackedStringArray = [
+		"资源",
+		"原值",
+		"新值",
+		"问题",
+	]
+	for column: int in range(titles.size()):
+		_paste_rows.set_column_title(
+			column,
+			titles[column]
+		)
+	_paste_dialog.add_child(_paste_rows)
 	_multi_cancel = Button.new()
 	_multi_cancel.name = "CancelMultiEdit"
 	_multi_cancel.text = "取消"
@@ -957,7 +1112,19 @@ func _rebuild_multi_property_picker() -> void:
 func _sync_multi_edit_selection() -> void:
 	if _refreshing or _multi_property_field == null:
 		return
+	_clear_column_paste()
 	var targets: Array[Object] = []
+	targets.assign(_selected_resources())
+	_multi_property_field.configure(targets, _selected_property)
+	if _multi_result != null:
+		_reset_multi_edit_message()
+
+
+## 按 Tree 的可见行顺序遍历多选项，保留行身份与重复资源。
+## [br]
+## @api private
+func _selected_resources() -> Array[Resource]:
+	var targets: Array[Resource] = []
 	var item: TreeItem = _tree.get_next_selected(null)
 	while item != null:
 		var row_value: Variant = item.get_metadata(0)
@@ -966,9 +1133,19 @@ func _sync_multi_edit_selection() -> void:
 			if row_index >= 0 and row_index < _resources.size():
 				targets.append(_resources[row_index])
 		item = _tree.get_next_selected(item)
-	_multi_property_field.configure(targets, _selected_property)
-	if _multi_result != null:
-		_reset_multi_edit_message()
+	return targets
+
+
+## 关闭预览并释放目标，不改变选择或编辑历史。
+## [br]
+## @api private
+func _clear_column_paste() -> void:
+	_paste_preview = {}
+	_paste_text = ""
+	_paste_undo_id = 0
+	if is_instance_valid(_paste_dialog):
+		_paste_dialog.hide()
+		_paste_rows.clear()
 
 
 ## 仅当编辑器上下文存在且其 UndoRedo 管理器仍有效时返回 true。
@@ -993,6 +1170,11 @@ func _update_multi_edit_buttons() -> void:
 			and dirty
 			and _has_multi_edit_undo()
 		)
+		or _multi_recovery_command != null
+	)
+	_paste_button.disabled = (
+		not editable
+		or not _has_multi_edit_undo()
 		or _multi_recovery_command != null
 	)
 	_multi_cancel.disabled = not dirty
@@ -1050,6 +1232,8 @@ func _display_multi_edit_report() -> void:
 	if _last_multi_edit_report.get("ok") == true:
 		var status: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(_last_multi_edit_report, "status")
 		match status:
+			"unchanged":
+				_multi_result.text = "所选属性已经是预览值。"
 			"reverted":
 				_multi_result.text = "已撤销。"
 			"recovered":
@@ -1888,6 +2072,49 @@ func _format_cell_value(value: Variant) -> String:
 
 # --- 信号处理函数 ---
 
+## 用户按下按钮后才读取剪贴板，列出每行对应的资源与转换错误。
+## [br]
+## @api private
+func _on_paste_pressed() -> void:
+	var preview: Dictionary = preview_column_paste(DisplayServer.clipboard_get())
+	var error: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(preview, "error")
+	_paste_dialog.dialog_text = (
+		"属性 %s　%s"
+		% [_selected_property, error]
+	)
+	_paste_dialog.get_ok_button().disabled = not error.is_empty()
+	_paste_rows.clear()
+	var root: TreeItem = _paste_rows.create_item()
+	var rows: Array = _GF_VARIANT_ACCESS_SCRIPT.get_option_array(preview, "rows")
+	var item: TreeItem = _tree.get_next_selected(null)
+	for row: Dictionary in rows:
+		var entry: TreeItem = _paste_rows.create_item(root)
+		entry.set_text(
+			0,
+			item.get_text(0)
+		)
+		entry.set_text(
+			1,
+			var_to_str(row["old_value"])
+		)
+		var problem: String = _GF_VARIANT_ACCESS_SCRIPT.get_option_string(row, "error")
+		var proposed: Variant = row["new_value"] if problem.is_empty() else row["input"]
+		entry.set_text(
+			2,
+			var_to_str(proposed)
+		)
+		entry.set_text(3, problem)
+		item = _tree.get_next_selected(item)
+	_paste_dialog.popup_centered()
+
+
+## 将预览交给与多选编辑相同的命令历史。
+## [br]
+## @api private
+func _on_paste_confirmed() -> void:
+	var _report: Dictionary = apply_column_paste()
+
+
 ## 转发历史命令的保存错误，并将变化通知限制在当前资源集合；无当前资源关联且不涉及恢复时跳过界面更新，完成回报时保留草稿。
 ## [br]
 ## @api private
@@ -1993,6 +2220,7 @@ func _on_multi_apply_pressed() -> void:
 ## [br]
 ## @api private
 func _on_multi_cancel_pressed() -> void:
+	_clear_column_paste()
 	_multi_property_field.cancel_edit()
 	if _multi_recovery_command != null:
 		_display_multi_edit_report()

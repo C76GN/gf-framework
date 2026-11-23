@@ -845,6 +845,285 @@ func test_non_scene_resource_reports_partial_and_retains_other_scene_rows() -> v
 		)
 
 
+func test_script_query_separates_fixed_dynamic_and_unknown_receivers() -> void:
+	_make_directory(_temporary_root)
+	var path: String = _temporary_root.path_join("groups.gd")
+	var source: String = "\n".join(
+		PackedStringArray(
+			[
+				"extends Node3D",
+				"const FIELD: StringName = &\"water\"",
+				"func probe(group: StringName, other: Object) -> void:",
+				"\tadd_to_group(FIELD)",
+				"\tself.is_in_group('water')",
+				"\tget_tree().call_group_flags(",
+				"\t\tint(1), &\"water\", &\"reset\")",
+				"\tget_tree().get_nodes_in_group(String(group))",
+				"\tother.remove_from_group(\"water\")",
+				"\t# add_to_group(\"comment\")",
+				"\tvar quoted = \"\"\"",
+				"\tremove_from_group(\"fake\")",
+				"\t\"\"\"",
+				"\tget_tree().get_first_node_in_group(\"only_in_code\")",
+				"",
+			]
+		)
+	)
+	_write_text(path, source)
+	_write_text(
+		_temporary_root.path_join("other.gd"),
+		"extends RefCounted\nfunc is_in_group(_name):\n\treturn false\nfunc sample():\n\tis_in_group('custom')\n"
+	)
+	var index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+	assert_eq(
+		index.begin_script_scan(_temporary_root),
+		OK
+	)
+	_finish(index, 1)
+	assert_eq(
+		_string_field(
+			index.get_snapshot(),
+			"status"
+		),
+		"complete"
+	)
+	assert_eq(
+		_int_field(
+			index.query(),
+			"total"
+		),
+		0
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage(),
+			"total"
+		),
+		4
+	)
+	var fixed: Array[Dictionary] = _rows(index.query_script_usage("WATER"))
+	assert_eq(
+		fixed.size(),
+		3
+	)
+	if fixed.size() != 3:
+		return
+	assert_eq(
+		[
+			fixed[0]["line"],
+			fixed[1]["line"],
+			fixed[2]["line"],
+		],
+		[
+			4,
+			5,
+			6,
+		]
+	)
+	assert_eq(
+		_string_field(
+			fixed[2],
+			"method"
+		),
+		"call_group_flags"
+	)
+	assert_true(index.is_script_location_current(fixed[0]))
+	assert_eq(
+		_int_field(
+			index.query_script_usage("only_in_code"),
+			"total"
+		),
+		1
+	)
+	var unresolved_rows: Array[Dictionary] = _rows(
+		index.query_script_usage(
+			"",
+			0,
+			100,
+			true
+		)
+	)
+	assert_eq(
+		unresolved_rows.size(),
+		2
+	)
+	if unresolved_rows.size() == 2:
+		assert_eq(
+			_string_field(
+				unresolved_rows[0],
+				"resolution"
+			),
+			"dynamic_group"
+		)
+		assert_eq(
+			_string_field(
+				unresolved_rows[1],
+				"resolution"
+			),
+			"unknown_receiver"
+		)
+		assert_eq(
+			_string_field(
+				unresolved_rows[1],
+				"group"
+			),
+			""
+		)
+	_write_text(
+		path,
+		"# moved\n" + source
+	)
+	assert_false(index.is_script_location_current(fixed[0]))
+	assert_eq(
+		index.begin_scan(_temporary_root),
+		OK
+	)
+	_finish(index)
+	assert_eq(
+		_int_field(
+			index.query_script_usage(),
+			"total"
+		),
+		0
+	)
+
+
+func test_script_query_bounds_shadowed_constants_and_cancellation() -> void:
+	_make_directory(_temporary_root)
+	var path: String = _temporary_root.path_join("groups.gd")
+	_write_text(path, "extends Node\nconst GROUP = 'outer'\nfunc probe(GROUP):\n\tadd_to_group(GROUP)\n\tremove_from_group('ok')\n")
+	var index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+	assert_eq(
+		index.begin_script_scan(
+			_temporary_root,
+			{ "max_rows": 1 }
+		),
+		OK
+	)
+	assert_eq(
+		index.begin_scan(_temporary_root),
+		ERR_BUSY
+	)
+	_finish(index)
+	assert_eq(
+		_string_field(
+			index.get_snapshot(),
+			"status"
+		),
+		"partial"
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage(
+				"",
+				0,
+				100,
+				true
+			),
+			"total"
+		),
+		1
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage("outer"),
+			"total"
+		),
+		0
+	)
+	assert_eq(
+		index.begin_script_scan(
+			_temporary_root,
+			{ "max_script_bytes": 1 }
+		),
+		OK
+	)
+	_finish(index)
+	assert_eq(
+		_string_field(
+			index.get_snapshot(),
+			"status"
+		),
+		"partial"
+	)
+	assert_eq(
+		_int_field(
+			index.get_snapshot(),
+			"script_row_count"
+		),
+		0
+	)
+	assert_eq(
+		index.begin_script_scan(_temporary_root),
+		OK
+	)
+	index.cancel()
+	assert_false(index.advance())
+	assert_eq(
+		_string_field(
+			index.get_snapshot(),
+			"status"
+		),
+		"cancelled"
+	)
+
+
+func test_class_header_and_parameter_types_stay_in_their_declaring_scope() -> void:
+	_make_directory(_temporary_root)
+	var path: String = _temporary_root.path_join("scopes.gd")
+	_write_text(
+		path,
+		"\n".join(
+			PackedStringArray(
+				[
+					"class_name GroupScopeFixture extends Node3D",
+					"const FIELD = &\"water\"",
+					"func inspect(owner: Resource, FIELD: String):",
+					"\towner.is_in_group(\"unrelated\")",
+					"\tadd_to_group(FIELD)",
+					"func probe(actor: Node):",
+					"\tactor.add_to_group(r\"literal\")",
+					"\tadd_to_group(FIELD)",
+					"\towner.is_in_group(\"unknown\")",
+					"",
+				]
+			)
+		)
+	)
+	var index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+	assert_eq(
+		index.begin_script_scan(_temporary_root),
+		OK
+	)
+	_finish(index)
+	assert_eq(
+		_int_field(
+			index.query_script_usage("literal"),
+			"total"
+		),
+		1
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage("water"),
+			"total"
+		),
+		1
+	)
+	assert_eq(
+		_int_field(
+			index.query_script_usage(
+				"",
+				0,
+				100,
+				true
+			),
+			"total"
+		),
+		2
+	)
+
+
 func _finish(index: GFSceneGroupIndex, budget: int = 64) -> void:
 	for _iteration: int in range(2_000):
 		if not index.advance(budget):

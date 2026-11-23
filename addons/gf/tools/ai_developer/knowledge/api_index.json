@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "cc4efd21793f606ee3d5fa5f7226563aa29c6ddb43f1b3e1fc7b465a6b0af9d8",
+  "source_digest": "4836bf7a2cc2f44e50ee23a729a8b72be394f92ea39056df6523932e0c02541b",
   "class_count": 915,
   "autoload_count": 1,
   "package_count": 62,
@@ -71379,6 +71379,20 @@
         },
         {
           "kind": "func",
+          "name": "preview_column_paste",
+          "signature": "func preview_column_paste(clipboard: String) -> Dictionary",
+          "summary": "根据当前可见选择和属性预览一列文本。再次调用会关闭旧预览。提交需要同一有效撤销管理器。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "apply_column_paste",
+          "signature": "func apply_column_paste() -> Dictionary",
+          "summary": "复核最近一次预览并提交一条可撤销命令。所有值相同返回 unchanged，已有恢复请求优先。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "recover_pending_edit",
           "signature": "func recover_pending_edit() -> Dictionary",
           "summary": "恢复待处理事务最近一次失败尝试前的属性状态；不移动原生撤销历史的游标。",
@@ -78361,6 +78375,13 @@
         },
         {
           "kind": "func",
+          "name": "begin_script_scan",
+          "signature": "func begin_script_scan(root_path: String = \"res://\", options: Dictionary = {}) -> Error",
+          "summary": "开始独立的已保存 GDScript 用法扫描。query() 只返回场景声明，脚本结果用 query_script_usage() 查询。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "advance",
           "signature": "func advance(entry_budget: int = 64) -> bool",
           "summary": "在主线程推进有界工作量。每个目录项、目录打开、场景加载、节点或组占一个单位。",
@@ -78385,6 +78406,20 @@
           "name": "query",
           "signature": "func query( text: String = \"\", offset: int = 0, limit: int = 100 ) -> Dictionary",
           "summary": "搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "query_script_usage",
+          "signature": "func query_script_usage( text: String = \"\", offset: int = 0, limit: int = 100, unresolved: bool = false ) -> Dictionary",
+          "summary": "从已收集的脚本调用中分页查询。固定组名和待确认调用分别查询，结果按脚本路径、行号排列。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_script_location_current",
+          "signature": "func is_script_location_current(row: Dictionary) -> bool",
+          "summary": "确认脚本位置仍对应扫描时读取的磁盘内容，供打开脚本前使用。",
           "visibility": "public"
         }
       ]

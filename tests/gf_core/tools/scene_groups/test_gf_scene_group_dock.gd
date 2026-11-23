@@ -668,6 +668,71 @@ func test_scene_group_dock_is_registered_once_through_optional_editor_catalog() 
 
 # --- 私有/辅助方法 ---
 
+func test_script_views_share_manual_scan_and_keep_scene_results() -> void:
+	var root_path: String = _make_fixture_root()
+	_write_group_scene(root_path, 1)
+	_write_fixture_file(
+		root_path.path_join("groups.gd"),
+		"extends Node\nfunc probe(group):\n\tadd_to_group(&'scripts_only')\n\tget_tree().has_group(group)\n"
+	)
+	var dock: GFSceneGroupDock = _make_dock()
+	assert_eq(
+		dock.refresh(root_path),
+		OK
+	)
+	await _wait_for_scan(dock)
+	var view: OptionButton = dock.find_child(
+		"GroupView",
+		true,
+		false
+	) as OptionButton
+	var results: Tree = _get_results(dock)
+	view.select(1)
+	view.item_selected.emit(1)
+	assert_false(dock.is_processing())
+	assert_eq(
+		_visible_row_count(results),
+		0
+	)
+	_get_button(dock, "Refresh").pressed.emit()
+	for _frame: int in range(120):
+		if not dock.is_processing():
+			break
+		await get_tree().process_frame
+	assert_false(dock.is_processing())
+	assert_eq(
+		_visible_row_count(results),
+		1
+	)
+	if _visible_row_count(results) != 1:
+		return
+	assert_eq(
+		results.get_root().get_first_child().get_text(0),
+		"scripts_only"
+	)
+	assert_eq(
+		results.get_root().get_first_child().get_text(2),
+		root_path.path_join("groups.gd") + ":3"
+	)
+	view.select(2)
+	view.item_selected.emit(2)
+	assert_eq(
+		results.get_root().get_first_child().get_text(0),
+		"动态组名"
+	)
+	assert_false(dock.is_processing())
+	view.select(0)
+	view.item_selected.emit(0)
+	assert_eq(
+		_visible_row_count(results),
+		1
+	)
+	assert_eq(
+		_status(dock),
+		"complete"
+	)
+
+
 func _make_dock() -> GFSceneGroupDock:
 	var dock: GFSceneGroupDock = _DOCK_SCRIPT.new()
 	_docks.append(dock)

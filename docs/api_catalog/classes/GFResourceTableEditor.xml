@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="8f2fa523a374655362b380d5499452f7acf006d882f24f36b2dccf81bd29bbf5">
+<class name="GFResourceTableEditor" path="addons/gf/kernel/editor/gf_resource_table_editor.gd" module="kernel" extends="VBoxContainer" classDigest="576e8b4a72928336ad1b218207ccbe987d32efdfae7951dd4281a1cfdb1d4591">
 	<description>GFResourceTableEditor: 通用 Resource 表格编辑控件。
 提供资源扫描、属性列提取、表格刷新与单元格提交，不绑定具体资源类型或业务数据。</description>
 	<tags>
@@ -151,6 +151,27 @@
 				<tag name="return">本次提交结果，并更新面板中的结果提示。</tag>
 				<tag name="schema">return: Dictionary 包含 ok: bool、error: Error、status: String、transaction: Dictionary（GFEditorPropertyBatchCommand 报告）；仅需显式恢复时含 transaction_command: GFEditorPropertyBatchCommand。</tag>
 				<tag name="since">12.0.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="preview_column_paste">
+			<signature>func preview_column_paste(clipboard: String) -&gt; Dictionary:</signature>
+			<description>根据当前可见选择和属性预览一列文本。再次调用会关闭旧预览。提交需要同一有效撤销管理器。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">clipboard: 每个选中资源一行的文本，可有一个末尾换行。</tag>
+				<tag name="return">可供自定义 UI 展示的预览副本。</tag>
+				<tag name="schema">return: Dictionary 含 error:String（空表示各行输入有效）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="apply_column_paste">
+			<signature>func apply_column_paste() -&gt; Dictionary:</signature>
+			<description>复核最近一次预览并提交一条可撤销命令。所有值相同返回 unchanged，已有恢复请求优先。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">提交结果。资源、顺序、属性或旧值变化后须重新预览。</tag>
+				<tag name="schema">return: Dictionary 与 apply_selected_property 相同；未预览或已过期时 status 为 stale_preview，预览含错误时为 invalid_preview。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="recover_pending_edit">
