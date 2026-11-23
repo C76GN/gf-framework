@@ -30,6 +30,8 @@
 | 属性 | [`sort_ascending`](#member-gfresourcetableeditor-properties-sort_ascending) | `var sort_ascending: bool = true` |
 | 方法 | [`set_editor_context`](#member-gfresourcetableeditor-methods-set_editor_context) | `func set_editor_context(context: GFEditorToolContext) -> void:` |
 | 方法 | [`apply_selected_property`](#member-gfresourcetableeditor-methods-apply_selected_property) | `func apply_selected_property() -> Dictionary:` |
+| 方法 | [`preview_column_paste`](#member-gfresourcetableeditor-methods-preview_column_paste) | `func preview_column_paste(clipboard: String) -> Dictionary:` |
+| 方法 | [`apply_column_paste`](#member-gfresourcetableeditor-methods-apply_column_paste) | `func apply_column_paste() -> Dictionary:` |
 | 方法 | [`recover_pending_edit`](#member-gfresourcetableeditor-methods-recover_pending_edit) | `func recover_pending_edit() -> Dictionary:` |
 | 方法 | [`get_multi_edit_report`](#member-gfresourcetableeditor-methods-get_multi_edit_report) | `func get_multi_edit_report() -> Dictionary:` |
 | 方法 | [`build_export_columns`](#member-gfresourcetableeditor-methods-build_export_columns) | `static func build_export_columns(resource: Resource, include_read_only: bool = false) -> Array[Dictionary]:` |
@@ -316,6 +318,50 @@ func apply_selected_property() -> Dictionary:
 结构：
 
 - `return`: Dictionary 包含 ok: bool、error: Error、status: String、transaction: Dictionary（GFEditorPropertyBatchCommand 报告）；仅需显式恢复时含 transaction_command: GFEditorPropertyBatchCommand。
+
+<a id="member-gfresourcetableeditor-methods-preview_column_paste"></a>
+
+### `preview_column_paste`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func preview_column_paste(clipboard: String) -> Dictionary:
+```
+
+根据当前可见选择和属性预览一列文本。再次调用会替换预览。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `clipboard` | 每个选中资源一行的文本，可有一个末尾换行。 |
+
+返回：可供自定义 UI 展示的预览副本。
+
+结构：
+
+- `return`: Dictionary 含 error:String（空为可提交）、rows:Array[Dictionary]，每行含 target:Resource、property_name:StringName、schema:Array、old_value、new_value、input:String 和 error:String。
+
+<a id="member-gfresourcetableeditor-methods-apply_column_paste"></a>
+
+### `apply_column_paste`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func apply_column_paste() -> Dictionary:
+```
+
+复核最近一次预览并提交一条可撤销命令。所有值相同返回 unchanged，已有恢复请求优先。
+
+返回：提交结果。资源、顺序、属性或旧值变化后须重新预览。
+
+结构：
+
+- `return`: Dictionary 与 apply_selected_property 相同；未预览或已过期时 status 为 stale_preview，预览含错误时为 invalid_preview。
 
 <a id="member-gfresourcetableeditor-methods-recover_pending_edit"></a>
 

@@ -36,6 +36,22 @@ const _HARD_LIMITS: Dictionary = {
 ## [br]
 const _MAX_ISSUES: int = 64
 
+## 在手动脚本查询中解析单个有界源码文件。
+## [br]
+## @api private
+const _SCRIPT_USAGE = preload("res://addons/gf/tools/scene_groups/gf_scene_group_script_usage.gd")
+
+## 脚本扫描可收紧的数量、单文件字节、目录和结果预算。
+## [br]
+## @api private
+const _SCRIPT_LIMITS: Dictionary = {
+	"max_depth": 32,
+	"max_entries": 100_000,
+	"max_scripts": 10_000,
+	"max_rows": 50_000,
+	"max_script_bytes": 131_072,
+}
+
 ## 单次 advance() 接受的最大工作预算。
 ## [br]
 ## @api private
@@ -92,6 +108,21 @@ var _entry_count: int = 0
 ## @api private
 ## [br]
 var _scene_count: int = 0
+
+## 脚本查询解析器；场景声明扫描期间为空。
+## [br]
+## @api private
+var _script_usage: _SCRIPT_USAGE
+
+## 已尝试读取的脚本文件数。
+## [br]
+## @api private
+var _script_count: int = 0
+
+## 按路径和行号累积的脚本用法。
+## [br]
+## @api private
+var _script_rows: Array[Dictionary] = []
 
 ## 当前扫描保留的诊断记录。
 ## [br]
@@ -159,17 +190,17 @@ var _pending_directories: Array[String] = []
 ## [br]
 var _pending_depths: Array[int] = []
 
-## 已发现并等待读取声明的场景路径列表。
+## 已发现并等待读取的场景或脚本路径。
 ## [br]
 ## @api private
 ## [br]
-var _scene_paths: PackedStringArray = PackedStringArray()
+var _file_paths: PackedStringArray = PackedStringArray()
 
-## 待处理场景路径中的下一个索引。
+## 待处理文件列表中的下一个索引。
 ## [br]
 ## @api private
 ## [br]
-var _scene_cursor: int = 0
+var _file_cursor: int = 0
 
 ## 当前已加载场景的声明状态。
 ## [br]
@@ -238,6 +269,262 @@ var _generation: int = 0
 ## [br]
 ## @return OK 表示请求有效；ERR_INVALID_PARAMETER、ERR_CANT_OPEN 或 ERR_BUSY 表示拒绝。
 func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error:
+	return _begin_scan(
+		root_path,
+		options,
+		false
+	)
+
+
+## 开始独立的已保存 GDScript 用法扫描。query() 只返回场景声明，脚本结果用 query_script_usage() 查询。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param root_path: 规范的 res:// 目录。
+## [br]
+## @param options: 可降低本次脚本扫描的预算。
+## [br]
+## @schema options: Dictionary 支持 max_depth（0..32）、max_entries（1..100000）、max_scripts（1..10000）、max_rows（1..50000）、max_script_bytes（1..131072），均为 int。
+## [br]
+## @return 与 begin_scan() 相同的请求状态。
+func begin_script_scan(root_path: String = "res://", options: Dictionary = {}) -> Error:
+	return _begin_scan(
+		root_path,
+		options,
+		true
+	)
+
+
+## 在主线程推进有界工作量。每个目录项、目录打开、场景加载、节点或组占一个单位。
+## 单次引擎资源加载不受单位预算抢占；不启动后台任务。无效预算令当前扫描 failed。
+## [br]
+## @api public
+## [br]
+## @since 12.0.0
+## [br]
+## @param entry_budget: 本次最多处理的工作单位，范围 1..4096。
+## [br]
+## @return 返回 true 表示仍为 scanning，false 表示当前无需继续调用。
+func advance(entry_budget: int = 64) -> bool:
+	if _status != "scanning":
+		return false
+	if _advancing:
+		return true
+	if entry_budget < 1 or entry_budget > _MAX_ADVANCE_BUDGET:
+		_append_issue(
+			"invalid_advance_budget",
+			_root_path,
+			"推进预算必须为 1..4096。"
+		)
+		_finish("failed")
+		return false
+	_advancing = true
+	for _work_index: int in range(entry_budget):
+		if _status != "scanning":
+			break
+		if _phase == _PHASE_DISCOVERY:
+			_advance_directory()
+		elif _script_usage != null:
+			_read_next_script()
+			break
+		elif _scene_state != null:
+			_advance_scene_declaration()
+		else:
+			_load_next_scene()
+	_advancing = false
+	return _status == "scanning"
+
+
+## 取消当前扫描并立即关闭目录枚举，保留已发现记录供查看。
+## 终态调用不改变结果；新的 begin_scan() 会清空旧记录。
+## [br]
+## @api public
+## [br]
+## @since 12.0.0
+func cancel() -> void:
+	if _status == "scanning":
+		_generation += 1
+		_finish("cancelled")
+
+
+## 返回摘要和最多 64 条诊断的副本，不包含整个索引。
+## begin_script_scan() 的摘要另含 script_count 与 script_row_count，分别统计脚本和调用。
+## complete 仅表示已完成本次范围的声明扫描；不是运行时成员、实例展开或同时刻的文件系统快照。
+## [br]
+## @api public
+## [br]
+## @since 12.0.0
+## [br]
+## @return 当前扫描摘要。
+## [br]
+## @schema return: Dictionary，包含 status（idle/scanning/complete/partial/cancelled/failed）、root_path、entry_count（已枚举文件和目录数）、scene_count（尝试读取的场景数）、row_count、issues（Array[Dictionary]，每项 code/path/message）和 omitted_issue_count。
+func get_snapshot() -> Dictionary:
+	var snapshot: Dictionary = {
+		"status": _status,
+		"root_path": _root_path,
+		"entry_count": _entry_count,
+		"scene_count": _scene_count,
+		"row_count": _rows.size(),
+		"issues": _issues.duplicate(true),
+		"omitted_issue_count": _omitted_issue_count,
+	}
+	if _script_usage != null:
+		snapshot["script_count"] = _script_count
+		snapshot["script_row_count"] = _script_rows.size()
+	return snapshot
+
+
+## 搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。
+## 结果稳定按 group、scene_path、node_path 排序；返回行均为副本。
+## [br]
+## @api public
+## [br]
+## @since 12.0.0
+## [br]
+## @param text: 子字符串搜索文本；空文本匹配所有记录。
+## [br]
+## @param offset: 起始记录偏移，负数按 0 处理。
+## [br]
+## @param limit: 页大小，限制到 0..200；0 只计算总数。
+## [br]
+## @return 有界分页与匹配总数。
+## [br]
+## @schema return: Dictionary，包含 rows（Array[Dictionary]，每项 group:String、scene_path:String、node_path:String）、total:int、offset:int、limit:int。node_path 相对声明场景根，根节点为 .。
+func query(
+	text: String = "",
+	offset: int = 0,
+	limit: int = 100
+) -> Dictionary:
+	_sort_rows()
+	var page_offset: int = maxi(offset, 0)
+	var page_limit: int = clampi(
+		limit,
+		0,
+		200
+	)
+	var needle: String = text.to_lower()
+	var matches: int = 0
+	var page_rows: Array[Dictionary] = []
+	for row: Dictionary in _rows:
+		if not _matches_query(row, needle):
+			continue
+		if matches >= page_offset and page_rows.size() < page_limit:
+			page_rows.append(row.duplicate(true))
+		matches += 1
+	return {
+		"rows": page_rows,
+		"total": matches,
+		"offset": page_offset,
+		"limit": page_limit,
+	}
+
+
+## 从已收集的脚本调用中分页查询。固定组名和待确认调用分别查询，结果按脚本路径、行号排列。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param text: 忽略大小写的组名、方法或脚本路径子串。
+## [br]
+## @param offset: 起始偏移，负数按零处理。
+## [br]
+## @param limit: 页大小，限制到 0..200。
+## [br]
+## @param unresolved: 为 true 时只返回动态组名或接收者未确认的调用。
+## [br]
+## @return 匹配页与完整匹配数。
+## [br]
+## @schema return: Dictionary 含 rows:Array[Dictionary]、total:int、offset:int、limit:int；每行含 group、path、method、resolution、digest（均为 String）及 line:int（从 1 开始）。
+func query_script_usage(
+	text: String = "",
+	offset: int = 0,
+	limit: int = 100,
+	unresolved: bool = false
+) -> Dictionary:
+	var rows: Array[Dictionary] = []
+	var total: int = 0
+	var start: int = maxi(0, offset)
+	var count: int = clampi(
+		limit,
+		0,
+		200
+	)
+	var needle: String = text.to_lower()
+	for row: Dictionary in _script_rows:
+		if (row["resolution"] != "fixed") != unresolved:
+			continue
+		var matches: bool = (
+			needle.is_empty()
+			or _row_string(row, "group").to_lower().contains(needle)
+			or _row_string(row, "method").to_lower().contains(needle)
+			or _row_string(row, "path").to_lower().contains(needle)
+		)
+		if not matches:
+			continue
+		if total >= start and rows.size() < count:
+			rows.append(row.duplicate())
+		total += 1
+	return {
+		"rows": rows,
+		"total": total,
+		"offset": start,
+		"limit": count,
+	}
+
+
+## 确认脚本位置仍对应扫描时读取的磁盘内容，供打开脚本前使用。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param row: query_script_usage() 返回的单条记录。
+## [br]
+## @schema row: Dictionary，须含 path:String、digest:String 和 line:int。
+## [br]
+## @return 路径仍可读取且源码摘要一致时为 true。
+func is_script_location_current(row: Dictionary) -> bool:
+	var path: String = _row_string(row, "path")
+	var digest: String = _row_string(row, "digest")
+	var line_value: Variant = row.get("line")
+	if (
+		not line_value is int
+		or not _is_valid_root_path(path)
+		or path.get_extension().to_lower() != "gd"
+	):
+		return false
+	if (
+		_script_usage == null
+		or digest.is_empty()
+		or not _is_unlinked_path(path)
+	):
+		return false
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null or file.get_length() > _limit("max_script_bytes"):
+		return false
+	var bytes: PackedByteArray = file.get_buffer(file.get_length())
+	var source: String = bytes.get_string_from_utf8().replace("\r\n", "\n")
+	var line: int = line_value
+	return (
+		line > 0
+		and line <= source.count("\n") + 1
+		and source.sha256_text() == digest
+	)
+
+
+# --- 私有/辅助方法 ---
+
+## 两种扫描共享目录枚举、预算、取消与诊断，数据分别发布。
+## [br]
+## @api private
+func _begin_scan(
+	root_path: String,
+	options: Dictionary,
+	scripts: bool
+) -> Error:
 	if _status == "scanning" or _advancing:
 		return ERR_BUSY
 	_clear_work()
@@ -251,7 +538,10 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 	_rows.clear()
 	_row_keys.clear()
 	_rows_sorted = true
-	_limits = _HARD_LIMITS.duplicate()
+	_script_usage = _SCRIPT_USAGE.new() if scripts else null
+	_script_count = 0
+	_script_rows.clear()
+	_limits = _SCRIPT_LIMITS.duplicate() if scripts else _HARD_LIMITS.duplicate()
 	if not _is_valid_root_path(root_path) or not _configure_options(options):
 		_status = "failed"
 		_append_issue(
@@ -302,124 +592,6 @@ func begin_scan(root_path: String = "res://", options: Dictionary = {}) -> Error
 	return OK
 
 
-## 在主线程推进有界工作量。每个目录项、目录打开、场景加载、节点或组占一个单位。
-## 单次引擎资源加载不受单位预算抢占；不启动后台任务。无效预算令当前扫描 failed。
-## [br]
-## @api public
-## [br]
-## @since 12.0.0
-## [br]
-## @param entry_budget: 本次最多处理的工作单位，范围 1..4096。
-## [br]
-## @return 返回 true 表示仍为 scanning，false 表示当前无需继续调用。
-func advance(entry_budget: int = 64) -> bool:
-	if _status != "scanning":
-		return false
-	if _advancing:
-		return true
-	if entry_budget < 1 or entry_budget > _MAX_ADVANCE_BUDGET:
-		_append_issue(
-			"invalid_advance_budget",
-			_root_path,
-			"推进预算必须为 1..4096。"
-		)
-		_finish("failed")
-		return false
-	_advancing = true
-	for _work_index: int in range(entry_budget):
-		if _status != "scanning":
-			break
-		if _phase == _PHASE_DISCOVERY:
-			_advance_directory()
-		elif _scene_state != null:
-			_advance_scene_declaration()
-		else:
-			_load_next_scene()
-	_advancing = false
-	return _status == "scanning"
-
-
-## 取消当前扫描并立即关闭目录枚举，保留已发现记录供查看。
-## 终态调用不改变结果；新的 begin_scan() 会清空旧记录。
-## [br]
-## @api public
-## [br]
-## @since 12.0.0
-func cancel() -> void:
-	if _status == "scanning":
-		_generation += 1
-		_finish("cancelled")
-
-
-## 返回摘要和最多 64 条诊断的副本，不包含整个索引。
-## complete 仅表示已完成本次范围的声明扫描；不是运行时成员、实例展开或同时刻的文件系统快照。
-## [br]
-## @api public
-## [br]
-## @since 12.0.0
-## [br]
-## @return 当前扫描摘要。
-## [br]
-## @schema return: Dictionary，包含 status（idle/scanning/complete/partial/cancelled/failed）、root_path、entry_count（已枚举文件和目录数）、scene_count（尝试读取的场景数）、row_count、issues（Array[Dictionary]，每项 code/path/message）和 omitted_issue_count。
-func get_snapshot() -> Dictionary:
-	return {
-		"status": _status,
-		"root_path": _root_path,
-		"entry_count": _entry_count,
-		"scene_count": _scene_count,
-		"row_count": _rows.size(),
-		"issues": _issues.duplicate(true),
-		"omitted_issue_count": _omitted_issue_count,
-	}
-
-
-## 搜索组名、场景路径或节点路径。搜索忽略大小写，但保留不同组名的精确身份。
-## 结果稳定按 group、scene_path、node_path 排序；返回行均为副本。
-## [br]
-## @api public
-## [br]
-## @since 12.0.0
-## [br]
-## @param text: 子字符串搜索文本；空文本匹配所有记录。
-## [br]
-## @param offset: 起始记录偏移，负数按 0 处理。
-## [br]
-## @param limit: 页大小，限制到 0..200；0 只计算总数。
-## [br]
-## @return 有界分页与匹配总数。
-## [br]
-## @schema return: Dictionary，包含 rows（Array[Dictionary]，每项 group:String、scene_path:String、node_path:String）、total:int、offset:int、limit:int。node_path 相对声明场景根，根节点为 .。
-func query(
-	text: String = "",
-	offset: int = 0,
-	limit: int = 100
-) -> Dictionary:
-	_sort_rows()
-	var page_offset: int = maxi(offset, 0)
-	var page_limit: int = clampi(
-		limit,
-		0,
-		200
-	)
-	var needle: String = text.to_lower()
-	var matches: int = 0
-	var page_rows: Array[Dictionary] = []
-	for row: Dictionary in _rows:
-		if not _matches_query(row, needle):
-			continue
-		if matches >= page_offset and page_rows.size() < page_limit:
-			page_rows.append(row.duplicate(true))
-		matches += 1
-	return {
-		"rows": page_rows,
-		"total": matches,
-		"offset": page_offset,
-		"limit": page_limit,
-	}
-
-
-# --- 私有/辅助方法 ---
-
 ## 只接受有界的 res:// 根路径；除资源根自身外，各路径段不得为空、为点段或包含反斜杠、冒号和控制字符。
 ## [br]
 ## @api private
@@ -449,14 +621,14 @@ func _is_valid_root_path(root_path: String) -> bool:
 ## @api private
 func _configure_options(options: Dictionary) -> bool:
 	for key: Variant in options:
-		if not key is String or not _HARD_LIMITS.has(key):
+		if not key is String or not _limits.has(key):
 			return false
 		var value: Variant = options[key]
 		if not value is int:
 			return false
 		var limit_value: int = value
 		var option_name: String = key
-		var maximum_value: Variant = _HARD_LIMITS[option_name]
+		var maximum_value: Variant = _limits[option_name]
 		if not maximum_value is int:
 			return false
 		var maximum: int = maximum_value
@@ -547,9 +719,20 @@ func _advance_directory() -> void:
 		_pending_depths.append(_directory_depth + 1)
 		return
 	var extension: String = entry.get_extension().to_lower()
-	if extension != "tscn" and extension != "scn":
+	if _script_usage != null:
+		if extension != "gd":
+			return
+		if _file_paths.size() >= _limit("max_scripts"):
+			_append_issue(
+				"script_limit",
+				child_path,
+				"已达到脚本数量上限。"
+			)
+			_finish_discovery()
+			return
+	elif extension != "tscn" and extension != "scn":
 		return
-	if _scene_paths.size() >= _limit("max_scenes"):
+	if _script_usage == null and _file_paths.size() >= _limit("max_scenes"):
 		_append_issue(
 			"scene_limit",
 			child_path,
@@ -557,7 +740,7 @@ func _advance_directory() -> void:
 		)
 		_finish_discovery()
 		return
-	var _appended: bool = _scene_paths.append(child_path)
+	var _appended: bool = _file_paths.append(child_path)
 
 
 ## 从待处理栈取下一目录并在打开前复核链接路径；忽略已出现的 .gdignore，失败记录问题后留待后续推进。
@@ -610,20 +793,78 @@ func _finish_discovery() -> void:
 	_directory = null
 	_pending_directories.clear()
 	_pending_depths.clear()
-	_scene_paths.sort()
-	_scene_cursor = 0
+	_file_paths.sort()
+	_file_cursor = 0
 	_phase = _PHASE_SCENES
+
+
+## 每次最多读取一个有大小上限的脚本，词法扫描期间不加载资源。
+## [br]
+## @api private
+func _read_next_script() -> void:
+	if _file_cursor >= _file_paths.size():
+		_finish("complete" if _issues.is_empty() else "partial")
+		return
+	var path: String = _file_paths[_file_cursor]
+	_file_cursor += 1
+	_script_count += 1
+	if not _is_unlinked_path(path):
+		_append_issue(
+			"linked_entry",
+			path,
+			"脚本路径已消失或成为文件系统链接。"
+		)
+		return
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		_append_issue(
+			"script_unreadable",
+			path,
+			"无法打开已发现的脚本。"
+		)
+		return
+	var size: int = file.get_length()
+	if size > _limit("max_script_bytes"):
+		_append_issue(
+			"script_size_limit",
+			path,
+			"脚本超过单文件大小上限。"
+		)
+		return
+	var bytes: PackedByteArray = file.get_buffer(size)
+	if bytes.size() != size or file.get_length() != size:
+		_append_issue(
+			"script_unreadable",
+			path,
+			"读取期间脚本发生变化。"
+		)
+		return
+	var source: String = bytes.get_string_from_utf8().replace("\r\n", "\n")
+	var report: Dictionary = _script_usage.scan(
+		source,
+		path,
+		_limit("max_rows") - _script_rows.size()
+	)
+	var rows: Array = report["rows"]
+	_script_rows.append_array(rows)
+	if report["overflow"]:
+		_append_issue(
+			"row_limit",
+			path,
+			"已达到脚本用法上限。"
+		)
+		_finish("partial")
 
 
 ## 复核路径和文件大小后以忽略缓存模式读取 PackedScene；加载回调改变扫描代次或状态时放弃写回，只读取 SceneState 而不实例化节点。
 ## [br]
 ## @api private
 func _load_next_scene() -> void:
-	if _scene_cursor >= _scene_paths.size():
+	if _file_cursor >= _file_paths.size():
 		_finish("complete" if _issues.is_empty() and _omitted_issue_count == 0 else "partial")
 		return
-	_scene_path = _scene_paths[_scene_cursor]
-	_scene_cursor += 1
+	_scene_path = _file_paths[_file_cursor]
+	_file_cursor += 1
 	_scene_count += 1
 	if not _is_unlinked_path(_scene_path):
 		_append_issue(
@@ -787,12 +1028,12 @@ func _clear_work() -> void:
 	_directory = null
 	_pending_directories.clear()
 	_pending_depths.clear()
-	_scene_paths.clear()
+	_file_paths.clear()
 	_scene_state = null
 	_node_groups.clear()
 	_scene_path = ""
 	_node_path = ""
-	_scene_cursor = 0
+	_file_cursor = 0
 	_node_cursor = 0
 	_group_cursor = 0
 

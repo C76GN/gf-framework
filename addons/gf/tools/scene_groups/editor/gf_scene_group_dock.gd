@@ -61,6 +61,21 @@ const _LOCATION_TIMEOUT_MSEC: int = 5000
 ## [br]
 var _index: GFSceneGroupIndex = _INDEX_SCRIPT.new()
 
+## 独立保留手动脚本扫描的结果。
+## [br]
+## @api private
+var _scripts: GFSceneGroupIndex = _INDEX_SCRIPT.new()
+
+## 选择声明、固定脚本调用或待确认调用。
+## [br]
+## @api private
+var _view: OptionButton
+
+## 根据所选视图打开场景或脚本。
+## [br]
+## @api private
+var _open_button: Button
+
 ## 扫描根路径输入控件。
 ## [br]
 ## @api private
@@ -184,7 +199,7 @@ func _ready() -> void:
 ## @api private
 func _process(delta: float) -> void:
 	if _scanning:
-		_scanning = _index.advance(_ENTRIES_PER_FRAME)
+		_scanning = _active_index().advance(_ENTRIES_PER_FRAME)
 		_summary_elapsed += delta
 		if not _scanning or _summary_elapsed >= 0.15:
 			_summary_elapsed = 0.0
@@ -216,19 +231,11 @@ func _exit_tree() -> void:
 ## [br]
 ## @return 初始化扫描的 Error；无效输入会呈现 failed 状态。
 func refresh(root_path: String = "res://") -> Error:
-	var scan_error: Error = _index.begin_scan(root_path)
-	if scan_error == ERR_BUSY:
-		return scan_error
-	_pending_location.clear()
-	_location_status.text = ""
-	_offset = 0
-	_scan_root.text = root_path
-	_scanning = _status() == "scanning"
-	_summary_elapsed = 0.0
-	_render_summary()
-	_render_page()
-	set_process(_scanning)
-	return scan_error
+	if _scanning:
+		return ERR_BUSY
+	_view.select(0)
+	_configure_view()
+	return _refresh_view(root_path)
 
 
 ## 取消当前扫描和待完成定位；保留已收集结果，并明确标记取消状态。
@@ -238,6 +245,7 @@ func refresh(root_path: String = "res://") -> Error:
 ## @since 12.0.0
 func cancel_scan() -> void:
 	_index.cancel()
+	_scripts.cancel()
 	_scanning = false
 	_pending_location.clear()
 	if is_instance_valid(_location_status):
@@ -257,16 +265,89 @@ func cancel_scan() -> void:
 ## [br]
 ## @schema return: Dictionary，status 为 idle/scanning/complete/partial/cancelled/failed；root_path 为 String；entry_count、scene_count、row_count、omitted_issue_count 为 int；issues 为 Array[Dictionary]，每项含 String 字段 code、path、message。
 func get_snapshot() -> Dictionary:
-	return _index.get_snapshot()
+	return _active_index().get_snapshot()
 
 
 # --- 私有/辅助方法 ---
+
+## 读取当前视图所属的数据集。
+## [br]
+## @api private
+func _active_index() -> GFSceneGroupIndex:
+	return _index if _view.selected == 0 else _scripts
+
+
+## 在用户请求后才扫描当前数据集。
+## [br]
+## @api private
+func _refresh_view(root_path: String) -> Error:
+	var scan_error: Error = _index.begin_scan(root_path) if _view.selected == 0 else _scripts.begin_script_scan(root_path)
+	if scan_error == ERR_BUSY:
+		return scan_error
+	_pending_location.clear()
+	_location_status.text = ""
+	_offset = 0
+	_scan_root.text = root_path
+	_scanning = _status() == "scanning"
+	_summary_elapsed = 0.0
+	_render_summary()
+	_render_page()
+	set_process(_scanning)
+	return scan_error
+
+
+## 切换列标题、筛选提示与定位按钮。
+## [br]
+## @api private
+func _configure_view() -> void:
+	var scripts: bool = _view.selected != 0
+	_search.placeholder_text = "搜索组、方法或脚本路径" if scripts else "搜索组、场景或节点路径"
+	_results.set_column_title(
+		0,
+		"用法状态" if _view.selected == 2 else "Group"
+	)
+	_results.set_column_title(
+		1,
+		"方法" if scripts else "声明场景"
+	)
+	_results.set_column_title(
+		2,
+		"脚本与行号" if scripts else "节点路径"
+	)
+	_open_button.text = "打开脚本" if scripts else "定位节点"
+	_open_button.tooltip_text = "打开所选结果，也可双击定位。"
+	_scan_root.tooltip_text = "扫描此目录的已保存 GDScript。" if scripts else "扫描此目录下的已保存场景。"
+
+
+## 查询当前页，两个脚本视图共享同一次扫描。
+## [br]
+## @api private
+func _query_page() -> Dictionary:
+	if _view.selected == 0:
+		return _index.query(
+			_search.text,
+			_offset,
+			_PAGE_SIZE
+		)
+	return _scripts.query_script_usage(
+		_search.text,
+		_offset,
+		_PAGE_SIZE,
+		_view.selected == 2
+	)
+
 
 ## 构建扫描根、搜索、分页、诊断和节点定位控件；结果描述限定为磁盘中保存的 Group 声明。
 ## [br]
 ## @api private
 func _build_ui() -> void:
-	add_child(_WORKSPACE_UI.make_summary_label("查询已保存的 Group 声明；不包含未保存编辑或运行时变更。继承的声明在源场景显示。"))
+	_view = OptionButton.new()
+	_view.name = "GroupView"
+	_view.add_item("场景声明")
+	_view.add_item("脚本用法")
+	_view.add_item("待确认的脚本调用")
+	var _view_connected: int = _view.item_selected.connect(_on_view_selected)
+	add_child(_view)
 	var toolbar: HBoxContainer = _WORKSPACE_UI.make_toolbar()
 	add_child(toolbar)
 	_scan_root = LineEdit.new()
@@ -332,13 +413,13 @@ func _build_ui() -> void:
 	)
 	_next_button.name = "NextPage"
 	pagination.add_child(_next_button)
-	var open_button: Button = _WORKSPACE_UI.make_button(
+	_open_button = _WORKSPACE_UI.make_button(
 		"定位节点",
 		"打开声明场景并选中节点，也可双击结果",
 		_on_location_requested
 	)
-	open_button.name = "OpenLocation"
-	pagination.add_child(open_button)
+	_open_button.name = "OpenLocation"
+	pagination.add_child(_open_button)
 	_location_status = _WORKSPACE_UI.make_summary_label()
 	_location_status.name = "LocationStatus"
 	add_child(_location_status)
@@ -353,7 +434,7 @@ func _build_ui() -> void:
 ## [br]
 func _status() -> String:
 	return _VARIANT_ACCESS_SCRIPT.get_option_string(
-		_index.get_snapshot(),
+		_active_index().get_snapshot(),
 		"status",
 		"idle"
 	)
@@ -363,13 +444,13 @@ func _status() -> String:
 ## [br]
 ## @api private
 func _render_summary() -> void:
-	var snapshot: Dictionary = _index.get_snapshot()
+	var snapshot: Dictionary = _active_index().get_snapshot()
 	var status: String = _VARIANT_ACCESS_SCRIPT.get_option_string(
 		snapshot,
 		"status",
 		"idle"
 	)
-	var prefix: String = "尚未扫描。点击刷新读取已保存场景。"
+	var prefix: String = "尚未扫描。点击刷新读取磁盘文件。"
 	match status:
 		"scanning":
 			prefix = "正在扫描…"
@@ -402,6 +483,19 @@ func _render_summary() -> void:
 			),
 		]
 	)
+	if _view.selected != 0:
+		_summary.text = (
+			"%s 已检查 %d 个条目、处理 %d 个脚本、收集 %d 处调用。"
+			% [
+				prefix,
+				snapshot["entry_count"],
+				snapshot.get("script_count", 0),
+				snapshot.get("script_row_count", 0),
+			]
+		)
+	if status != "idle":
+		_summary.text += " 范围 %s" % _VARIANT_ACCESS_SCRIPT.get_option_string(snapshot, "root_path")
+	_view.disabled = _scanning
 	_refresh_button.disabled = _scanning
 	_cancel_button.disabled = not _scanning
 	_scan_root.editable = not _scanning
@@ -448,11 +542,7 @@ func _render_summary() -> void:
 ## @api private
 func _render_page() -> void:
 	_results.clear()
-	var page: Dictionary = _index.query(
-		_search.text,
-		_offset,
-		_PAGE_SIZE
-	)
+	var page: Dictionary = _query_page()
 	var total: int = _VARIANT_ACCESS_SCRIPT.get_option_int(
 		page,
 		"total",
@@ -463,11 +553,7 @@ func _render_page() -> void:
 			0,
 			int((total - 1) / float(_PAGE_SIZE)) * _PAGE_SIZE
 		)
-		page = _index.query(
-			_search.text,
-			_offset,
-			_PAGE_SIZE
-		)
+		page = _query_page()
 	var tree_root: TreeItem = _results.create_item()
 	var rows: Variant = page.get("rows", [])
 	var visible_count: int = 0
@@ -476,30 +562,33 @@ func _render_page() -> void:
 			if row_value is Dictionary:
 				var row: Dictionary = row_value
 				var item: TreeItem = _results.create_item(tree_root)
-				item.set_text(
-					0,
-					_VARIANT_ACCESS_SCRIPT.get_option_string(
-						row,
-						"group",
-						""
+				if _view.selected == 0:
+					item.set_text(
+						0,
+						_VARIANT_ACCESS_SCRIPT.get_option_string(row, "group")
 					)
-				)
-				item.set_text(
-					1,
-					_VARIANT_ACCESS_SCRIPT.get_option_string(
-						row,
-						"scene_path",
-						""
+					item.set_text(
+						1,
+						_VARIANT_ACCESS_SCRIPT.get_option_string(row, "scene_path")
 					)
-				)
-				item.set_text(
-					2,
-					_VARIANT_ACCESS_SCRIPT.get_option_string(
-						row,
-						"node_path",
-						""
+					item.set_text(
+						2,
+						_VARIANT_ACCESS_SCRIPT.get_option_string(row, "node_path")
 					)
-				)
+				else:
+					var description: String = _VARIANT_ACCESS_SCRIPT.get_option_string(row, "group")
+					if _view.selected == 2:
+						description = "动态组名" if row["resolution"] == "dynamic_group" else "接收对象待确认"
+					item.set_text(0, description)
+					item.set_text(
+						1,
+						_VARIANT_ACCESS_SCRIPT.get_option_string(row, "method")
+					)
+					item.set_text(
+						2,
+						"%s:%d"
+						% [row["path"], row["line"]]
+					)
 				item.set_metadata(
 					0,
 					row.duplicate(true)
@@ -514,7 +603,7 @@ func _render_page() -> void:
 		]
 	)
 	if total == 0:
-		_page_summary.text = "未发现匹配声明。" if _status() == "complete" else "暂无匹配结果。"
+		_page_summary.text = "未发现匹配声明。" if _view.selected == 0 and _status() == "complete" else "暂无匹配结果。"
 	_previous_button.disabled = _scanning or _offset == 0
 	_next_button.disabled = _scanning or _offset + visible_count >= total
 
@@ -562,13 +651,62 @@ func _advance_location() -> void:
 	)
 
 
+## 读取有界磁盘快照并检查现有编辑缓冲，拒绝跳转到已变化的行。
+## [br]
+## @api private
+func _open_script_location(row: Dictionary) -> void:
+	var path: String = _VARIANT_ACCESS_SCRIPT.get_option_string(row, "path")
+	var digest: String = _VARIANT_ACCESS_SCRIPT.get_option_string(row, "digest")
+	_location_status.text = "脚本已更改或不可读，请保存后重新扫描。"
+	if not _scripts.is_script_location_current(row):
+		return
+	var script: Script = ResourceLoader.load(path, "GDScript") as Script
+	if script == null:
+		return
+	EditorInterface.edit_script(script)
+	var script_editor: ScriptEditor = EditorInterface.get_script_editor()
+	var editor: ScriptEditorBase = script_editor.get_current_editor()
+	if editor == null or script_editor.get_current_script() != script:
+		return
+	var control: Control = editor.get_base_editor()
+	if not control is CodeEdit:
+		return
+	var code: CodeEdit = control
+	if code.text.sha256_text() != digest:
+		return
+	var line: int = _VARIANT_ACCESS_SCRIPT.get_option_int(
+		row,
+		"line",
+		1
+	)
+	code.set_caret_line(line - 1)
+	code.set_caret_column(0)
+	code.center_viewport_to_caret()
+	_location_status.text = (
+		"%s:%d"
+		% [path, line]
+	)
+
+
 # --- 信号处理函数 ---
+
+## 视图切换只重绘已有结果，取消旧定位。
+## [br]
+## @api private
+func _on_view_selected(_index_value: int) -> void:
+	_pending_location.clear()
+	_location_status.text = ""
+	_offset = 0
+	_configure_view()
+	_render_summary()
+	_render_page()
+
 
 ## 使用扫描根输入框的当前文本启动一次刷新，错误由刷新流程更新界面。
 ## [br]
 ## @api private
 func _on_refresh_pressed() -> void:
-	var _scan_error: Error = refresh(_scan_root.text)
+	var _scan_error: Error = _refresh_view(_scan_root.text)
 
 
 ## 撤销旧定位请求并回到第一页，再使用更新后的搜索文本渲染结果。
@@ -610,16 +748,19 @@ func _on_next_pressed() -> void:
 func _on_location_requested() -> void:
 	_pending_location.clear()
 	if not Engine.is_editor_hint():
-		_location_status.text = "节点定位仅在 Godot 编辑器中可用。"
+		_location_status.text = "定位仅在 Godot 编辑器中可用。"
 		return
 	var selected_item: TreeItem = _results.get_selected()
 	if selected_item == null:
-		_location_status.text = "请先选择一条声明。"
+		_location_status.text = "请先选择一条结果。"
 		return
 	var row_value: Variant = selected_item.get_metadata(0)
 	if not row_value is Dictionary:
 		return
 	var row: Dictionary = row_value
+	if _view.selected != 0:
+		_open_script_location(row)
+		return
 	var scene_path: String = _VARIANT_ACCESS_SCRIPT.get_option_string(
 		row,
 		"scene_path",

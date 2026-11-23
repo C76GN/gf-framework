@@ -56,6 +56,16 @@ table.load_resources(resources)
 
 自定义面板也可复用 `GFEditorMultiPropertyField`：`configure(targets, property)` 建立弱引用选择，`get_snapshot()` 读取混合/缺失与草稿状态，`prepare_changes()` 重新验证并生成命令输入，`cancel_edit()` 丢弃草稿。这个控件只组织输入和已编辑分量，不执行事务，也不持有编辑器管理器。
 
+## 从剪贴板粘贴一列
+
+1. 在表格中选中要修改的行，在表格下方选定共同属性。
+2. 从电子表格或文本编辑器复制一列，点击“粘贴一列…”。剪贴板第一行对应当前可见、已选中的第一行。排序和筛选后的显示顺序决定对应关系。
+3. 核对预览里的资源、原值、新值和逐行问题。点击“应用”会提交一次可撤销的编辑。例如按价格降序选中两个资源后，粘贴两行 `10` 和 `20`，最上面的选中资源会得到 `10`。
+
+支持普通十进制 `int`、有限 `float` 和单行 `String`。普通数值范围会检查最小值、最大值和声明步长。枚举、标志、多行字符串及带额外选项的范围提示需使用对应的属性编辑器。字符串保留首尾空格，空单元格可清空字符串。支持 LF、CRLF 和一个可选的末尾换行。选择数量须与数据行数吻合，制表符表示复制了多列。
+
+任一行无效，整批都保持原值。确认时会复核选择、属性声明和旧值，选择、筛选、排序或编辑上下文变化后需重新预览。全部同值时返回 `unchanged`，不增加撤销历史。实际写入、撤销、重做、保存失败提示及事务恢复沿用多选编辑。自定义面板可依次调用 `preview_column_paste(text)` 与 `apply_column_paste()`，预览不访问系统剪贴板。
+
 ## 值字段控件
 
 `GFEditorValueField` 是表格和自定义 Inspector 可复用的单值输入控件。默认会按 Godot property info 创建 bool、int、float、enum、Vector2/3/4、Color、String、StringName、NodePath、Array 和 Dictionary 输入；Array / Dictionary 仍使用 JSON 文本输入，并在解析失败时保留旧值。

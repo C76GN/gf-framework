@@ -980,6 +980,263 @@ func test_old_resource_undo_failure_preserves_recovery_without_discarding_curren
 
 # --- 私有/辅助方法 ---
 
+func test_column_paste_uses_sorted_filtered_rows_and_one_history_action() -> void:
+	var first: PasteResource = PasteResource.new()
+	var second: PasteResource = PasteResource.new()
+	var hidden: PasteResource = PasteResource.new()
+	first.label = "shown_a"
+	second.label = "shown_b"
+	hidden.label = "hidden"
+	var manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table(
+		[
+			first,
+			hidden,
+			second,
+		],
+		manager
+	)
+	table.sort_by_property(&"label", false)
+	table.set_search_text("shown")
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	var preview: Dictionary = table.preview_column_paste("10\r\n20\r\n")
+	assert_eq(
+		_string_field(preview, "error"),
+		""
+	)
+	var rows: Array = preview["rows"]
+	assert_eq(
+		rows.size(),
+		2
+	)
+	if rows.size() != 2:
+		return
+	var first_row: Dictionary = rows[0]
+	var target: Resource = first_row["target"]
+	assert_eq(target, second)
+	assert_eq(
+		_int_field(first_row, "old_value"),
+		0
+	)
+	assert_eq(
+		_int_field(first_row, "new_value"),
+		10
+	)
+	assert_eq(manager.action_count, 0)
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"committed"
+	)
+	assert_eq(
+		[
+			first.amount,
+			second.amount,
+			hidden.amount,
+		],
+		[
+			20,
+			10,
+			0,
+		]
+	)
+	assert_eq(manager.action_count, 1)
+	assert_eq(
+		manager.command.revert(),
+		OK
+	)
+	assert_eq(
+		[first.amount, second.amount],
+		[0, 0]
+	)
+	assert_eq(
+		manager.command.execute(),
+		OK
+	)
+	assert_eq(
+		[first.amount, second.amount],
+		[20, 10]
+	)
+
+
+func test_column_paste_invalid_last_row_stale_baseline_and_no_op_leave_history_empty() -> void:
+	var first: PasteResource = PasteResource.new()
+	var second: PasteResource = PasteResource.new()
+	var manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table(
+		[first, second],
+		manager
+	)
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	for invalid: String in [
+		"1\nno",
+		"1\n9223372036854775808",
+		"1\t2\n3\t4",
+		"1",
+		"1\n2\n3",
+	]:
+		var preview: Dictionary = table.preview_column_paste(invalid)
+		assert_ne(
+			_string_field(preview, "error"),
+			""
+		)
+		assert_eq(
+			_string_field(
+				table.apply_column_paste(),
+				"status"
+			),
+			"invalid_preview"
+		)
+	assert_eq(
+		[first.amount, second.amount],
+		[0, 0]
+	)
+	var _preview: Dictionary = table.preview_column_paste("0\n+000")
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"unchanged"
+	)
+	_preview = table.preview_column_paste("1\n2")
+	second.amount = 3
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"stale_preview"
+	)
+	assert_eq(
+		[first.amount, second.amount],
+		[0, 3]
+	)
+	_preview = table.preview_column_paste("1\n2")
+	table.sort_by_property(&"amount")
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"stale_preview"
+	)
+	assert_eq(manager.action_count, 0)
+
+
+func test_column_paste_respects_text_empty_cells_and_property_hints() -> void:
+	var first: PasteResource = PasteResource.new()
+	var second: PasteResource = PasteResource.new()
+	second.label = "clear me"
+	var manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table(
+		[first, second],
+		manager
+	)
+	if not _select_rows_and_property(table, &"ratio"):
+		return
+	for invalid: String in [
+		"0.5\n1.25",
+		"0.5\n0.4",
+		"0.5\n1e999",
+		"0.5\nnan",
+	]:
+		var preview: Dictionary = table.preview_column_paste(invalid)
+		assert_ne(
+			_string_field(preview, "error"),
+			""
+		)
+		assert_eq(
+			_string_field(
+				table.apply_column_paste(),
+				"status"
+			),
+			"invalid_preview"
+		)
+	var _preview: Dictionary = table.preview_column_paste("0.5\n0.75")
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"committed"
+	)
+	assert_eq(
+		[first.ratio, second.ratio],
+		[0.5, 0.75]
+	)
+	if not _select_rows_and_property(table, &"choice"):
+		return
+	assert_ne(
+		_string_field(
+			table.preview_column_paste("1\n0"),
+			"error"
+		),
+		""
+	)
+	if not _select_rows_and_property(table, &"label"):
+		return
+	_preview = table.preview_column_paste("  keep  \n\n")
+	assert_eq(
+		_string_field(
+			table.apply_column_paste(),
+			"status"
+		),
+		"committed"
+	)
+	assert_eq(
+		[first.label, second.label],
+		["  keep  ", ""]
+	)
+
+
+func test_paste_rolls_back_a_rejected_setter_and_refuses_duplicate_targets() -> void:
+	var first: VectorResource = VectorResource.new()
+	var refusing: RejectingResource = RejectingResource.new()
+	var manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table(
+		[first, refusing],
+		manager
+	)
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	var preview: Dictionary = table.preview_column_paste("4\n5")
+	assert_eq(
+		_string_field(preview, "error"),
+		""
+	)
+	assert_false(
+		_bool_field(
+			table.apply_column_paste(),
+			"ok"
+		)
+	)
+	assert_eq(
+		[first.amount, refusing.amount],
+		[0, 0]
+	)
+	table.load_resources([first, first])
+	if not _select_rows_and_property(table, &"amount"):
+		return
+	preview = table.preview_column_paste("6\n7")
+	assert_ne(
+		_string_field(preview, "error"),
+		""
+	)
+	assert_false(
+		_bool_field(
+			table.apply_column_paste(),
+			"ok"
+		)
+	)
+	assert_eq(first.amount, 0)
+	assert_eq(manager.action_count, 1)
+
+
 func _bool_field(source: Dictionary, key: String) -> bool:
 	var value: Variant = source.get(key)
 	assert_true(value is bool)
@@ -1091,6 +1348,13 @@ func _press(table: GFResourceTableEditor, button_name: String) -> void:
 
 
 # --- 内部类 ---
+
+class PasteResource extends Resource:
+	@export var label: String = ""
+	@export var amount: int = 0
+	@export_range(0.0, 1.0, 0.25) var ratio: float = 0.0
+	@export_enum("One", "Two") var choice: int = 0
+
 
 class VectorResource extends Resource:
 	@export var position: Vector2 = Vector2.ZERO
