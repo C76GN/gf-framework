@@ -176,6 +176,11 @@ static func _parse_value(
 			absf(float_value),
 			absf(nearest)
 		) * 8.881784197001252e-16
+		# 大基数不能把相邻步值之间的距离当作舍入误差。
+		tolerance = minf(
+			tolerance,
+			increment * 0.0000001
+		)
 		if not is_finite(nearest) or absf(float_value - nearest) > tolerance:
 			return null
 	return float_value

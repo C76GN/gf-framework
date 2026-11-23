@@ -1201,6 +1201,41 @@ func test_column_paste_respects_text_empty_cells_and_property_hints() -> void:
 	)
 
 
+func test_large_range_origin_does_not_widen_the_step_tolerance() -> void:
+	var resource: PasteResource = PasteResource.new()
+	var manager: RecordingUndoManager = RecordingUndoManager.new()
+	var table: GFResourceTableEditor = _make_table(
+		[resource],
+		manager
+	)
+	if not _select_rows_and_property(table, &"large_offset"):
+		return
+	var preview: Dictionary = table.preview_column_paste("1000000000000000.5")
+	assert_ne(
+		_string_field(preview, "error"),
+		""
+	)
+	assert_false(
+		_bool_field(
+			table.apply_column_paste(),
+			"ok"
+		)
+	)
+	assert_eq(manager.action_count, 0)
+	preview = table.preview_column_paste("1000000000000002")
+	assert_eq(
+		_string_field(preview, "error"),
+		""
+	)
+	assert_true(
+		_bool_field(
+			table.apply_column_paste(),
+			"ok"
+		)
+	)
+	assert_eq(resource.large_offset, 1000000000000002.0)
+
+
 func test_paste_rolls_back_a_rejected_setter_and_refuses_duplicate_targets() -> void:
 	var first: VectorResource = VectorResource.new()
 	var refusing: RejectingResource = RejectingResource.new()
@@ -1401,6 +1436,7 @@ class PasteResource extends Resource:
 	@export var label: String = ""
 	@export var amount: int = 0
 	@export_range(0.0, 1.0, 0.25) var ratio: float = 0.0
+	@export_range(1000000000000000.0, 1000000000000010.0, 1.0) var large_offset: float = 1000000000000000.0
 	@export_enum("One", "Two") var choice: int = 0
 
 
