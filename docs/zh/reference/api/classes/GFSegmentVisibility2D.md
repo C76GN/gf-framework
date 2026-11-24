@@ -1,0 +1,193 @@
+# GFSegmentVisibility2D
+
+[API Reference](../index.md) / [Standard](../standard.md) / [类索引](index.md)
+
+- 路径：`addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd`
+- 模块：`Standard`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：运行时服务 (`runtime_service`)
+- 首次版本：`unreleased`
+
+按稳定端点身份计算有界整数闭线段之间的可见图层。 每份拓扑独立持有已校验的数据，单对查询与批量输出采用相同的接触规则。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 常量 | [`MAX_COORDINATE`](#member-gfsegmentvisibility2d-constants-max_coordinate) | `const MAX_COORDINATE: int = (1 << 30) - 1` |
+| 常量 | [`MAX_POINTS`](#member-gfsegmentvisibility2d-constants-max_points) | `const MAX_POINTS: int = 2048` |
+| 常量 | [`MAX_SEGMENTS`](#member-gfsegmentvisibility2d-constants-max_segments) | `const MAX_SEGMENTS: int = 4096` |
+| 常量 | [`MAX_PAIRS`](#member-gfsegmentvisibility2d-constants-max_pairs) | `const MAX_PAIRS: int = 262144` |
+| 常量 | [`MAX_SEGMENT_TESTS`](#member-gfsegmentvisibility2d-constants-max_segment_tests) | `const MAX_SEGMENT_TESTS: int = 1048576` |
+| 方法 | [`create`](#member-gfsegmentvisibility2d-methods-create) | `static func create( point_ids: PackedInt64Array, points: Array[Vector2i], barriers: Array[Dictionary], valid_mask: int ) -> GFSegmentVisibility2D:` |
+| 方法 | [`get_visible_mask`](#member-gfsegmentvisibility2d-methods-get_visible_mask) | `func get_visible_mask(first_id: int, second_id: int) -> int:` |
+| 方法 | [`get_pair_index`](#member-gfsegmentvisibility2d-methods-get_pair_index) | `func get_pair_index(first_id: int, second_id: int) -> int:` |
+| 方法 | [`compute_pair_masks`](#member-gfsegmentvisibility2d-methods-compute_pair_masks) | `func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX_SEGMENT_TESTS) -> Dictionary:` |
+
+## 常量
+
+<a id="member-gfsegmentvisibility2d-constants-max_coordinate"></a>
+
+### `MAX_COORDINATE`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_COORDINATE: int = (1 << 30) - 1
+```
+
+坐标绝对值上限。坐标差可由 Vector2i 表示，两个乘积的差可由有符号 64 位整数表示。
+
+<a id="member-gfsegmentvisibility2d-constants-max_points"></a>
+
+### `MAX_POINTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_POINTS: int = 2048
+```
+
+每份拓扑的最大查询点数。
+
+<a id="member-gfsegmentvisibility2d-constants-max_segments"></a>
+
+### `MAX_SEGMENTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_SEGMENTS: int = 4096
+```
+
+每份拓扑的最大遮挡线段数。
+
+<a id="member-gfsegmentvisibility2d-constants-max_pairs"></a>
+
+### `MAX_PAIRS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_PAIRS: int = 262144
+```
+
+一次批量查询允许的最大无序点对数，打包结果最多占 2 MiB。
+
+<a id="member-gfsegmentvisibility2d-constants-max_segment_tests"></a>
+
+### `MAX_SEGMENT_TESTS`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_SEGMENT_TESTS: int = 1048576
+```
+
+一次批量查询允许的最大点对数乘以线段数。
+
+## 方法
+
+<a id="member-gfsegmentvisibility2d-methods-create"></a>
+
+### `create`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func create( point_ids: PackedInt64Array, points: Array[Vector2i], barriers: Array[Dictionary], valid_mask: int ) -> GFSegmentVisibility2D:
+```
+
+校验并复制一次拓扑。点 ID 各自唯一，同坐标的不同 ID 保持独立。命名端点必须匹配对应 ID 的坐标。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `point_ids` | 唯一的有符号 64 位点 ID，顺序决定批量布局。 |
+| `points` | 与 ID 一一对应的整数坐标，每个分量的绝对值不超过 MAX_COORDINATE。 |
+| `barriers` | 遮挡线段，允许零长度和重复线段。 |
+| `valid_mask` | 可用图层集合，范围 0 至 2^63-1。每条 blocked_mask 必须是其非负子集。 |
+
+返回：已准备的只读拓扑。输入无效、超过规模上限或存储分配失败时返回 null。
+
+结构：
+
+- `barriers`: Array[Dictionary]。每条必填 from、to（Vector2i），可选 blocked_mask（int，默认 valid_mask）、from_id、to_id（int，缺省为匿名端）。其它字段非法。
+
+<a id="member-gfsegmentvisibility2d-methods-get_visible_mask"></a>
+
+### `get_visible_mask`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_visible_mask(first_id: int, second_id: int) -> int:
+```
+
+查询两个稳定 ID 之间可见的图层，交换 ID 得到相同结果。同一点或重合点按零长度查询处理。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `first_id` | 查询一端的点 ID。 |
+| `second_id` | 查询另一端的点 ID。 |
+
+返回：从有效图层中扣除所有相交障碍的遮挡位。仅接触已命名的同一端点时放行，正长度共线重叠仍遮挡。未知 ID 返回 -1，完全遮挡返回 0。
+
+<a id="member-gfsegmentvisibility2d-methods-get_pair_index"></a>
+
+### `get_pair_index`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_pair_index(first_id: int, second_id: int) -> int:
+```
+
+返回无序点对在批量结果中的索引，项目可用稳定 ID 查询独立保留的掩码数组。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `first_id` | 查询一端的点 ID。 |
+| `second_id` | 查询另一端的点 ID。 |
+
+返回：按输入行 i < j 的字典序打包的索引。未知 ID 或同一 ID 返回 -1。
+
+<a id="member-gfsegmentvisibility2d-methods-compute_pair_masks"></a>
+
+### `compute_pair_masks`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX_SEGMENT_TESTS) -> Dictionary:
+```
+
+一次计算所有不同点行之间的可见图层。按保守上界在分配结果前准入，失败时返回空数组。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `max_pairs` | 输出点对预算，范围 0 至 MAX_PAIRS。 |
+| `max_segment_tests` | 点对数乘以输入障碍数的预算，范围 0 至 MAX_SEGMENT_TESTS。 |
+
+返回：独立的批量结果。零或一个点合法，成功时数组为空。
+
+结构：
+
+- `return`: Dictionary，含 ok（bool）、error（StringName）、masks（调用方持有的 PackedInt64Array）。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。

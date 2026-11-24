@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 79 | 1157 | [Kernel](#module-kernel) |
-| Standard | 516 | 7912 | [Standard](#module-standard) |
+| Standard | 517 | 7921 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -261,6 +261,7 @@
 | [`GFScreenshotUtility`](GFScreenshotUtility.md#gfscreenshotutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 22 | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](GFScriptStructureTools.md#gfscriptstructuretools) | 运行时服务 (`runtime_service`) | `RefCounted` | 7 | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](GFSeedUtility.md#gfseedutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 18 | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
+| [`GFSegmentVisibility2D`](GFSegmentVisibility2D.md#gfsegmentvisibility2d) | 运行时服务 (`runtime_service`) | `RefCounted` | 9 | `addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd` |
 | [`GFServerTimeEstimator`](GFServerTimeEstimator.md#gfservertimeestimator) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/utilities/time/gf_server_time_estimator.gd` |
 | [`GFSessionTraceUtility`](GFSessionTraceUtility.md#gfsessiontraceutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 47 | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
 | [`GFSettingsFileStoreUtility`](GFSettingsFileStoreUtility.md#gfsettingsfilestoreutility) | 运行时服务 (`runtime_service`) | `GFSettingsStoreUtility` | 3 | `addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd` |

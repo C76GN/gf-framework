@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFSegmentVisibility2D" path="addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd" module="standard" extends="RefCounted" classDigest="f5b2c96467fce5871aa5bba73ce1f38f9ee24e98731d5180dc25303263823b84">
+	<description>GFSegmentVisibility2D: 按稳定端点身份计算有界整数闭线段之间的可见图层。
+每份拓扑独立持有已校验的数据，单对查询与批量输出采用相同的接触规则。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants>
+		<member kind="const" name="MAX_COORDINATE">
+			<signature>const MAX_COORDINATE: int = (1 &lt;&lt; 30) - 1</signature>
+			<description>坐标绝对值上限。坐标差可由 Vector2i 表示，两个乘积的差可由有符号 64 位整数表示。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_POINTS">
+			<signature>const MAX_POINTS: int = 2048</signature>
+			<description>每份拓扑的最大查询点数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_SEGMENTS">
+			<signature>const MAX_SEGMENTS: int = 4096</signature>
+			<description>每份拓扑的最大遮挡线段数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_PAIRS">
+			<signature>const MAX_PAIRS: int = 262144</signature>
+			<description>一次批量查询允许的最大无序点对数，打包结果最多占 2 MiB。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="const" name="MAX_SEGMENT_TESTS">
+			<signature>const MAX_SEGMENT_TESTS: int = 1048576</signature>
+			<description>一次批量查询允许的最大点对数乘以线段数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</constants>
+	<properties />
+	<methods>
+		<member kind="method" name="create">
+			<signature>static func create( point_ids: PackedInt64Array, points: Array[Vector2i], barriers: Array[Dictionary], valid_mask: int ) -&gt; GFSegmentVisibility2D:</signature>
+			<description>校验并复制一次拓扑。点 ID 各自唯一，同坐标的不同 ID 保持独立。命名端点必须匹配对应 ID 的坐标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">point_ids: 唯一的有符号 64 位点 ID，顺序决定批量布局。</tag>
+				<tag name="param">points: 与 ID 一一对应的整数坐标，每个分量的绝对值不超过 MAX_COORDINATE。</tag>
+				<tag name="param">barriers: 遮挡线段，允许零长度和重复线段。</tag>
+				<tag name="param">valid_mask: 可用图层集合，范围 0 至 2^63-1。每条 blocked_mask 必须是其非负子集。</tag>
+				<tag name="return">已准备的只读拓扑。输入无效、超过规模上限或存储分配失败时返回 null。</tag>
+				<tag name="schema">barriers: Array[Dictionary]。每条必填 from、to（Vector2i），可选 blocked_mask（int，默认 valid_mask）、from_id、to_id（int，缺省为匿名端）。其它字段非法。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_visible_mask">
+			<signature>func get_visible_mask(first_id: int, second_id: int) -&gt; int:</signature>
+			<description>查询两个稳定 ID 之间可见的图层，交换 ID 得到相同结果。同一点或重合点按零长度查询处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">first_id: 查询一端的点 ID。</tag>
+				<tag name="param">second_id: 查询另一端的点 ID。</tag>
+				<tag name="return">从有效图层中扣除所有相交障碍的遮挡位。仅接触已命名的同一端点时放行，正长度共线重叠仍遮挡。未知 ID 返回 -1，完全遮挡返回 0。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_pair_index">
+			<signature>func get_pair_index(first_id: int, second_id: int) -&gt; int:</signature>
+			<description>返回无序点对在批量结果中的索引，项目可用稳定 ID 查询独立保留的掩码数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">first_id: 查询一端的点 ID。</tag>
+				<tag name="param">second_id: 查询另一端的点 ID。</tag>
+				<tag name="return">按输入行 i &lt; j 的字典序打包的索引。未知 ID 或同一 ID 返回 -1。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="compute_pair_masks">
+			<signature>func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX_SEGMENT_TESTS) -&gt; Dictionary:</signature>
+			<description>一次计算所有不同点行之间的可见图层。按保守上界在分配结果前准入，失败时返回空数组。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">max_pairs: 输出点对预算，范围 0 至 MAX_PAIRS。</tag>
+				<tag name="param">max_segment_tests: 点对数乘以输入障碍数的预算，范围 0 至 MAX_SEGMENT_TESTS。</tag>
+				<tag name="return">独立的批量结果。零或一个点合法，成功时数组为空。</tag>
+				<tag name="schema">return: Dictionary，含 ok（bool）、error（StringName）、masks（调用方持有的 PackedInt64Array）。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

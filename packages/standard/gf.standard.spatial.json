@@ -80,6 +80,8 @@
     "addons/gf/standard/foundation/math/gf_region_map_2d.gd.uid",
     "addons/gf/standard/foundation/math/gf_region_map_3d.gd",
     "addons/gf/standard/foundation/math/gf_region_map_3d.gd.uid",
+    "addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd",
+    "addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd.uid",
     "addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd",
     "addons/gf/standard/foundation/math/gf_spatial_bounds_math.gd.uid",
     "addons/gf/standard/foundation/math/gf_spatial_hash_3d.gd",

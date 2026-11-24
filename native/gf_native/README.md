@@ -1,6 +1,6 @@
 # GF Native
 
-GF Native is the optional platform addon for packed integer row selection, stable-ID row matching, Terrain-RGB height decoding and tiled WFC entropy solving. Their public GF APIs select the installed capability automatically on the main thread.
+GF Native is the optional platform addon for packed integer row selection, stable-ID row matching, Terrain-RGB height decoding, tiled WFC entropy solving and batched 2D segment visibility. Their public GF APIs select the installed capability automatically on the main thread.
 
 ## Install in a game
 
@@ -14,6 +14,8 @@ Extract the matching archives beside the game's `project.godot`.
 | Portable GF for script-only projects | `gf-framework-<version>.zip` |
 
 GFHeightfield3D uses the installed decoder for RGB8 and RGBA8 without enabling Data Batch. The portable package and worker threads run the GDScript decoder. See the [heightfield guide](../../docs/zh/standard/foundation/grid-spatial/heightfield-surface-scatter-3d.md).
+
+`GFSegmentVisibility2D.compute_pair_masks()` uses the installed backend for batches with at least eight potential pair–barrier tests and a nonzero layer mask. The single-pair query, small batches, worker threads and portable installations use GDScript. Both paths operate on the same prepared integer coordinates and return an independently owned array in input-row order. [Segment visibility guide](../../docs/zh/standard/input-flow/spatial-query.md#segment-visibility-masks)
 
 The standard WFC API, `GFWaveFunctionCollapse2D.solve_grid()`, accelerates entropy-based selection on grids up to 4096 cells with 1–128 tile types. Worker threads, portable installations, other heuristics and larger caller-approved grids or tile sets use the script solver. Both paths support unrestricted and directional adjacency, fixed cells, periodic boundaries, step limits and the same seeded report. See the [WFC guide](../../docs/zh/standard/foundation/grid-spatial/wave-function-collapse-2d.md).
 
@@ -89,6 +91,7 @@ The reference worktree is optional. It supplies the previous height decoder, fou
 | Workload | Timed operation |
 | --- | --- |
 | Terrain-RGB | Public decoder on the main thread with the shipped DLL and on a worker using the portable implementation. Timing starts inside the worker. |
+| Segment visibility | All 3,486 unordered pairs in an 84-point topology with eight or fourteen barriers and four layers. The public batch on each path must match every scalar mask. The native median must be at most half the portable median for each topology. |
 | Height queries and surface scatter | Eight height reads on 64×64 and 512×512 fields and eight placed transforms on the larger field. The runner checks the sampled plane and guards against query cost growing with grid area. |
 | Noise grid | Public FastNoiseLite grid sampling including normalized samples, compared with direct engine noise and standalone normalization. |
 | Flow | Public four-direction unit-cost field versus a benchmark-only Rust FIFO. The native lane includes capturing the passability mask and constructing the public dictionaries. |

@@ -6,7 +6,7 @@
 
 | 类别 | 类 | 成员 | 方法 |
 |---|---:|---:|---:|
-| [运行时服务](#category-runtime_service) | 201 | 3555 | 2432 |
+| [运行时服务](#category-runtime_service) | 202 | 3564 | 2436 |
 | [协议与扩展点](#category-protocol) | 30 | 375 | 303 |
 | [资源定义](#category-resource_definition) | 123 | 1600 | 804 |
 | [运行时句柄](#category-runtime_handle) | 65 | 1026 | 678 |
@@ -162,6 +162,7 @@
 | [`GFScreenshotUtility`](classes/GFScreenshotUtility.md#gfscreenshotutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_screenshot_utility.gd` |
 | [`GFScriptStructureTools`](classes/GFScriptStructureTools.md#gfscriptstructuretools) | `RefCounted` | `addons/gf/standard/utilities/assets/gf_script_structure_tools.gd` |
 | [`GFSeedUtility`](classes/GFSeedUtility.md#gfseedutility) | `GFUtility` | `addons/gf/standard/utilities/random/gf_seed_utility.gd` |
+| [`GFSegmentVisibility2D`](classes/GFSegmentVisibility2D.md#gfsegmentvisibility2d) | `RefCounted` | `addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd` |
 | [`GFServerTimeEstimator`](classes/GFServerTimeEstimator.md#gfservertimeestimator) | `RefCounted` | `addons/gf/standard/utilities/time/gf_server_time_estimator.gd` |
 | [`GFSessionTraceUtility`](classes/GFSessionTraceUtility.md#gfsessiontraceutility) | `GFUtility` | `addons/gf/standard/utilities/debug/gf_session_trace_utility.gd` |
 | [`GFSettingsFileStoreUtility`](classes/GFSettingsFileStoreUtility.md#gfsettingsfilestoreutility) | `GFSettingsStoreUtility` | `addons/gf/standard/utilities/settings/gf_settings_file_store_utility.gd` |

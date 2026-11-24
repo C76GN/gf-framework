@@ -83,6 +83,41 @@ facade 只输出实体值、统一 `identity` 快照和调用方 metadata。阵�
 
 `GFSpatialQueryIdentity` 只接受 `Object`、非空 `StringName`、非空 `String` 或 `int`。`Object` 以 weakref 方式保存，不会因为进入空间索引而被强持有；`Array`、`Dictionary` 等可变复合值会被拒绝，避免索引键在插入后被调用方修改而导致删除、更新和查询结果不可预测。2D facade 会把稳定身份映射为四叉树内部 surrogate int，因此底层 `GFQuadTreeUtility` 的 `int entity_id` 限制不会泄漏到 facade API。AABB 覆盖格子时使用半开最大边界，恰好落在格子边界的盒子不会额外占用相邻格。
 
+## 两点之间的分层可见性 {#segment-visibility-masks}
+
+`gf.standard.spatial` 的 `GFSegmentVisibility2D` 用整数坐标上的闭线段计算视线。每个图层独立判定。查询从 `valid_mask` 开始，每条命中的障碍扣除自己的 `blocked_mask`。项目可以复用同一份只读拓扑查询一条边，或一次计算所有无序点对。
+
+```gdscript
+var ids := PackedInt64Array([0, 1, 2, 3, 4])
+var points: Array[Vector2i] = [
+    Vector2i(0, 0), Vector2i(0, 3), Vector2i(2, 0), Vector2i(-2, 0), Vector2i(0, 1),
+]
+var walls: Array[Dictionary] = [{
+    "from": points[0], "to": points[1],
+    "from_id": 0, "to_id": 1, "blocked_mask": 6,
+}]
+var topology := GFSegmentVisibility2D.create(ids, points, walls, 7)
+assert(topology != null)
+assert(topology.get_visible_mask(0, 2) == 7)  # 仅接触墙上已命名的 0 号端点
+assert(topology.get_visible_mask(2, 3) == 1)  # 视线中途碰到墙端
+assert(topology.get_visible_mask(0, 4) == 1)  # 沿墙重叠一段
+var result := topology.compute_pair_masks()
+if result.ok:
+    var masks: PackedInt64Array = result.masks
+    assert(masks[topology.get_pair_index(3, 2)] == 1)
+```
+
+每条障碍必须给出 `from` 和 `to`。省略 `blocked_mask` 会遮挡全部有效图层，设为 `0` 会放行全部图层。只有填入 `from_id` 或 `to_id` 且与查询端点身份相同，单点接触才放行。仅坐标相同的两个 ID 仍是不同端点。正长度共线重叠始终按障碍掩码处理。查询点重合、查询同一 ID 或障碍退化为点时，都遵循同一条单点接触规则。
+
+| 约束 | 行为 |
+| --- | --- |
+| 点和坐标 | 最多 2,048 个唯一的有符号 64 位 ID 和 4,096 条障碍。每个坐标分量的绝对值最大为 `2^30 - 1`，保证叉积能用有符号 64 位整数精确计算。 |
+| 图层和输入 | 低 63 位可用，可稀疏或全零。遮挡位必须是有效位的子集。重复 ID、端点 ID 与坐标不符、未知字段和非法值均使 `create()` 返回 `null`。 |
+| 单对与索引 | 交换两端结果相同。查询未知 ID 返回 `-1`，完全遮挡返回 `0`。批量按输入行 `(0,1), (0,2), …, (1,2), …` 打包，同一 ID 或未知 ID 的批量索引为 `-1`。 |
+| 批量预算 | 可用参数收紧预算。硬上限为 262,144 个点对（2 MiB 输出）和 1,048,576 次潜在相交测试（点对数 × 障碍数）。先检查预算再分配。失败时 `ok == false`、`error` 给出原因、`masks` 为空。零或一个点成功返回空数组。 |
+
+创建时复制输入，每次批量查询返回独立数组。项目在坐标、端点身份或图层改变时重建拓扑，自行决定修订号、权限和更新时间。单对查询、小批次、工作线程和纯脚本安装都可使用 GDScript。安装 GF Native 后，主线程会自动加速有足够工作的批量查询。
+
 ## Environment Query 组合边界
 
 需要把空间候选交给 Decision 评分时，先把查询记录冻结成有界的 data-only 候选；`query_records_*()` 返回的 `entity` 可能是实时 Object，不能进入异步任务、持久化或诊断快照。只保留稳定 `identity`、位置或 bounds，以及项目白名单允许的 metadata，随后在项目层完成过滤、测试和评分。完整流程见 [Decision 的 Environment Query 组合配方](../../extensions/decision/index.md)。
