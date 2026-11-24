@@ -29,7 +29,8 @@ SOURCE_DIRS = {
     "standard/foundation/variant": ("variant_data",),
     "standard/foundation/math": ("graph_math", "graph_path_search_state", "grid_coordinate_math_2d",
                                  "grid_path_math_2d", "grid_transform_2d", "heightfield_3d", "wave_function_collapse_2d",
-                                 "surface_scatter_sampler_3d", "transform_3d_math", "noise_field_tools", "voronoi_2d"),
+                                 "surface_scatter_sampler_3d", "transform_3d_math", "noise_field_tools", "voronoi_2d",
+                                 "segment_visibility_2d"),
 }
 CASES = {
     "terrain_rgb8_256": ("native", "portable"), "terrain_rgb8_512": ("native", "portable"),
@@ -40,6 +41,7 @@ CASES = {
     "flow_open_32": ("public", "native_probe"), "flow_open_64": ("public", "native_probe"),
     "wfc_entropy_8": ("native", "portable", "mrv"), "wfc_entropy_16": ("native", "portable", "mrv"),
     "wfc_weighted_fixed_12": ("native", "portable"), "wfc_128_tiles_8": ("native", "portable"),
+    "visibility_84x8": ("native", "portable"), "visibility_84x14": ("native", "portable"),
 }
 MATH_DIR = Path("addons/gf/standard/foundation/math")
 BASELINES = {"height": ("heightfield_3d", "GFHeightfield3D"), "flow": ("grid_path_math_2d", "GFGridPathMath2D"),
@@ -62,8 +64,9 @@ def profile_voronoi(source_path: Path, target: Path) -> None:
 
 
 def runtime_sources() -> list[Path]:
-    return [ROOT / "addons/gf" / folder / f"gf_{name}.gd"
-            for folder, names in SOURCE_DIRS.items() for name in names]
+    return [*(ROOT / "addons/gf" / folder / f"gf_{name}.gd"
+              for folder, names in SOURCE_DIRS.items() for name in names),
+            ROOT / "tests/native/segment_visibility/acceptance.gd"]
 
 
 def stage(project: Path, probe: Path, native: Path) -> None:
@@ -143,6 +146,9 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
         wfc = medians[workload]
         if wfc["native"] > wfc["portable"] * fraction:
             raise ValueError(f"Installed WFC backend did not accelerate {workload}")
+    for workload in ("visibility_84x8", "visibility_84x14"):
+        if medians[workload]["native"] > medians[workload]["portable"] * 0.5:
+            raise ValueError(f"Installed segment visibility backend did not accelerate {workload}")
     # A 64-fold area increase should leave eight reads approximately constant. A timer
     # floor and wide ratio tolerate CPU scheduling noise while detecting a full-map scan.
     if medians["height_queries_512"]["public"] > max(0.020, medians["height_queries_64"]["public"]) * 8:

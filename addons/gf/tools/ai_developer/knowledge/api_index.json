@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "8f08ecb1c8324cd2ff45db4b021ec73b0764aa5bfc46817b40440790204b0862",
-  "class_count": 916,
+  "source_digest": "d8d301d415efe4e2957133414dbabbff698fa0880f46e950a1b9aefc37b96334",
+  "class_count": 917,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -80574,6 +80574,82 @@
           "name": "get_branched_deterministic_random",
           "signature": "func get_branched_deterministic_random(string_seed: String) -> GFDeterministicRandom",
           "summary": "基于主种子与字符串标签，派生 GF 固定算法随机源。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFSegmentVisibility2D": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.spatial",
+      "path": "addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd",
+      "summary": "GFSegmentVisibility2D: 按稳定端点身份计算有界整数闭线段之间的可见图层。 每份拓扑独立持有已校验的数据，单对查询与批量输出采用相同的接触规则。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "MAX_COORDINATE",
+          "signature": "const MAX_COORDINATE: int = (1 << 30) - 1",
+          "summary": "坐标绝对值上限。坐标差可由 Vector2i 表示，两个乘积的差可由有符号 64 位整数表示。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_POINTS",
+          "signature": "const MAX_POINTS: int = 2048",
+          "summary": "每份拓扑的最大查询点数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_SEGMENTS",
+          "signature": "const MAX_SEGMENTS: int = 4096",
+          "summary": "每份拓扑的最大遮挡线段数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_PAIRS",
+          "signature": "const MAX_PAIRS: int = 262144",
+          "summary": "一次批量查询允许的最大无序点对数，打包结果最多占 2 MiB。",
+          "visibility": "public"
+        },
+        {
+          "kind": "const",
+          "name": "MAX_SEGMENT_TESTS",
+          "signature": "const MAX_SEGMENT_TESTS: int = 1048576",
+          "summary": "一次批量查询允许的最大点对数乘以线段数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create( point_ids: PackedInt64Array, points: Array[Vector2i], barriers: Array[Dictionary], valid_mask: int ) -> GFSegmentVisibility2D",
+          "summary": "校验并复制一次拓扑。点 ID 各自唯一，同坐标的不同 ID 保持独立。命名端点必须匹配对应 ID 的坐标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_visible_mask",
+          "signature": "func get_visible_mask(first_id: int, second_id: int) -> int",
+          "summary": "查询两个稳定 ID 之间可见的图层，交换 ID 得到相同结果。同一点或重合点按零长度查询处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_pair_index",
+          "signature": "func get_pair_index(first_id: int, second_id: int) -> int",
+          "summary": "返回无序点对在批量结果中的索引，项目可用稳定 ID 查询独立保留的掩码数组。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "compute_pair_masks",
+          "signature": "func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX_SEGMENT_TESTS) -> Dictionary",
+          "summary": "一次计算所有不同点行之间的可见图层。按保守上界在分配结果前准入，失败时返回空数组。",
           "visibility": "public"
         }
       ]

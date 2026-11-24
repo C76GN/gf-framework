@@ -3,6 +3,7 @@ extends Node
 
 const DIRECTIONS: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]
 const VORONOI_PROFILE = preload("res://profile_voronoi.gd")
+const SEGMENT_VISIBILITY = preload("res://tests/native/segment_visibility/acceptance.gd")
 const WARMUPS: int = 2
 const SAMPLES: int = 9
 
@@ -14,7 +15,8 @@ var failures: Array[String] = []
 func _ready() -> void:
 	backend = Engine.get_singleton(&"GfFoundationProbe")
 	if (backend == null or not Engine.has_singleton(&"GfTerrainRgbBackend")
-		or not Engine.has_singleton(&"GfWfcEntropyBackend") or not OS.has_feature("release")):
+		or not Engine.has_singleton(&"GfWfcEntropyBackend") or not Engine.has_singleton(&"GfSegmentVisibilityBackend")
+		or not OS.has_feature("release")):
 		push_error("Expected a Windows Release export with the benchmark GDExtension")
 		get_tree().quit(1)
 		return
@@ -46,6 +48,14 @@ func _ready() -> void:
 	_weighted_wfc_case(23, 7, false)
 	_directional_wfc_cases()
 	_wide_wfc_cases()
+	for barrier_count: int in [8, 14]:
+		var topology: GFSegmentVisibility2D = SEGMENT_VISIBILITY.workload(barrier_count)
+		if topology == null:
+			failures.append("Could not prepare visibility workload.")
+			continue
+		var batch: Callable = topology.compute_pair_masks
+		_measure("visibility_84x%d" % barrier_count, {"native": batch, "portable": batch},
+				SEGMENT_VISIBILITY.scalar_report(topology))
 	print("GF_FOUNDATION_BENCHMARK=", JSON.stringify({
 		"engine": Engine.get_version_info()["string"], "release": true,
 		"warmups": WARMUPS, "samples": SAMPLES, "cases": results, "failures": failures,

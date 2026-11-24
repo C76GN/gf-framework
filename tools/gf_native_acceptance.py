@@ -94,6 +94,7 @@ def source_digest(deadline: float) -> str:
     paths = [*(CRATE / name for name in ('Cargo.toml', 'Cargo.lock', 'build.rs', '.cargo/config.toml', 'rust-toolchain.toml',
                                        EXTENSION.name, 'THIRD_PARTY_NOTICES.txt', '.gdignore')),
              ROOT / 'addons/gf/standard/foundation/math/gf_heightfield_3d.gd',
+             ROOT / 'addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd',
              ROOT / 'addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd',
              ROOT / 'addons/gf/standard/foundation/deterministic/gf_deterministic_random.gd',
              ROOT / 'addons/gf/standard/foundation/variant/gf_variant_data.gd',
@@ -154,7 +155,7 @@ def run_fresh_import(godot: str, workspace: Path, logs: Path, deadline: float) -
 
 def prepare_project(workspace: Path, *, standard_only: bool = False, platform_token: str = '') -> None:
     workspace.mkdir()
-    for capability in ('terrain_rgb', 'wfc_entropy'):
+    for capability in ('terrain_rgb', 'wfc_entropy', 'segment_visibility'):
         fixture = Path('tests/native') / capability / 'acceptance.gd'
         (workspace / fixture).parent.mkdir(parents=True)
         shutil.copy2(ROOT / fixture, workspace / fixture)

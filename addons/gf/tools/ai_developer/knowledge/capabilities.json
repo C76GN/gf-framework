@@ -250,14 +250,18 @@
     {
       "id": "spatial-physics",
       "title": "Spatial math and physics mechanisms",
-      "summary": "Grid/path math, bounded grid visibility, spatial queries, policy-driven bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
-      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "field of view", "fov", "visibility", "canvas", "input policy", "gesture arbitration", "parent scroll", "selection", "placement", "physics", "physics backend", "determinism", "environment query", "candidate scoring", "camera", "hitbox", "buoyancy", "2d", "3d"],
+      "summary": "Grid/path math, bounded grid visibility, layered integer segment visibility, spatial queries, policy-driven bounded 2D canvas orchestration, camera mechanisms, hit detection, buoyancy sampling, and physics-independent policies.",
+      "keywords": ["spatial", "grid", "path", "grid path", "path preview", "grid path preview", "pathfinding", "field of view", "fov", "visibility", "line of sight", "segment visibility", "layer mask", "canvas", "input policy", "gesture arbitration", "parent scroll", "selection", "placement", "physics", "physics backend", "determinism", "environment query", "candidate scoring", "camera", "hitbox", "buoyancy", "2d", "3d"],
       "packages": ["gf.standard.spatial", "gf.standard.spatial.canvas", "gf.extension.physics", "gf.extension.camera", "gf.extension.combat"],
-      "primary_classes": ["GFSpatialQueryIndex2D", "GFSpatialQueryIndex3D", "GFPhysicsQueryUtility", "GFGridPathMath2D", "GFGridVisibilityMath2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
+      "primary_classes": ["GFSpatialQueryIndex2D", "GFSpatialQueryIndex3D", "GFPhysicsQueryUtility", "GFGridPathMath2D", "GFGridVisibilityMath2D", "GFSegmentVisibility2D", "GFGraphPathSearchState", "GFSpatialCanvas2D", "GFSpatialCanvasInputPolicy", "GFBuoyancyField3D", "GFCameraOrbitRig3D", "GFHitBox2D"],
       "required_api_members": [
         {
           "class_name": "GFGridVisibilityMath2D",
           "members": ["compute_fov"]
+        },
+        {
+          "class_name": "GFSegmentVisibility2D",
+          "members": ["create", "get_visible_mask", "get_pair_index", "compute_pair_masks"]
         },
         {
           "class_name": "GFSpatialCanvasInputPolicy",

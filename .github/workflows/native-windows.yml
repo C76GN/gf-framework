@@ -8,6 +8,7 @@ on:
       - "addons/gf/standard/foundation/math/gf_heightfield_3d.gd"
       - "addons/gf/standard/foundation/math/gf_grid_*"
       - "addons/gf/standard/foundation/math/gf_noise_field_tools.gd"
+      - "addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd"
       - "addons/gf/standard/foundation/math/gf_surface_scatter_sampler_3d.gd"
       - "addons/gf/standard/foundation/math/gf_voronoi_2d.gd"
       - "addons/gf/standard/foundation/math/gf_wave_function_collapse_2d.gd"

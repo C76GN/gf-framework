@@ -11,6 +11,7 @@ func _ready() -> void:
 		print("GF_NATIVE_STARTED=" + token)
 	_failures.append_array(preload("res://tests/native/terrain_rgb/acceptance.gd").check(true))
 	_failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(true))
+	_failures.append_array(preload("res://tests/native/segment_visibility/acceptance.gd").check(true))
 	_failures.append_array(preload("res://tests/native/row_match/acceptance.gd").check(true))
 	var automatic: GFDataBatchPublication = GFDataBatchPublication.create(
 		_schema(),
