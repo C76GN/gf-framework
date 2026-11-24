@@ -29,7 +29,10 @@ class NativeAcceptanceTests(unittest.TestCase):
         return {'ok': True, 'failures': [], 'samples': [
             {'source_rows': rows, 'selected_rows': rows // 2, 'int64_columns': 4,
              'script_usec': [3] * 10, 'native_usec': [2] * 10}
-            for rows in (16, 1000, 100000)]}
+            for rows in (16, 1000, 100000)], 'row_match_samples': [
+            {'rows': rows, 'reordered': reordered, 'calls_per_sample': 64 if rows == 16 else 1,
+             'script_usec': [3] * 9, 'automatic_usec': [2] * 9}
+            for rows in (16, 4096, 65536) for reordered in (False, True)]}
 
     def marker(self, report):
         return 'GF_NATIVE_DATA_BATCH=' + json.dumps(report)
@@ -74,6 +77,10 @@ class NativeAcceptanceTests(unittest.TestCase):
             lambda r: r['samples'][1]['native_usec'].pop(),
             lambda r: r['samples'][2]['native_usec'].__setitem__(0, True),
             lambda r: r['samples'][2]['native_usec'].__setitem__(0, -1),
+            lambda r: r.pop('row_match_samples'),
+            lambda r: r['row_match_samples'][0].update(reordered=True),
+            lambda r: r['row_match_samples'][2].update(calls_per_sample=True),
+            lambda r: r['row_match_samples'][-1]['automatic_usec'].pop(),
         ):
             report = self.report()
             mutation(report)

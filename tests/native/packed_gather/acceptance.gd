@@ -10,6 +10,7 @@ func _ready() -> void:
 		print("GF_NATIVE_STARTED=" + token)
 	_failures.append_array(preload("res://tests/native/terrain_rgb/acceptance.gd").check(true))
 	_failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(true))
+	_failures.append_array(preload("res://tests/native/row_match/acceptance.gd").check(true))
 	var automatic: GFDataBatchPublication = GFDataBatchPublication.create(
 		_schema(),
 		&"automatic",
@@ -76,10 +77,12 @@ func _ready() -> void:
 		"Native bounds use count rather than capacity."
 	)
 	var foundation: Dictionary = _foundation_timings() if not token.is_empty() else {}
+	var row_match_samples: Array[Dictionary] = preload("res://tests/native/row_match/acceptance.gd").benchmark(_failures)
 	var report: Dictionary = {
 		"ok": _failures.is_empty(),
 		"failures": _failures,
 		"samples": samples,
+		"row_match_samples": row_match_samples,
 		"platform": OS.get_name(),
 		"debug_build": OS.is_debug_build(),
 		"architecture": Engine.get_architecture_name(),

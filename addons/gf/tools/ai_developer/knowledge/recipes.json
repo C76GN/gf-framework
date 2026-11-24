@@ -550,7 +550,7 @@
       "id": "typed-batch-publication",
       "title": "Publish bounded typed numeric columns",
       "package_requirements": {"all_of": ["gf.extension.data_batch"], "any_of": []},
-      "primary_classes": ["GFDataBatchSchema", "GFDataBatchPublication", "GFDataBatchSnapshot"],
+      "primary_classes": ["GFDataBatchSchema", "GFDataBatchPublication", "GFDataBatchSnapshot", "GFDataBatchRowMatch"],
       "required_api_members": [
         {
           "class_name": "GFDataBatchSchema",
@@ -563,6 +563,10 @@
         {
           "class_name": "GFDataBatchSnapshot",
           "members": ["get_count", "get_capacity", "get_producer_id", "get_producer_generation", "get_publication_sequence", "get_structural_revision", "get_value_revision", "copy_int32_column", "copy_int64_column", "borrow_int32_column", "borrow_int64_column"]
+        },
+        {
+          "class_name": "GFDataBatchRowMatch",
+          "members": ["match_ids", "error", "previous_rows"]
         }
       ],
       "steps": [
@@ -571,6 +575,7 @@
         "Pass exactly the declared column names as StringName or equal String keys, with matching PackedArray types and a common capacity. Treat count as the valid prefix. Keep both revisions nonnegative and nondecreasing, advance at least one on every later publication, and advance structural_revision whenever count, capacity, row identity, or ordering changes.",
         "Use publish_copy when the producer retains writable inputs. Use publish_transfer only when the caller can retire every PackedArray alias after success; success clears the supplied writable Dictionary, while rejection must preserve both the input and the previous current snapshot.",
         "For a selected view, use publish_gather_copy with PackedInt32Array row indices within the source valid prefix; it copies only selected rows and preserves order and duplicates. Both source capacity and selected count must respect max_rows. Keep entity selection, row meaning, and rendering policy in project code.",
+        "To align snapshots, pass each Int64 identity column and its valid count to GFDataBatchRowMatch.match_ids. Check error before reading previous_rows. A row of -1 identifies a new ID. Handle those rows before gathering matched pairs.",
         "Read the current GFDataBatchSnapshot after an OK result, or inspect get_last_failure after rejection, including a detected allocation failure after budget admission. Copy columns before modifying them, or borrow columns only under a cooperative read-only contract, and iterate only get_count rows. Snapshot retention across publications is explicit caller ownership; get_debug_snapshot reports owner payload work, not total process memory.",
         "Use is_current on the owning publication when accepting asynchronous work; producer identity, generation, and publication sequence describe identity without relying on a frame or tick. Close the publication when its producer ends; retained snapshots remain readable.",
         "Test type and shape rejection, count versus capacity, exact and exceeded payload budgets, copy isolation, transfer success and non-consuming failure, gathered order, retained history, and closed-owner publication. Serialize access on the project-owned execution context; this API does not supply thread synchronization."

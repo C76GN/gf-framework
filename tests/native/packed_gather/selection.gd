@@ -5,6 +5,7 @@ func _initialize() -> void:
 	var expected_native: bool = OS.get_cmdline_user_args().has("--native")
 	var failures: Array[String] = preload("res://tests/native/terrain_rgb/acceptance.gd").check(expected_native)
 	failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(expected_native))
+	failures.append_array(preload("res://tests/native/row_match/acceptance.gd").check(expected_native))
 	if not failures.is_empty():
 		push_error(str(failures))
 		quit(1)

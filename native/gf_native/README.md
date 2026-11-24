@@ -1,6 +1,6 @@
 # GF Native
 
-GF Native is the optional platform addon for packed integer row selection, Terrain-RGB height decoding and tiled WFC entropy solving. Their public GF APIs select the installed capability automatically on the main thread.
+GF Native is the optional platform addon for packed integer row selection, stable-ID row matching, Terrain-RGB height decoding and tiled WFC entropy solving. Their public GF APIs select the installed capability automatically on the main thread.
 
 ## Install in a game
 
@@ -18,6 +18,8 @@ GFHeightfield3D uses the installed decoder for RGB8 and RGBA8 without enabling D
 The standard WFC API, `GFWaveFunctionCollapse2D.solve_grid()`, accelerates entropy-based selection on grids up to 4096 cells with 1–128 tile types. Worker threads, portable installations, other heuristics and larger caller-approved grids or tile sets use the script solver. Both paths support unrestricted and directional adjacency, fixed cells, periodic boundaries, step limits and the same seeded report. See the [WFC guide](../../docs/zh/standard/foundation/grid-spatial/wave-function-collapse-2d.md).
 
 Enable GF Framework in Project Settings. To use integer gather, enable Data Batch in GF Workspace → GF Extensions. The usual five-argument `GFDataBatchPublication.create()` connects automatically on the main thread. An explicit sixth argument of `null` selects GDScript. A project can also supply its own backend or require a compatible backend. See the [Data Batch guide](../../docs/zh/extensions/data-batch/index.md#可选原生-gather).
+
+`GFDataBatchRowMatch.match_ids()` matches two Int64 identity columns in current-row order. Pass the valid count of each column. The portable and native implementations validate uniqueness on both sides and return an independent Int32 mapping with `-1` for each new ID. The [Data Batch guide](../../docs/zh/extensions/data-batch/index.md) includes a snapshot matching example.
 
 Godot discovers the descriptor when it imports the project. Keep the native directory together and install it once per project. Its libraries resolve relative to the descriptor. The multi-platform supplement includes the Windows x64, Linux x64 and Apple Silicon editor libraries and an XCFramework for iOS devices and Apple Silicon simulators. Upgrade it alongside GF to the same version. The shared libraries embed redistribution notices. On Windows, also ship the two notice files exported beside the executable. Game developers and players do not need Cargo, Rust or Visual Studio.
 

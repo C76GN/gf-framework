@@ -8,7 +8,7 @@
 |---|---:|---:|---:|
 | [运行时服务](#category-runtime_service) | 2 | 14 | 13 |
 | [协议与扩展点](#category-protocol) | 1 | 4 | 4 |
-| [值对象](#category-value_object) | 2 | 24 | 22 |
+| [值对象](#category-value_object) | 3 | 27 | 23 |
 
 ## 类
 
@@ -35,5 +35,6 @@
 
 | 类 | 继承 | 源文件 |
 |---|---|---|
+| [`GFDataBatchRowMatch`](classes/GFDataBatchRowMatch.md#gfdatabatchrowmatch) | `RefCounted` | `addons/gf/extensions/data_batch/runtime/gf_data_batch_row_match.gd` |
 | [`GFDataBatchSchema`](classes/GFDataBatchSchema.md#gfdatabatchschema) | `RefCounted` | `addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd` |
 | [`GFDataBatchSnapshot`](classes/GFDataBatchSnapshot.md#gfdatabatchsnapshot) | `RefCounted` | `addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd` |
