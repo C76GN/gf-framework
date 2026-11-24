@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -75,6 +76,23 @@ def linux(godot: str, project: Path, logs: Path, token: str, wsl: str | None, pr
     return {'x86_64': report(output, token, 'Linux', 'x86_64', profile)}
 
 
+def android_report(output: str, token: str, architecture: str, profile: str) -> dict | None:
+    """Read one launch's ordered logcat chunks after its scene confirms the complete payload."""
+    identity = f'{token}:{architecture}:'
+    part = 'GF_NATIVE_DATA_PART=' + identity
+    finish = 'GF_NATIVE_FINISHED=' + identity
+    records = [line for line in output.splitlines() if line.startswith((part, finish))]
+    digests = [line.removeprefix(finish) for line in records if line.startswith(finish)]
+    if not digests:
+        return None
+    if len(digests) != 1 or not records[-1].startswith(finish):
+        raise ValueError(f'Unexpected Android {architecture} report completion order.')
+    payload = base64.b64decode(''.join(line.removeprefix(part) for line in records[:-1]), validate=True)
+    if native.sha(payload) != digests[0]:
+        raise ValueError(f'Incomplete or corrupt Android {architecture} report.')
+    return report(MARKER + payload.decode('utf-8'), token, 'Android', architecture, profile)
+
+
 def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_path: str, required: set[str],
             profile: str) -> dict:
     adb = [adb_path, '-s', serial]
@@ -126,10 +144,9 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
                 acceptance.check_engine_diagnostics(device_log, 'Android release', logs)
                 if 'FATAL EXCEPTION:' in device_log:
                     raise RuntimeError(f'Android {abi} crashed. See {logs}.')
-                lines = [line for line in device_log.splitlines() if line.startswith(MARKER) and token in line
-                         and json.loads(line[len(MARKER):]).get('architecture') == architecture]
-                if lines and 'GF_NATIVE_FINISHED=' + token in device_log.splitlines():
-                    results[abi] = report('\n'.join(lines), token, 'Android', architecture, profile)
+                result = android_report(device_log, token, architecture, profile)
+                if result is not None:
+                    results[abi] = result
                     break
                 time.sleep(1)
             else:
