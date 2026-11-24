@@ -90,6 +90,32 @@ func sum_offsets(publication: GFDataBatchPublication) -> int:
 
 下一次发布不会修改上一份快照。消费者可以跨帧保留旧快照；调用 `close()` 后发布者不再接受新批次并释放当前引用，但外部持有的快照仍可读取。历史长度、淘汰时机和消费者的副本由项目控制。该接口不含自动历史、池或 Lease，也不提供线程同步；调用方应串行访问发布者，并自行安排跨线程交接。
 
+## 按稳定 ID 对齐两份批次 {#stable-id-row-matching}
+
+行号随增删和重排而变化。用 `GFDataBatchRowMatch.match_ids()` 按当前顺序查回同一实体的旧行号，供插值或修订比较使用。两列须采用同一身份空间，各自有效范围内的 ID 唯一。整个有符号 64 位 ID 范围均可使用，包括负数。
+
+```gdscript
+# 两个索引已分别绑定到对应快照的 INT64 身份列。
+var matched := GFDataBatchRowMatch.match_ids(
+	previous.borrow_int64_column(previous_id_column), previous.get_count(),
+	current.borrow_int64_column(current_id_column), current.get_count()
+)
+if matched.error != OK:
+	return
+for current_row: int in range(current.get_count()):
+	var previous_row: int = matched.previous_rows[current_row]
+	if previous_row == -1:
+		show_new_entity(current_row)
+	else:
+		interpolate_entity(previous_row, current_row)
+```
+
+例如旧 ID 为 `[10, 20, 55, 56]`、当前 ID 为 `[20, 31, 56, 60]` 时，结果为 `[1, -1, 3, -1]`。若要继续调用 `publish_gather_copy()`，先取出非负旧行号，并保留与之配对的当前行号。
+
+两个有效行数都必须显式传入。紧凑的独立数组可以传 `size()`，借用快照列时传各自的 `get_count()`，预留容量中的值不会参与匹配。当前有效行数为零时成功返回空数组，旧有效行数为零时每个当前行都得到 `-1`。即使另一列为空，也会检查有效 ID 是否重复。重复返回 `ERR_INVALID_DATA`，行数越界返回 `ERR_INVALID_PARAMETER`。调用方先检查 `error`，失败时结果数组为空。
+
+匹配只在调用期间读取输入，结果数组由调用方独立持有。两列严格递增时顺序扫描，其他行序使用临时哈希表。两侧都至多一行时，脚本直接完成匹配。其余批次在主线程上可自动使用已安装的 GF Native 能力，通用包和工作线程使用同一契约的 GDScript 实现。该操作独立于快照发布，结果和临时索引的内存由匹配调用承担。
+
 ## 预算的覆盖范围
 
 `max_rows` 是 1 至 2147483647 的有限上限，约束源容量及采集输出行数；只选择少数行也不能绕过源容量上限。`max_owned_bytes` 是正数，限制当前批次与待发布候选同时存活时的 Packed 数组载荷。单批载荷为 `capacity * schema.get_bytes_per_row()`；发布新批次前必须为旧当前批次和新候选留出空间。复制路径不会先进行大数组复制再发现预算不足。

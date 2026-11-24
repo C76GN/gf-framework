@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "4836bf7a2cc2f44e50ee23a729a8b72be394f92ea39056df6523932e0c02541b",
-  "class_count": 915,
+  "source_digest": "8f08ecb1c8324cd2ff45db4b021ec73b0764aa5bfc46817b40440790204b0862",
+  "class_count": 916,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -25256,6 +25256,40 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "返回独立诊断字典。字节指标只计 PackedArray payload，不声称全局内存上界。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFDataBatchRowMatch": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/data_batch",
+      "package_id": "gf.extension.data_batch",
+      "path": "addons/gf/extensions/data_batch/runtime/gf_data_batch_row_match.gd",
+      "summary": "GFDataBatchRowMatch: 保存按当前行顺序匹配得到的旧行号。 每次匹配只读取两列的有效前缀，结果由调用者独立持有。可用于对齐快照或比较修订。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "error",
+          "signature": "var error: Error = OK",
+          "summary": "OK 表示匹配完成，含合法空结果。有效行数越界返回 ERR_INVALID_PARAMETER，",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "previous_rows",
+          "signature": "var previous_rows: PackedInt32Array = PackedInt32Array()",
+          "summary": "每个当前 ID 对应的旧行号。新出现的 ID 对应 -1，调用者可独立修改该数组。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "match_ids",
+          "signature": "static func match_ids( previous_ids: PackedInt64Array, previous_count: int, current_ids: PackedInt64Array, current_count: int ) -> GFDataBatchRowMatch",
+          "summary": "按精确的有符号 64 位 ID 同步匹配两列。两侧的有效 ID 各自唯一，允许任意行序和负 ID。",
           "visibility": "public"
         }
       ]

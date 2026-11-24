@@ -43,12 +43,25 @@ def parse_acceptance(output: str) -> dict:
         if (not isinstance(sample, dict) or sample.get('source_rows') != rows
                 or sample.get('selected_rows') != rows // 2 or sample.get('int64_columns') != 4):
             raise RuntimeError('Native benchmark shape changed.')
-        for field in ('script_usec', 'native_usec'):
-            values = sample.get(field)
-            if (not isinstance(values, list) or len(values) != 10
-                    or any(type(value) is not int or value < 0 for value in values)):
-                raise RuntimeError('Incomplete native timing samples.')
+        require_timings(sample, ('script_usec', 'native_usec'), 10)
+    matches = report.get('row_match_samples')
+    shapes = [(rows, reordered) for rows in (16, 4096, 65536) for reordered in (False, True)]
+    if not isinstance(matches, list) or len(matches) != len(shapes):
+        raise RuntimeError('Missing row-match performance cases.')
+    for sample, (rows, reordered) in zip(matches, shapes, strict=True):
+        if (not isinstance(sample, dict) or sample.get('rows') != rows or sample.get('reordered') is not reordered
+                or type(sample.get('calls_per_sample')) is not int or sample['calls_per_sample'] != (64 if rows == 16 else 1)):
+            raise RuntimeError('Row-match benchmark shape changed.')
+        require_timings(sample, ('script_usec', 'automatic_usec'), 9)
     return report
+
+
+def require_timings(sample: dict, fields: tuple[str, str], count: int) -> None:
+    for field in fields:
+        values = sample.get(field)
+        if (not isinstance(values, list) or len(values) != count
+                or any(type(value) is not int or value < 0 for value in values)):
+            raise RuntimeError('Incomplete native timing samples.')
 
 
 def file_digest(path: Path, deadline: float) -> str:
@@ -151,6 +164,9 @@ def prepare_project(workspace: Path, *, standard_only: bool = False, platform_to
         fixture = ROOT / 'tests/native/packed_gather'
         shutil.copy2(fixture / 'acceptance.gd', workspace / 'acceptance.gd')
         shutil.copy2(fixture / 'selection.gd', workspace / 'selection.gd')
+        row_match = Path('tests/native/row_match/acceptance.gd')
+        (workspace / row_match).parent.mkdir(parents=True)
+        shutil.copy2(ROOT / row_match, workspace / row_match)
     enabled = '[]' if standard_only else '["gf.data_batch"]'
     (workspace / 'project.godot').write_text(
         'config_version=5\n[application]\nconfig/name="GF native acceptance"\nrun/main_scene="res://main.tscn"\n'

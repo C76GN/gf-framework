@@ -170,10 +170,10 @@
     {
       "id": "data-batch",
       "title": "Typed numeric batch publication",
-      "summary": "Bounded Int32 and Int64 column schemas, explicit copy or cooperative transfer publication, gathered subsets, and retained read snapshots.",
-      "keywords": ["data batch", "typed batch", "column", "packed array", "snapshot", "publication", "gather", "numeric", "structure of arrays", "soa"],
+      "summary": "Bounded Int32 and Int64 column schemas, explicit copy or cooperative transfer publication, gathered subsets, retained snapshots, and stable-ID row matching.",
+      "keywords": ["data batch", "typed batch", "column", "packed array", "snapshot", "publication", "gather", "stable ID", "row matching", "numeric", "structure of arrays", "soa"],
       "packages": ["gf.extension.data_batch"],
-      "primary_classes": ["GFDataBatchSchema", "GFDataBatchPublication", "GFDataBatchSnapshot"],
+      "primary_classes": ["GFDataBatchSchema", "GFDataBatchPublication", "GFDataBatchSnapshot", "GFDataBatchRowMatch"],
       "recipes": ["typed-batch-publication"],
       "boundary": "GF owns typed column validation and atomic publication under a bounded current-plus-pending PackedArray payload budget. Projects own field meaning, producer generations, revisions, threading, historical snapshot retention, and every alias retired after successful transfer. Borrowed columns are cooperative read-only views, not enforced immutable arrays; there is no ECS, global World, native move guarantee, pool, or lease."
     },

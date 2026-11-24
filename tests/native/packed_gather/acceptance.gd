@@ -2,6 +2,7 @@ extends Node
 
 
 var _failures: Array[String] = []
+var _android_report_sha256: String = ""
 
 
 func _ready() -> void:
@@ -10,6 +11,7 @@ func _ready() -> void:
 		print("GF_NATIVE_STARTED=" + token)
 	_failures.append_array(preload("res://tests/native/terrain_rgb/acceptance.gd").check(true))
 	_failures.append_array(preload("res://tests/native/wfc_entropy/acceptance.gd").check(true))
+	_failures.append_array(preload("res://tests/native/row_match/acceptance.gd").check(true))
 	var automatic: GFDataBatchPublication = GFDataBatchPublication.create(
 		_schema(),
 		&"automatic",
@@ -76,10 +78,12 @@ func _ready() -> void:
 		"Native bounds use count rather than capacity."
 	)
 	var foundation: Dictionary = _foundation_timings() if not token.is_empty() else {}
+	var row_match_samples: Array[Dictionary] = preload("res://tests/native/row_match/acceptance.gd").benchmark(_failures)
 	var report: Dictionary = {
 		"ok": _failures.is_empty(),
 		"failures": _failures,
 		"samples": samples,
+		"row_match_samples": row_match_samples,
 		"platform": OS.get_name(),
 		"debug_build": OS.is_debug_build(),
 		"architecture": Engine.get_architecture_name(),
@@ -92,7 +96,10 @@ func _ready() -> void:
 		if file != null:
 			file.store_string(encoded)
 			file.close()
-	print("GF_NATIVE_DATA_BATCH=" + encoded)
+	if OS.get_name() == "Android":
+		_android_report_sha256 = _print_android_report(encoded, token)
+	else:
+		print("GF_NATIVE_DATA_BATCH=" + encoded)
 	queue_free()
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
@@ -100,7 +107,20 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	var token: String = ProjectSettings.get_setting("gf_native_acceptance/run_token", "")
 	if not token.is_empty():
-		print("GF_NATIVE_FINISHED=" + token)
+		var marker: String = "GF_NATIVE_FINISHED=" + token
+		if OS.get_name() == "Android":
+			marker += ":" + Engine.get_architecture_name() + ":" + _android_report_sha256
+		print(marker)
+
+
+static func _print_android_report(encoded: String, token: String) -> String:
+	# The Android logger truncates long prints. ASCII chunks leave room for the launch and ABI prefix.
+	const CHUNK_CHARS: int = 768
+	var prefix: String = "GF_NATIVE_DATA_PART=%s:%s:" % [token, Engine.get_architecture_name()]
+	var payload: String = Marshalls.utf8_to_base64(encoded)
+	for offset: int in range(0, payload.length(), CHUNK_CHARS):
+		print(prefix + payload.substr(offset, CHUNK_CHARS))
+	return encoded.sha256_text()
 
 
 func _foundation_timings() -> Dictionary:

@@ -15,7 +15,7 @@
 | Capability | 11 | 148 | [Capability](#module-extensions-capability) |
 | Combat | 71 | 708 | [Combat](#module-extensions-combat) |
 | Extensions / Content Package | 7 | 109 | [Extensions / Content Package](#module-extensions-content_package) |
-| Data Batch | 5 | 42 | [Data Batch](#module-extensions-data_batch) |
+| Data Batch | 6 | 45 | [Data Batch](#module-extensions-data_batch) |
 | Decision | 8 | 111 | [Decision](#module-extensions-decision) |
 | Dialogue | 5 | 75 | [Dialogue](#module-extensions-dialogue) |
 | Domain | 23 | 367 | [Domain](#module-extensions-domain) |
@@ -843,6 +843,7 @@
 | [`GFDataBatchNativeBackend`](GFDataBatchNativeBackend.md#gfdatabatchnativebackend) | 运行时服务 (`runtime_service`) | `GFDataBatchBackend` | 4 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_native_backend.gd` |
 | [`GFDataBatchPublication`](GFDataBatchPublication.md#gfdatabatchpublication) | 运行时服务 (`runtime_service`) | `RefCounted` | 10 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_publication.gd` |
 | [`GFDataBatchBackend`](GFDataBatchBackend.md#gfdatabatchbackend) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_backend.gd` |
+| [`GFDataBatchRowMatch`](GFDataBatchRowMatch.md#gfdatabatchrowmatch) | 值对象 (`value_object`) | `RefCounted` | 3 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_row_match.gd` |
 | [`GFDataBatchSchema`](GFDataBatchSchema.md#gfdatabatchschema) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_schema.gd` |
 | [`GFDataBatchSnapshot`](GFDataBatchSnapshot.md#gfdatabatchsnapshot) | 值对象 (`value_object`) | `RefCounted` | 13 | `addons/gf/extensions/data_batch/runtime/gf_data_batch_snapshot.gd` |
 

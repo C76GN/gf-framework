@@ -2,6 +2,7 @@
 use godot::prelude::*;
 
 mod packed_gather;
+mod row_match;
 mod terrain_rgb;
 mod wfc_entropy;
 

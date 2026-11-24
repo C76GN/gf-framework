@@ -1,4 +1,6 @@
 """Fail-closed result/deadline regression tests for the optional native runner."""
+import base64
+import hashlib
 import json
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import sys
@@ -29,10 +31,52 @@ class NativeAcceptanceTests(unittest.TestCase):
         return {'ok': True, 'failures': [], 'samples': [
             {'source_rows': rows, 'selected_rows': rows // 2, 'int64_columns': 4,
              'script_usec': [3] * 10, 'native_usec': [2] * 10}
-            for rows in (16, 1000, 100000)]}
+            for rows in (16, 1000, 100000)], 'row_match_samples': [
+            {'rows': rows, 'reordered': reordered, 'calls_per_sample': 64 if rows == 16 else 1,
+             'script_usec': [3] * 9, 'automatic_usec': [2] * 9}
+            for rows in (16, 4096, 65536) for reordered in (False, True)]}
 
     def marker(self, report):
         return 'GF_NATIVE_DATA_BATCH=' + json.dumps(report)
+
+    def android_records(self):
+        token = 'ab' * 12
+        timing = {'script_usec': [3] * 5, 'native_usec': [2] * 5}
+        data = dict(self.report(), run_token=token, platform='Android', architecture='x86_64',
+                    debug_build=False, note='稳定 ID', foundation={'terrain_rgb_256': timing, 'wfc_entropy_16': timing})
+        raw = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        encoded = base64.b64encode(raw).decode('ascii')
+        chunks = [f'GF_NATIVE_DATA_PART={token}:x86_64:' + encoded[i:i + 768] for i in range(0, len(encoded), 768)]
+        finish = f'GF_NATIVE_FINISHED={token}:x86_64:' + hashlib.sha256(raw).hexdigest()
+        return token, data, chunks, finish
+
+    def test_android_accepts_long_utf8_report_only_after_the_requested_abi_finishes(self):
+        token, data, chunks, finish = self.android_records()
+        self.assertGreater(len(self.marker(data)), 1023)
+        self.assertTrue(all(len(line.encode()) < 1023 for line in [*chunks, finish]))
+        other_abi = [line.replace(':x86_64:', ':arm64:') for line in [*chunks, finish]]
+        other_run = [line.replace(token, 'cd' * 12) for line in [*chunks, finish]]
+        log = '\n'.join([*other_abi, *other_run, *chunks])
+        self.assertIsNone(platform_acceptance.android_report(log, token, 'x86_64', 'release'))
+        completed = log + '\nunrelated device message\n' + finish
+        self.assertEqual(platform_acceptance.android_report(completed, token, 'x86_64', 'release'), data)
+        with self.assertRaisesRegex(ValueError, 'template'):
+            platform_acceptance.android_report(completed, token, 'x86_64', 'debug')
+
+    def test_android_rejects_corrupt_chunks_and_ambiguous_completion(self):
+        token, _, chunks, finish = self.android_records()
+        for name, records in {
+            'missing': [*chunks[1:], finish],
+            'reordered': [*reversed(chunks), finish],
+            'duplicate': [chunks[0], *chunks, finish],
+            'truncated': [chunks[0][:-4], *chunks[1:], finish],
+            'invalid base64': [chunks[0] + '!', *chunks[1:], finish],
+            'wrong checksum': [*chunks, finish[:-64] + '0' * 64],
+            'duplicate completion': [*chunks, finish, finish],
+            'early completion': [finish, *chunks],
+        }.items():
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                platform_acceptance.android_report('\n'.join(records), token, 'x86_64', 'release')
 
     def test_extension_policy_requires_one_completed_verdict_and_successful_godot_exit(self):
         self.assertEqual(export_policy_error(0, "WARNING: reference\n" + PASSED), "")
@@ -74,6 +118,10 @@ class NativeAcceptanceTests(unittest.TestCase):
             lambda r: r['samples'][1]['native_usec'].pop(),
             lambda r: r['samples'][2]['native_usec'].__setitem__(0, True),
             lambda r: r['samples'][2]['native_usec'].__setitem__(0, -1),
+            lambda r: r.pop('row_match_samples'),
+            lambda r: r['row_match_samples'][0].update(reordered=True),
+            lambda r: r['row_match_samples'][2].update(calls_per_sample=True),
+            lambda r: r['row_match_samples'][-1]['automatic_usec'].pop(),
         ):
             report = self.report()
             mutation(report)

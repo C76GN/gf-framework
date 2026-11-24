@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`940`
+- 公开类：`941`
 - 公开 AutoLoad：`1`
-- 公开成员：`13277`
-- 公开方法：`8384`
+- 公开成员：`13280`
+- 公开方法：`8385`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -24,7 +24,7 @@
 | Capability | 11 | 0 | 148 | 103 | [extensions-capability.md](extensions-capability.md) |
 | Combat | 71 | 0 | 708 | 370 | [extensions-combat.md](extensions-combat.md) |
 | Extensions / Content Package | 7 | 0 | 109 | 71 | [extensions-content-package.md](extensions-content-package.md) |
-| Data Batch | 5 | 0 | 42 | 39 | [extensions-data-batch.md](extensions-data-batch.md) |
+| Data Batch | 6 | 0 | 45 | 40 | [extensions-data-batch.md](extensions-data-batch.md) |
 | Decision | 8 | 0 | 111 | 62 | [extensions-decision.md](extensions-decision.md) |
 | Dialogue | 5 | 0 | 75 | 36 | [extensions-dialogue.md](extensions-dialogue.md) |
 | Domain | 23 | 0 | 367 | 242 | [extensions-domain.md](extensions-domain.md) |

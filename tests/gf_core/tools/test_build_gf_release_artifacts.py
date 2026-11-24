@@ -843,8 +843,13 @@ def _test_delivery(directory: Path) -> None:
 					native_usec=[1] * 10, script_usec=[2] * 10) for n in (16, 1000, 100000)]
 				foundation = {name: dict(native_usec=[1] * 5, script_usec=[2] * 5)
 					for name in ("terrain_rgb_256", "wfc_entropy_16")}
+				row_match_samples = [
+					dict(rows=n, reordered=reordered, calls_per_sample=64 if n == 16 else 1,
+						automatic_usec=[1] * 9, script_usec=[2] * 9)
+					for n in (16, 4096, 65536) for reordered in (False, True)
+				]
 				runtime[abi] = dict(ok=True, failures=[], platform=os_name, architecture=arch, run_token="a" * 24,
-					samples=samples, foundation=foundation, debug_build=profile == "debug")
+					samples=samples, row_match_samples=row_match_samples, foundation=foundation, debug_build=profile == "debug")
 			proof = dict(platform=platform, profile=profile, source_revision=REVISION, archive_sha256=digest,
 				native_source_sha256=platforms.dist.native_source_digest(), runtime=runtime)
 			(directory / f"{platform}-{profile}.json").write_text(json.dumps(proof), encoding="utf-8")
