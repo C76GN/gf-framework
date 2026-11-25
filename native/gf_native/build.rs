@@ -1,8 +1,8 @@
+//! 从当前 Rust 工具链及仓库汇总许可证，供发布的原生库内嵌。
 use std::{env, fs, path::PathBuf, process::Command};
 
 fn main() {
-    // Mobile exporters package shared libraries directly. Keep all redistribution
-    // notices with the code even when a game exports only its selected resources.
+    // 移动端直接打包动态库，许可证随库内嵌才能覆盖仅导出部分资源的游戏。
     let rustc = env::var_os("RUSTC").expect("Cargo sets RUSTC");
     let output = Command::new(rustc)
         .args(["--print", "sysroot"])

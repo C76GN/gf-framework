@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Collect Godot GDScript diagnostics through the editor Language Server.
+"""通过 Godot 编辑器的语言服务器收集 GDScript 诊断。
 
-This complements headless editor reload-log checks. Godot can surface some
-GDScript warnings through the editor diagnostics pipeline without reliably
-printing them in GUT or short --editor --quit runs.
+某些警告只出现在编辑器诊断中，须结合无界面重载日志查看，单独运行 GUT 或短时编辑器进程未必能捕获。
 """
 
 from __future__ import annotations
@@ -65,15 +63,15 @@ WINDOWS_TCP_OWNER_ROW_CHECKPOINT_INTERVAL = 256
 
 
 class LspProtocolError(RuntimeError):
-	"""The peer sent an invalid, truncated, or deadline-exhausted LSP frame."""
+	"""对端发来的 LSP 帧无效、截断，或未能在截止时间内完整读出。"""
 
 
 class TcpOwnerLookupError(RuntimeError):
-	"""The kernel TCP snapshot did not yet expose one unambiguous owner."""
+	"""内核 TCP 快照暂未提供唯一可确认的连接所有者。"""
 
 
 class LspOperationCleanupError(RuntimeError):
-	"""Preserve both the scan failure and an owned-process cleanup failure."""
+	"""同时保留扫描失败与本次拥有的进程清理失败。"""
 
 	def __init__(self, operation_error: BaseException, cleanup_error: BaseException) -> None:
 		gf_process_supervisor.add_exception_note(
@@ -99,11 +97,12 @@ class LspOperationCleanupError(RuntimeError):
 
 @dataclass(frozen=True)
 class JsonRpcMessage:
+	"""持有已解帧的一条 JSON-RPC 消息，供 LSP 客户端区分响应与通知。"""
 	payload: dict[str, Any]
 
 
 class _OwnedLspProcess:
-	"""Run one invocation-owned Godot LSP tree behind the TCP client."""
+	"""为 TCP 客户端启动并持有本次调用专用的 Godot LSP 进程树。"""
 
 	def __init__(
 		self,
@@ -211,7 +210,7 @@ class _OwnedLspProcess:
 
 
 class _LspOperationBoundary:
-	"""Clamp every protocol wait to one owned lease operation deadline."""
+	"""使每次协议等待都服从同一进程租约的操作截止时间。"""
 
 	def __init__(self, owned_process: _OwnedLspProcess | None = None) -> None:
 		self._owned_process = owned_process
@@ -253,11 +252,13 @@ class _LspOperationBoundary:
 
 
 class LspClient:
+	"""通过受时限约束的 TCP 连接与 Godot 交换 JSON-RPC 请求、响应和诊断通知。"""
 	def __init__(self, host: str, port: int) -> None:
 		self._initialize_connection(socket.create_connection((host, port), timeout=5.0))
 
 	@classmethod
 	def from_connected_socket(cls, connection: socket.socket) -> LspClient:
+		"""接管已连接的套接字，从请求编号 1 开始读取和写入 LSP 帧。"""
 		client = cls.__new__(cls)
 		client._initialize_connection(connection)
 		return client
@@ -268,6 +269,7 @@ class LspClient:
 		self._receive_buffer = bytearray()
 
 	def close(self) -> None:
+		"""关闭此客户端持有的套接字，清理阶段忽略底层关闭错误。"""
 		try:
 			self._socket.close()
 		except OSError:
@@ -281,6 +283,7 @@ class LspClient:
 		deadline: float,
 		boundary: _LspOperationBoundary,
 	) -> int:
+		"""发送请求并返回本连接的请求编号，由调用方用该编号匹配后续响应。"""
 		request_id = self._next_id
 		self._next_id += 1
 		self.send({
@@ -299,6 +302,7 @@ class LspClient:
 		deadline: float,
 		boundary: _LspOperationBoundary,
 	) -> None:
+		"""发送无需响应的 JSON-RPC 通知，与当前操作共用截止时间。"""
 		self.send({
 			"jsonrpc": "2.0",
 			"method": method,
@@ -312,6 +316,7 @@ class LspClient:
 		deadline: float,
 		boundary: _LspOperationBoundary,
 	) -> None:
+		"""按 UTF-8 编码后的字节数填写 Content-Length，并在绝对截止时间前写完整帧。"""
 		boundary.checkpoint()
 		deadline = boundary.clamp_deadline(deadline)
 		data = encode_strict_json(payload).encode("utf-8")
@@ -335,6 +340,18 @@ class LspClient:
 		*,
 		boundary: _LspOperationBoundary | None = None,
 	) -> JsonRpcMessage | None:
+		"""从连接读取一条完整的 JSON-RPC 消息。
+
+		Args:
+		    timeout: 本次等待的最长秒数。
+		    boundary: 可选的整轮操作期限和进程健康检查。
+
+		Returns:
+		    解码后的消息。如果读取超时或连接中断时还没有收到帧的任何字节，返回 None。
+
+		Raises:
+		    LspProtocolError: 只收到部分帧便超时或断开，或完整帧的头部或正文无效。
+		"""
 		if boundary is None:
 			boundary = _LspOperationBoundary()
 		deadline = boundary.deadline_after(timeout)
@@ -404,9 +421,7 @@ class LspClient:
 def _iter_exception_cleanup_chain(
 	errors: tuple[BaseException, ...],
 ) -> list[BaseException]:
-	# Treat the caller tuple as an event sequence.  A LIFO traversal may still be
-	# used for each exception chain, but seed it in reverse so the first top-level
-	# error (and then its cause/context/original chain) is observed first.
+	# 调用方按事件顺序给出异常。逆序入栈，使遍历先处理第一个顶层异常及其原因链。
 	pending = list(reversed(errors))
 	ordered: list[BaseException] = []
 	seen: set[int] = set()
@@ -440,7 +455,7 @@ def _iter_exception_cleanup_chain(
 def _settle_deferred_cleanups_before_propagation(
 	errors: tuple[BaseException, ...],
 ) -> None:
-	"""Observe each distinct retained authority without swallowing control flow."""
+	"""逐个核实仍持有的独立清理责任，保留原有流程控制异常。"""
 	seen_handles: set[int] = set()
 	pending_error: BaseException | None = None
 	pending_traceback: Any = None
@@ -565,6 +580,7 @@ def _settle_deferred_cleanups_before_propagation(
 
 
 def main() -> int:
+	"""连接 Godot LSP 收集指定源码的诊断，并按所选格式输出结果。"""
 	args = _parse_args()
 	if not math.isfinite(args.lsp_process_timeout) or args.lsp_process_timeout <= 0.0:
 		return _print_tool_error("--lsp-process-timeout must be finite and positive.", None)
@@ -1756,7 +1772,7 @@ def _call_windows_tcp_native_query(
 	deadline: float | None,
 	health_check: Callable[[], None] | None,
 ) -> int:
-	"""Run a read-only native TCP snapshot call without owning process authority."""
+	"""执行只读的 Windows TCP 原生快照查询，此调用不接管进程。"""
 
 	_tcp_owner_lookup_checkpoint(deadline, health_check)
 	if deadline is None and health_check is None:
@@ -1773,9 +1789,7 @@ def _call_windows_tcp_native_query(
 		finally:
 			finished.set()
 
-	# The worker owns only the native call and its closure-retained read buffers.
-	# It is deliberately daemonized so an uninterruptible OS snapshot cannot hold
-	# the CLI alive after the supervised process deadline has already been reached.
+	# 工作线程只拥有原生调用和闭包内的读取缓冲区，用守护线程避免不可中断的系统快照拖住已超时的 CLI。
 	worker = threading.Thread(
 		target=invoke,
 		name="gf-windows-tcp-owner-query",

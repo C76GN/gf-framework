@@ -1,9 +1,7 @@
-"""Canonical list layout shared by diagnostics and whitespace-only migrations.
+"""按列表的直接子项决定 GDScript 排版，供诊断和空白迁移共用。
 
-Lists are classified from their direct items, independently of name length.
-Ordinary expression groups and indexes belong to the expression-layout pass;
-the caller combines the passes to a bounded fixed point. No source is written
-here, and every replacement is confined to one inter-token whitespace gap.
+名称长度不影响分类。普通分组与索引由表达式规则处理，调用者在有限轮数内合并两套规则。
+这里仅提出单个 token 间隙的替换。
 """
 
 from __future__ import annotations
@@ -29,7 +27,7 @@ _FIELD_ANNOTATIONS = frozenset({
 
 @dataclass(frozen=True)
 class LayoutEdit:
-	"""One half-open source replacement, sorted and disjoint from other edits."""
+	"""对源码左闭右开区间的一次替换，多个修改按序排列且互不重叠。"""
 
 	start: int
 	end: int
@@ -82,7 +80,7 @@ def _plans(view: LexedSource, max_inline_items: int) -> dict[int, _Plan]:
 	_validate_threshold(max_inline_items)
 	if view.issues:
 		return {}
-	# Import only at invocation time: readability consumes this module as well.
+	# 在实际调用时才导入，避免与使用本模块的 readability 形成初始化循环。
 	import gf_gdscript_readability as readability
 	from gf_gdscript_expression_layout import effective_group_kinds
 
@@ -115,8 +113,7 @@ def _plans(view: LexedSource, max_inline_items: int) -> dict[int, _Plan]:
 			boolean_start, boolean_end = boolean_starts[first_boolean]
 			if start <= boolean_start < end and boolean_end <= end:
 				return True
-		# A declaration's type is metadata, not a value/index expression. Its
-		# internal generic commas do not become declaration parameters.
+		# 声明类型中的泛型逗号只分隔类型参数，不能将其当作函数形参或索引。
 		default_start = end
 		if kind == "parameters":
 			cursor = start
@@ -171,12 +168,10 @@ def _plans(view: LexedSource, max_inline_items: int) -> dict[int, _Plan]:
 
 
 def list_layout_states(view: LexedSource, *, max_inline_items: int = 2) -> dict[int, str]:
-	"""Map list opening token indexes to inline, expanded or preserve.
+	"""以列表起始 token 的索引为键，记录同行、展开或保留原状的决定。
 
-	List descendants use canonical decisions instead of their old wrapping.
-	Non-list expression children can remain expanded until the expression pass
-	canonicalizes them; running the passes to a bounded fixed point resolves
-	that dependency without making historical newlines a permanent policy.
+	嵌套列表采用规则推导的排版。其他子表达式可暂时保留展开形式，待表达式阶段处理。
+	有限轮次的迭代消除阶段依赖，原始换行不会成为永久约束。
 	"""
 	return {opening: plan.layout for opening, plan in sorted(_plans(view, max_inline_items).items())}
 
@@ -190,7 +185,7 @@ def _inline_separator(left: Token, right: Token) -> str:
 
 
 def _annotation_binding_edits(view: LexedSource, plans: dict[int, _Plan]) -> tuple[LayoutEdit, ...]:
-	"""Bind one field annotation; grouping/warning directives remain independent."""
+	"""绑定单个字段注解，分组和警告指令仍独立处理。"""
 	tokens = view.tokens
 	by_open = {group.open_index: group for group in view.groups}
 	annotations: dict[int, tuple[int, int, bool]] = {}
@@ -216,8 +211,7 @@ def _annotation_binding_edits(view: LexedSource, plans: dict[int, _Plan]) -> tup
 		metadata = plans.get(start + 2)
 		if metadata is not None and metadata.layout != "inline":
 			continue
-		# Comments do not manufacture a new annotation block. If two field
-		# annotations apply to one member, preserve their complete physical form.
+		# 注释不划分注解块。两个字段注解作用于同一成员时，保留其完整物理形式。
 		cursor = start
 		multiple = False
 		while cursor in ending:
@@ -237,12 +231,10 @@ def _annotation_binding_edits(view: LexedSource, plans: dict[int, _Plan]) -> tup
 
 
 def layout_edits(view: LexedSource, *, max_inline_items: int = 2) -> tuple[LayoutEdit, ...]:
-	"""Return disjoint whitespace edits and necessary container final commas.
+	"""返回互不重叠的空白修改及容器必需的末尾逗号。
 
-	Physical barriers protect their owner, not unrelated descendant lists.
-	When a newly expanded item moves a lambda header or inner expression, its
-	existing continuation/body indentation is rebased by that same displacement.
-	Deeper list boundaries take precedence over inherited indentation rebasing.
+	物理行边界约束其所属项。展开后若 lambda 头或内部表达式移动，
+	原有续行和函数体须按相同位移调整缩进。更深层的列表边界优先于继承的位移。
 	"""
 	plans = _plans(view, max_inline_items)
 	if view.issues:
@@ -273,8 +265,7 @@ def layout_edits(view: LexedSource, *, max_inline_items: int = 2) -> tuple[Layou
 						base = bases[parent_open] + 1 + relative
 		bases[opening] = base
 
-	# Every key is exactly one gap between adjacent original tokens. Priority
-	# resolves inherited indentation against the more specific child owner.
+	# 每个键只对应原始相邻 token 间的一处空白，子项的具体缩进规则优先于父项传下的规则。
 	gaps: dict[tuple[int, int], tuple[int, LayoutEdit]] = {}
 
 	def put(start: int, end: int, replacement: str, plan: _Plan, priority: int) -> None:
@@ -307,8 +298,7 @@ def layout_edits(view: LexedSource, *, max_inline_items: int = 2) -> tuple[Layou
 		if atom(start, end) is not None:
 			join_end = end
 		elif plan.kind == "parameters":
-			# Join only the declaration prefix, not a default expression owned by
-			# the scalar/group pass. A generic type may itself contain commas.
+			# 只合并声明前缀。默认表达式由标量或分组规则处理，泛型类型本身也可能包含逗号。
 			default = next((i for i in range(start, end) if tokens[i].value == "="), end)
 			join_end = min(end, default + 2)
 		else:

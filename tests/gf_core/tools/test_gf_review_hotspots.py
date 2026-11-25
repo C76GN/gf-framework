@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Behavior tests for optional GDScript structure observations."""
+"""用结构不同的 GDScript 样本检验函数观察项的范围和计数。"""
 
 from __future__ import annotations
 

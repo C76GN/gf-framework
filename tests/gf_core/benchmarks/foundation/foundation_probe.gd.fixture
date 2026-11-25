@@ -4,6 +4,7 @@ extends Node
 const DIRECTIONS: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]
 const VORONOI_PROFILE = preload("res://profile_voronoi.gd")
 const SEGMENT_VISIBILITY = preload("res://tests/native/segment_visibility/acceptance.gd")
+const PORTABLE_VISIBILITY = preload("res://portable_visibility.gd")
 const WARMUPS: int = 2
 const SAMPLES: int = 9
 
@@ -15,7 +16,7 @@ var failures: Array[String] = []
 func _ready() -> void:
 	backend = Engine.get_singleton(&"GfFoundationProbe")
 	if (backend == null or not Engine.has_singleton(&"GfTerrainRgbBackend")
-		or not Engine.has_singleton(&"GfWfcEntropyBackend") or not Engine.has_singleton(&"GfSegmentVisibilityBackend")
+		or not Engine.has_singleton(&"GfWfcEntropyBackend")
 		or not OS.has_feature("release")):
 		push_error("Expected a Windows Release export with the benchmark GDExtension")
 		get_tree().quit(1)
@@ -49,19 +50,68 @@ func _ready() -> void:
 	_directional_wfc_cases()
 	_wide_wfc_cases()
 	for barrier_count: int in [8, 14]:
-		var topology: GFSegmentVisibility2D = SEGMENT_VISIBILITY.workload(barrier_count)
-		if topology == null:
-			failures.append("Could not prepare visibility workload.")
-			continue
-		var batch: Callable = topology.compute_pair_masks
-		_measure("visibility_84x%d" % barrier_count, {"native": batch, "portable": batch},
-				SEGMENT_VISIBILITY.scalar_report(topology))
+		_measure_visibility(barrier_count)
 	print("GF_FOUNDATION_BENCHMARK=", JSON.stringify({
 		"engine": Engine.get_version_info()["string"], "release": true,
 		"warmups": WARMUPS, "samples": SAMPLES, "cases": results, "failures": failures,
 		"geometry_comparisons": geometry_comparisons,
 	}))
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+
+# The two semaphores hand ownership of the input and result between the main thread
+# and one persistent worker. Timing starts before dispatch and ends on consumption.
+class VisibilityWorker:
+	var submitted := Semaphore.new()
+	var completed := Semaphore.new()
+	var operation: Callable
+	var report: Dictionary
+	var compute_us: int
+
+	func run() -> void:
+		while true:
+			submitted.wait()
+			if not operation.is_valid():
+				return
+			var start: int = Time.get_ticks_usec()
+			report = operation.call()
+			compute_us = Time.get_ticks_usec() - start
+			completed.post()
+
+
+func _measure_visibility(barriers: int) -> void:
+	var label: String = "visibility_84x%d" % barriers
+	var installed: GFSegmentVisibility2D = SEGMENT_VISIBILITY.workload(barriers)
+	var portable: RefCounted = SEGMENT_VISIBILITY.workload(barriers, PORTABLE_VISIBILITY.create)
+	var expected: PackedInt64Array = SEGMENT_VISIBILITY.scalar_masks(installed)
+	var lanes: Dictionary = {"native": installed.compute_pair_masks, "portable": Callable(portable, &"compute_pair_masks")}
+	var times: Dictionary = {"native": [], "portable": [], "native_handoff": [], "portable_handoff": [], "main_native": [], "main_portable": []}
+	var job := VisibilityWorker.new()
+	var thread := Thread.new()
+	if thread.start(job.run) != OK:
+		failures.append("Could not start visibility benchmark worker.")
+		return
+	for iteration: int in range(WARMUPS + SAMPLES):
+		for turn: int in range(2):
+			var lane: String = "native" if (iteration + turn) % 2 == 0 else "portable"
+			var backend_name: StringName = &"native" if lane == "native" else &"gdscript"
+			var correct: Dictionary = {"ok": true, "error": &"", "backend": backend_name, "masks": expected}
+			var main: Array = _timed(lanes[lane])
+			job.operation = lanes[lane]
+			var start: int = Time.get_ticks_usec()
+			job.submitted.post()
+			job.completed.wait()
+			var handoff: int = Time.get_ticks_usec() - start
+			if main[0] != correct or job.report != correct:
+				failures.append(label + " wrong masks or selected backend in " + lane)
+			if iteration >= WARMUPS:
+				times[lane].append(job.compute_us)
+				times[lane + "_handoff"].append(handoff)
+				times["main_" + lane].append(main[1])
+	job.operation = Callable()
+	job.submitted.post()
+	thread.wait_to_finish()
+	results.append({"name": label, "usec": times})
 
 
 func _compare(label: String, script_call: Callable, native_call: Callable, expected_status: StringName = &"") -> void:

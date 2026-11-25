@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused behavioral tests for GF maintenance execution/protocol boundaries."""
+"""验证维护命令的执行、超时、输出证据和清理，覆盖多个执行者交接时的失败分支。"""
 
 from __future__ import annotations
 
@@ -180,7 +180,7 @@ class BranchWorkflowTests(unittest.TestCase):
 				self.route("main", ref, version)
 
 		self.versions[self.head] = "13.0.0"
-		# Only the release topic branch must contain both long-lived tips.
+		# 只有发布主题分支须同时包含两个长期分支的最新提交。
 		self.parents[self.develop] = set()
 		self.assertEqual(self.route("main", "release/13.0.0", "13.0.0"), "13.0.0")
 		self.parents[self.head] = {self.main}
@@ -1613,7 +1613,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 			catalog.executor_kind(action),
 			gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
 		)
-		# The runner imports its own isolated project; it must not import this workspace.
+		# 运行器应当只导入自己的隔离工程，在当前工作区导入会污染测试。
 		self.assertEqual(catalog.check_graph.expand([action]), [action])
 		for suite in ("framework-integration", "framework", "full", "release"):
 			with self.subTest(suite=suite):
@@ -1656,7 +1656,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 					catalog.executor_kind(action),
 					gf_validation_catalog.ValidationExecutorKind.SUBPROCESS,
 				)
-				# Each native runner owns its isolated import and never imports this workspace.
+				# 每个原生运行器分别导入自己的隔离工程。
 				self.assertEqual(catalog.check_graph.expand([action]), [action])
 				self.assertEqual(
 					{suite for suite in catalog.suites() if action in catalog.plan(suite).actions},
@@ -1664,7 +1664,7 @@ class ValidationCatalogContractTests(unittest.TestCase):
 				)
 				for suite in expected_suites:
 					self.assertEqual(catalog.plan(suite).actions.count(action), 1)
-				# Draft uses quick; authoring native checks must not enter it or static lanes.
+				# 草稿使用 quick 套件，须启动原生工具的检查应留给相应的集成任务。
 				for suite in ("quick", "framework-static", "framework-gut", "framework-lsp"):
 					self.assertNotIn(action, catalog.plan(suite).actions)
 				self.assertEqual(
@@ -4524,7 +4524,7 @@ class ParallelBlockedReportTests(unittest.TestCase):
 		materializer.assert_not_called()
 		adapters["local"].assert_not_called()
 		adapters["downstream"].assert_not_called()
-		# Action execution is synthetic; bind its report to this isolated reader fixture.
+		# 动作执行由测试模拟，报告仍须绑定到读取它的隔离工程。
 		for result in report["results"]:
 			result["cwd"] = str(workspace)
 		report.update({
@@ -5404,9 +5404,8 @@ class ProjectLayoutProfileTests(unittest.TestCase):
 							observations.append((owned, state["permitted"],
 								(owned / "p/project.godot").is_file(), (owned / "p/request.json").is_file()))
 
-				# Both executable-selection aliases are replaced: private environment setup
-				# resolves before native dispatch. The binary owner, source capture,
-				# private fixture and cleanup path execute their real implementations.
+				# 可执行文件在构建私有环境时即被解析，因此须替换两个选择入口。二进制所有权、输入采集、
+				# 隔离工程和清理仍走真实实现。
 				with mock.patch.object(native, "resolve_godot_executable", return_value=str(engine)), \
 					mock.patch.object(gf_maintenance, "resolve_godot_executable", return_value=str(engine)), \
 					self.assertRaises(native.NativeExecutionError) as raised:
@@ -5711,8 +5710,7 @@ class ProcessSupervisorPosixWatchdogTests(unittest.TestCase):
 
 			def wait_quiet_and_reaped(self, _deadline: float) -> bool:
 				self.wait_calls += 1
-				# Model the deadline edge where the wait result is stale but the
-				# immediately following status snapshot observes finalization.
+				# 模拟截止时刻的竞争，等待返回旧状态，紧接着的快照却已经看到清理完成。
 				return False
 
 			def request_cancel(self, *, deadline: float) -> None:
@@ -6056,7 +6054,7 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 		owner = owners[0]
 		self.assertIs(owner._process_was_created, True)
 		self.assertTrue(owner.is_closed())
-		# A closed owner may release its process reference, as the POSIX owner does.
+		# 进程所有者关闭后可释放进程引用，POSIX 实现即采用这种方式。
 		owner._started_process = None
 		self.assertIsNotNone(started_processes[0].returncode)
 
@@ -6317,8 +6315,7 @@ class ProcessSupervisorBinaryCaptureTests(unittest.TestCase):
 			try:
 				raised.exception.deferred_cleanup.wait(2.0)
 			except OSError:
-				# The deferred authority retains the first close failure until the
-				# boundary is quiet, then faithfully propagates it to the observer.
+				# 推迟清理时保留第一次关闭失败，待进程边界清理完毕再将原异常交还观察方。
 				pass
 			final_snapshot = raised.exception.deferred_cleanup.snapshot()
 			self.assertTrue(final_snapshot.cleanup_complete, final_snapshot)
@@ -7763,8 +7760,7 @@ class ProcessSupervisorLeaseTests(unittest.TestCase):
 			owner.close_before_deadline = stuck_close  # type: ignore[method-assign]
 			return owner
 
-		# Keep enough startup headroom for slow Windows CI while retaining a short,
-		# authoritative close deadline for the injected stuck owner.
+		# 为较慢的 Windows CI 留出启动时间，注入的卡住进程仍受较短的关闭期限约束。
 		deadline = time.perf_counter() + 0.5
 		started = time.monotonic()
 		cleanup_handle: (
@@ -9622,12 +9618,12 @@ class LspFramingBoundaryTests(unittest.TestCase):
 			nonlocal health_checks
 			health_checks += 1
 			if health_checks > 1:
-				# Expire only after the worker starts, independent of host scheduling.
+				# 等工作线程启动后才使截止时间到期，避免测试依赖主机调度速度。
 				self.assertTrue(query_started.wait(1.0))
 
 		started_at = time.perf_counter()
 		try:
-			# Replace only the tool's clock; cleanup and elapsed assertions use real time.
+			# 只替换被测工具的时钟，清理及耗时断言仍使用真实时间。
 			with mock.patch.object(gdscript_lsp_diagnostics, "time", clock):
 				with self.assertRaisesRegex(
 					gdscript_lsp_diagnostics.TcpOwnerLookupError,
@@ -9649,7 +9645,7 @@ class LspFramingBoundaryTests(unittest.TestCase):
 		self.assertGreater(health_checks, 1)
 		self.assertLess(time.perf_counter() - started_at, 0.5)
 
-		# A deadline already reached before admission must not start any query.
+		# 请求进入前已经超时的情况不能启动任何查询。
 		expired_query = mock.Mock()
 		expired_health_check = mock.Mock()
 		with mock.patch.object(gdscript_lsp_diagnostics, "time", clock):
@@ -23114,8 +23110,7 @@ class BinaryOutputEncodingTests(unittest.TestCase):
 						self.assertEqual(getattr(result, stream + "_truncated"), len(payload) > limit)
 
 	def test_default_utf8_capture_keeps_character_limits_and_existing_newline_behavior(self) -> None:
-		# Keep valid UTF-8 inside one short line: the default mode's existing
-		# per-chunk decode behavior is separate from the byte-preserving mode.
+		# 单行样本保留完整 UTF-8 序列，避免把默认分块解码的行为混入字节保留模式的测试。
 		payload = "雪🌞\n".encode("utf-8") + b"first\r\nsecond\r\0\xffend"
 		for binary_output in (False, True):
 			for errors in ("replace", "surrogateescape"):
@@ -24186,8 +24181,7 @@ class InternalModuleDescriptorInventoryTests(unittest.TestCase):
 
 class ProjectLayoutAuditRegressionTest(unittest.TestCase):
 	def test_native_semantic_fixtures_are_owned_by_gdscript(self) -> None:
-		# Nested required directories, Unicode, portable regex and budgets are
-		# exercised by the native tool suite, never by a shadow Python evaluator.
+		# 嵌套的必需目录、Unicode、可移植正则和预算由原生工具套件覆盖，以同一规则实现为准。
 		self.assertTrue((ROOT / "tests/gf_core/tools/project_layout/test_gf_project_layout_tool_package.gd").is_file())
 		self.assertFalse(hasattr(gf_project_layout_profile, "parse_project_profile_strict_json"))
 

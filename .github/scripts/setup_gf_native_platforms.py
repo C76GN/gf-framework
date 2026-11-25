@@ -1,4 +1,4 @@
-"""Install the pinned editor and matching templates onto a Linux or Apple native CI runner."""
+"""为 Linux 或 Apple 原生验收安装版本匹配的 Godot 编辑器与导出模板。"""
 import os
 from pathlib import Path
 import subprocess
@@ -14,6 +14,7 @@ EDITORS = {
 
 
 def main() -> None:
+    """准备当前 CI 目标使用的 Godot 编辑器及其导出模板。"""
     tag, checksum = EDITORS[sys.platform]
     directory = Path(os.environ['RUNNER_TEMP']) / 'gf-native-editor'
     directory.mkdir(exist_ok=True)

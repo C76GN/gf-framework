@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="8b049e9c7b3f107339d8521b9aa05e2236af48831a018c137e248d48dc01bb61" classCount="942" methodCount="8389" autoloadCount="1" autoloadMethodCount="65">
+<apiCatalog schemaVersion="3" name="GF Framework" sourceRoot="addons/gf" sourceDigest="42e16467f508166745467bbbf99210043fb7007b70634ed6a5f01f552958b787" classCount="943" methodCount="8393" autoloadCount="1" autoloadMethodCount="65">
 	<module id="kernel" label="Kernel" classCount="79" methodCount="844" autoloadCount="1" autoloadMethodCount="65">
 		<class name="GFAccessGenerator" path="classes/GFAccessGenerator.xml" sourcePath="addons/gf/kernel/editor/gf_access_generator.gd" extends="RefCounted" />
 		<class name="GFArchitecture" path="classes/GFArchitecture.xml" sourcePath="addons/gf/kernel/core/gf_architecture.gd" extends="Object" />
@@ -82,7 +82,7 @@
 		<class name="GFWeakMethodInvocation" path="classes/GFWeakMethodInvocation.xml" sourcePath="addons/gf/kernel/core/gf_weak_method_invocation.gd" extends="RefCounted" />
 		<autoload name="Gf" path="autoloads/Gf.xml" sourcePath="addons/gf/kernel/core/gf.gd" extends="Node" packageId="gf.kernel" />
 	</module>
-	<module id="standard" label="Standard" classCount="517" methodCount="5114" autoloadCount="0" autoloadMethodCount="0">
+	<module id="standard" label="Standard" classCount="518" methodCount="5118" autoloadCount="0" autoloadMethodCount="0">
 		<class name="GFActivationTransaction" path="classes/GFActivationTransaction.xml" sourcePath="addons/gf/standard/foundation/policy/gf_activation_transaction.gd" extends="RefCounted" />
 		<class name="GFAnalyticsConfig" path="classes/GFAnalyticsConfig.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_config.gd" extends="Resource" />
 		<class name="GFAnalyticsEventSchema" path="classes/GFAnalyticsEventSchema.xml" sourcePath="addons/gf/standard/utilities/analytics/gf_analytics_event_schema.gd" extends="Resource" />
@@ -238,6 +238,7 @@
 		<class name="GFFormula" path="classes/GFFormula.xml" sourcePath="addons/gf/standard/foundation/formula/gf_formula.gd" extends="Resource" />
 		<class name="GFFormulaParameter" path="classes/GFFormulaParameter.xml" sourcePath="addons/gf/standard/foundation/formula/gf_formula_parameter.gd" extends="RefCounted" />
 		<class name="GFFormulaSet" path="classes/GFFormulaSet.xml" sourcePath="addons/gf/standard/foundation/formula/gf_formula_set.gd" extends="Resource" />
+		<class name="GFFrameIntervalSeries" path="classes/GFFrameIntervalSeries.xml" sourcePath="addons/gf/standard/utilities/debug/gf_frame_interval_series.gd" extends="RefCounted" />
 		<class name="GFGraphLayoutUtility" path="classes/GFGraphLayoutUtility.xml" sourcePath="addons/gf/standard/foundation/math/gf_graph_layout_utility.gd" extends="RefCounted" />
 		<class name="GFGraphMath" path="classes/GFGraphMath.xml" sourcePath="addons/gf/standard/foundation/math/gf_graph_math.gd" extends="RefCounted" />
 		<class name="GFGraphPathSearchState" path="classes/GFGraphPathSearchState.xml" sourcePath="addons/gf/standard/foundation/math/gf_graph_path_search_state.gd" extends="RefCounted" />

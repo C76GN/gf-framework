@@ -38,6 +38,23 @@ operation_diagnostics.finish_operation(operation_id, true, {
 
 异常事件使用 `record_incident()`，相同 `severity`、`category`、`code`、`component`、`phase` 和 `message` 的事件会合并，递增 `occurrence_count` 并刷新 `last_seen_*`。容量收紧时按 `last_sequence` 淘汰最久未再次发生的事件，因此刚刚重复的活跃故障不会因首次插入较早而被误删。
 
+## 帧间隔与连续慢帧 {#frame-interval-series}
+
+`gf.standard.diagnostics` 的 `GFFrameIntervalSeries` 以固定容量保存正整数微秒间隔。项目用同一个单调时钟测量相邻采样点的差值，诊断面板与基准程序都可以调用同一份摘要。记录一次为常量时间，读取摘要时才复制并排序保留的数值。每个序列由调用方串行访问。
+
+```gdscript
+var intervals := GFFrameIntervalSeries.create(120)
+intervals.record_interval_us(16667)
+intervals.record_interval_us(50000)
+var summary := intervals.summarize(2, 16667)
+assert(summary.ok and summary.over_budget_count == 1)
+assert(summary.max_window_us == 66667)
+```
+
+项目决定采样边界与合格阈值。使用 `RenderingServer.frame_post_draw` 时，报告应注明观测的是视口更新完成边界。暂停或切换来源时调用 `break_continuity()` 并重新建立起始时间戳。已知漏采三个间隔可传入 `break_continuity(3)`。非正间隔也会切断连续性。
+
+P95/P99 使用排序后一基位置 `ceil(p × n)` 的实测值。超预算计数只包括严格大于预算的间隔。均值、分位数与超预算次数涵盖所有保留样本。最慢窗口只统计同一连续段内恰好 N 个间隔。空序列的均值和分位数为 `null`，没有完整窗口时 `max_window_us` 为 `null`。缓冲覆盖、已知漏采和非法记录分别累计到 `evicted_count`、`missing_count` 和 `rejected_count`。整数微秒总和溢出时返回 `duration_overflow`，后续记录仍可继续。
+
 ## 命名采样统计
 
 完整操作适合记录“开始、阶段、状态、结束”的长流程；高频短诊断点更适合使用命名采样统计。`record_sample()` 会按 `sample_id` 聚合调用次数、累计耗时、平均耗时、最近耗时、最大/最小耗时、慢采样次数和 metadata，不会把每次采样都写入时间线：

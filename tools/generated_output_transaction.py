@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Transactional replacement for generated directory trees."""
+"""分阶段替换一组生成目录，并在发布中断时恢复先前的目录。"""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ WINDOWS_INVALID_COMPONENT_PATTERN = re.compile(r'[<>:"|?*]|[\x00-\x1f]')
 
 
 class GeneratedOutputTransactionError(RuntimeError):
-	"""Report a replacement failure whose rollback also failed."""
+	"""发布失败且回滚未能全部完成，异常保留原始错误、回滚错误及可供恢复的备份路径。"""
 
 	def __init__(
 		self,
@@ -50,12 +50,12 @@ class GeneratedOutputTransactionError(RuntimeError):
 
 
 def lexical_absolute_path(path: Path) -> Path:
-	"""Return an absolute normalized path without following filesystem links."""
+	"""按词法形式生成规范绝对路径，保留符号链接本身。"""
 	return Path(os.path.abspath(os.fspath(path)))
 
 
 def validate_controlled_path(path: Path, containment_root: Path) -> Path:
-	"""Validate lexical and real containment without traversing reparse targets."""
+	"""同时校验词法路径与真实路径的归属，拒绝穿过重解析点。"""
 	controlled_path = lexical_absolute_path(path)
 	controlled_root = lexical_absolute_path(containment_root)
 	if not _is_relative_to(controlled_path, controlled_root):
@@ -90,7 +90,18 @@ GeneratedContent = str | bytes | None
 
 
 def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent]]]) -> None:
-	"""Stage every output tree, then replace all roots with rollback on failure."""
+	"""先暂存全部生成树，再逐个替换目标目录。
+
+	替换中途失败时按相反顺序恢复已替换的目录。恢复成功后，调用方收到最初的异常。
+
+	Args:
+	    outputs: 各目标根目录与其内容映射。键为相对路径。值为 None 时创建目录，
+	        字节按原样写入，文本使用 UTF-8 编码和 LF 换行。
+
+	Raises:
+	    ValueError: 目标根目录重复、路径越界或条目不符合跨平台路径约束。
+	    GeneratedOutputTransactionError: 替换失败且回滚未能全部完成。检查 backup_paths 中保留的备份。
+	"""
 	normalized_outputs = _normalize_outputs(outputs)
 	staging_roots: dict[Path, Path] = {}
 	backup_parents: dict[Path, Path] = {}
@@ -166,7 +177,7 @@ def replace_generated_trees(outputs: list[tuple[Path, dict[str, GeneratedContent
 
 
 def _directory_identity(path: Path) -> tuple[int, int]:
-	"""Bind rollback removal to the staged directory that was actually installed."""
+	"""仅允许对本次实际安装的暂存目录执行回滚移除。"""
 	metadata = path.lstat()
 	if not stat.S_ISDIR(metadata.st_mode) or _path_is_link_or_junction(path):
 		raise RuntimeError(f"Generated output directory is uncontrolled: {path}")
@@ -178,7 +189,7 @@ def compare_generated_tree(
 	desired: dict[str, str],
 	normalize_expected: Callable[[str], str] | None = None,
 ) -> list[str]:
-	"""Compare a generated tree without mutating it."""
+	"""将目标目录与预期文件逐项比对，保持磁盘内容不变。"""
 	_validate_relative_paths(desired)
 	mismatches: list[str] = []
 	for relative_path in sorted(desired):
@@ -224,12 +235,12 @@ def _normalize_outputs(
 
 
 def validate_generated_entries(files: dict[str, GeneratedContent]) -> None:
-	"""Validate portable relative identities before a generated tree is staged."""
+	"""在写入暂存树前校验相对路径的跨平台身份。"""
 	_validate_relative_paths(files)
 
 
 def path_is_link_or_junction(path: Path) -> bool:
-	"""Return whether a path is a symlink, junction, or other reparse point."""
+	"""判断路径是否为符号链接、目录 junction 或其他重解析点。"""
 	return _path_is_link_or_junction(path)
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for fail-closed GF validation policy contracts."""
+"""验证检查输入、路径匹配和复用策略在契约不完整时拒绝接受。"""
 
 from __future__ import annotations
 

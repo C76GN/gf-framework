@@ -60,14 +60,17 @@ API_INDEX_CATALOG_VERSION = "2.0.0"
 
 
 def load_api_index() -> dict[str, Any]:
+	"""Load and validate the API index shipped with this installation of the kit."""
 	return _load_knowledge(KNOWLEDGE_ROOT / "api_index.json", validate_api_index=True)
 
 
 def load_capabilities() -> dict[str, Any]:
+	"""Read the installed capability catalog together with its companion recipe catalog."""
 	return _load_catalogs()[0]
 
 
 def load_recipes() -> dict[str, Any]:
+	"""Read the recipe catalog from the same installation as its capability definitions."""
 	return _load_catalogs()[1]
 
 
@@ -91,6 +94,7 @@ def _load_catalogs() -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def api_search(query: str, limit: int = 20, project_root: Path | None = None) -> dict[str, Any]:
+	"""Return ranked API matches up to the requested limit and report invalid queries in issues."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "query": query, "results": [], "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -155,6 +159,7 @@ def api_class(
 	include_members: bool = True,
 	project_root: Path | None = None,
 ) -> dict[str, Any]:
+	"""Find one catalog class by name and optionally include its member records."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "class_name": class_name, "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -178,6 +183,7 @@ def api_module(
 	limit: int = 100,
 	project_root: Path | None = None,
 ) -> dict[str, Any]:
+	"""List classes from an exact module, or return suggestions when the module is unknown."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "module": module_name, "classes": [], "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -227,6 +233,7 @@ def package_by_id(
 	limit: int = 100,
 	project_root: Path | None = None,
 ) -> dict[str, Any]:
+	"""Look up a package and its classes, with installation status when a project is supplied."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "id": package_id, "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -271,6 +278,7 @@ def package_by_id(
 
 
 def capability_search(query: str, limit: int = 10, project_root: Path | None = None) -> dict[str, Any]:
+	"""Search the capability catalog and return bounded matches with their catalog version."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "query": query, "results": [], "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -320,6 +328,7 @@ def capability_search(query: str, limit: int = 10, project_root: Path | None = N
 
 
 def capability_by_id(capability_id: str, project_root: Path | None = None) -> dict[str, Any]:
+	"""Look up one capability by its stable ID and report a missing ID in issues."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "id": capability_id, "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -333,6 +342,7 @@ def capability_by_id(capability_id: str, project_root: Path | None = None) -> di
 
 
 def recipe_by_id(recipe_id: str, project_root: Path | None = None) -> dict[str, Any]:
+	"""Look up a recipe by its stable ID and report a missing ID in issues."""
 	compatibility = catalog_compatibility(project_root)
 	if not compatibility["ok"]:
 		return {"ok": False, "id": recipe_id, "compatibility": compatibility, "issues": compatibility["issues"]}
@@ -346,6 +356,7 @@ def recipe_by_id(recipe_id: str, project_root: Path | None = None) -> dict[str, 
 
 
 def known_capability_ids() -> set[str]:
+	"""Return the set of capability IDs declared by the installed catalog."""
 	return {
 		str(item.get("id"))
 		for item in load_capabilities().get("capabilities", [])
@@ -354,6 +365,7 @@ def known_capability_ids() -> set[str]:
 
 
 def capability_records_by_id() -> dict[str, dict[str, Any]]:
+	"""Index capability records by the IDs used in project contracts."""
 	return {
 		str(item.get("id")): item
 		for item in load_capabilities().get("capabilities", [])
@@ -362,6 +374,7 @@ def capability_records_by_id() -> dict[str, dict[str, Any]]:
 
 
 def recipe_records_by_id() -> dict[str, dict[str, Any]]:
+	"""Index installed recipe records by the identifiers used in capability references."""
 	return {
 		str(item.get("id")): item
 		for item in load_recipes().get("recipes", [])
@@ -370,10 +383,12 @@ def recipe_records_by_id() -> dict[str, dict[str, Any]]:
 
 
 def known_recipe_ids() -> set[str]:
+	"""Return the set of recipe IDs understood by this installation."""
 	return set(recipe_records_by_id())
 
 
 def known_package_ids() -> set[str]:
+	"""Return package IDs declared by the installed API index."""
 	return {
 		str(item.get("id"))
 		for item in load_api_index().get("packages", [])
@@ -382,6 +397,7 @@ def known_package_ids() -> set[str]:
 
 
 def known_api_classes() -> set[str]:
+	"""Return the names of classes declared by the installed API index."""
 	return set(_class_records(load_api_index()))
 
 
@@ -495,7 +511,7 @@ def recipe_package_readiness(
 			values = tuple(sorted(_string_items(group)))
 			if values:
 				any_of_groups.add(values)
-	# Availability is observed payload, not the dependencies it ought to contain.
+	# 可用性依据实际安装内容判断，清单中应有的依赖不能作为已安装的证据。
 	available = set(available_packages)
 	missing_all_of = sorted(all_of - available)
 	ordered_groups = sorted(any_of_groups)
@@ -511,10 +527,12 @@ def recipe_package_readiness(
 
 
 def catalog_framework_version() -> str:
+	"""Read the framework version recorded in the API index, or return an empty string."""
 	return str(load_api_index().get("framework_version", "")).strip()
 
 
 def project_framework_version(project_root: Path) -> str:
+	"""Read the GF plugin version from the project, or return an empty string if unavailable."""
 	try:
 		path = resolve_project_path(project_root, "addons/gf/plugin.cfg", must_exist=True)
 	except ValueError:
@@ -530,6 +548,7 @@ def project_framework_version(project_root: Path) -> str:
 
 
 def catalog_compatibility(project_root: Path | None) -> dict[str, Any]:
+	"""Report whether the catalog and the supplied project's GF installation agree on the framework version."""
 	catalog_version = catalog_framework_version()
 	if project_root is None:
 		return {
@@ -558,6 +577,7 @@ def catalog_compatibility(project_root: Path | None) -> dict[str, Any]:
 
 
 def installed_package_report(project_root: Path) -> dict[str, Any]:
+	"""Report installed packages and their source. An invalid present lockfile is reported as invalid."""
 	lockfile_candidate = project_root / ".gf/packages.lock.json"
 	if lockfile_candidate.exists() or lockfile_candidate.is_symlink():
 		try:
@@ -621,6 +641,7 @@ def installed_package_report(project_root: Path) -> dict[str, Any]:
 
 
 def installed_package_ids(project_root: Path) -> list[str]:
+	"""Return the observed package IDs. Use installed_package_report to distinguish an invalid lockfile from an empty installation."""
 	return list(installed_package_report(project_root)["packages"])
 
 

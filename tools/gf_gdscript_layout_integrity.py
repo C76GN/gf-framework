@@ -1,4 +1,4 @@
-"""Structural whitespace integrity for the shared GDScript lexical view."""
+"""基于共享的 GDScript 词法结果检查缩进和结构空白。"""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ _DECLARATIONS = _DATA | frozenset(("func", "class", "enum"))
 
 @dataclass(frozen=True)
 class LayoutEdit:
+	"""记录原始源码上一次结构空白替换，以及对应的规则、行号和诊断。"""
 	start: int
 	end: int
 	replacement: str
@@ -41,8 +42,7 @@ class _Collector:
 		if self.view.source[start:end] != replacement:
 			self.edits[start, end] = LayoutEdit(start, end, replacement, rule, line, message)
 		else:
-			# A more-specific delimiter contract can restore the original gap;
-			# that must cancel an earlier generic comma/spacing proposal.
+			# 如果更具体的定界符规则要求恢复原间隙，就应撤销先前针对逗号或空白的通用建议。
 			self.edits.pop((start, end), None)
 
 	def gap(self, left, right, replacement, rule="token_spacing"):
@@ -175,13 +175,12 @@ def _declaration(view, start, by_open):
 
 
 def _suite_and_members(c):
-	# Lazy import uses the already-created shared view; this is not another lexer.
+	# 延迟导入以复用已经建立的词法视图。
 	from gf_gdscript_readability import _header_colon
 	view, tokens = c.view, c.view.tokens
 	by_open = {g.open_index: g for g in c.scope[0].groups}
 	starts = c.scope[3]
-	# The first token on a multiline literal's closing row can still be a
-	# postfix/operator of the earlier statement, not an offside statement.
+	# 多行字面量闭合行上的首个 token 可能是此前语句的后缀或运算符，应继续归属于该语句。
 	starts = {index for index in starts if not index or tokens[index - 1].end_line < tokens[index].line}
 	headers = {}
 	annotations = {}
@@ -308,7 +307,7 @@ def _member_spacing(c, members, comments):
 		if last_index < 0:
 			continue
 		end_line = line_tokens[last_index].end_line
-		# A property's trailing body comment remains inside that member's block.
+		# 属性体末尾的注释仍位于该成员的代码块中。
 		for line in range(end_line + 1, member.start_line):
 			if line in comments and c.indents[line] > previous.indent:
 				end_line = line
@@ -344,11 +343,10 @@ def _match_patterns(c, patterns, by_open):
 
 
 def layout_edits(view) -> tuple[LayoutEdit, ...]:
-	"""Return ordered, disjoint edits containing only proven layout changes.
+	"""返回按位置排列且互不重叠的结构排版修改。
 
-	Only match-pattern splitting may add syntax: a continuation marker directly
-	after that pattern separator and immediately before its new physical LF.
-	All token gaps are checked against the shared view's original source offsets.
+	仅拆分 match 模式允许加入语法字符，即在模式分隔符后、换行前插入续行符。
+	所有 token 间隙都须对照共享视图中的原始偏移。
 	"""
 	if view.issues:
 		return ()

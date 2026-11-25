@@ -1,8 +1,7 @@
-"""One source-bound layout plan shared by diagnostics and formatting previews.
+"""为诊断与格式预览生成绑定到同一份源文本的排版计划。
 
-The planners propose canonical layout. Only the horizontal token-gap subset has
-an automatic-write proof; changes to suites, physical lines, or syntax remain
-reviewable suggestions. Capturing a plan never changes source or relaxes checks.
+只有同一行内 token 间的空白有自动写回证明。涉及语法块、物理行或语法的修改留给审阅。
+生成计划只读取源码。
 """
 
 from __future__ import annotations
@@ -23,6 +22,7 @@ MAX_PREVIEW_PASSES = 8
 
 @dataclass(frozen=True)
 class FormatEdit:
+	"""描述原始文本上一个待替换的间隙，偏移只适用于产生它的那一版源码。"""
 	start: int
 	end: int
 	replacement: str
@@ -35,6 +35,7 @@ class FormatEdit:
 
 @dataclass(frozen=True)
 class FormatPlan:
+	"""绑定原始文本、计划修改及词法诊断，供诊断预览和允许写回的安全子集共用。"""
 	path: str
 	source: str
 	edits: tuple[FormatEdit, ...]
@@ -42,6 +43,7 @@ class FormatPlan:
 
 	@classmethod
 	def capture(cls, path: str, source: str) -> FormatPlan:
+		"""从传入的源码构造排版计划，文件名仅用于定位与报告。"""
 		return cls.from_view(path, readability.lex_source(path, source))
 
 	@classmethod
@@ -72,9 +74,11 @@ class FormatPlan:
 
 	@property
 	def source_sha256(self) -> str:
+		"""返回产生排版计划的原始 UTF-8 文本摘要，以便写入前核对版本。"""
 		return hashlib.sha256(self.source.encode("utf-8")).hexdigest()
 
 	def diagnostics(self) -> list[dict]:
+		"""返回词法问题与排版诊断，供检查器展示。"""
 		issues = json.loads(self._lexical_issues)
 		observed = set()
 		for edit in self.edits:
@@ -95,7 +99,7 @@ class FormatPlan:
 			raise ValueError("Formatting requires a complete lexical view.")
 
 	def suggested_source(self) -> str:
-		"""Resolve overlapping planner phases sequentially, with bounded convergence."""
+		"""按阶段依次合并可能重叠的排版修改，收敛轮数受预算限制。"""
 		self._bounded_preview()
 		source = self.source
 		seen = set()
@@ -113,11 +117,9 @@ class FormatPlan:
 		raise ValueError("Layout preview pass budget exhausted; no source was written.")
 
 	def safe_source(self) -> str:
-		"""Prove token/comment payloads, physical lines and all indentation unchanged.
+		"""返回能证明保留 token、注释、物理行和缩进的文本。
 
-		Node shorthand has whitespace-sensitive path syntax, so its whole physical
-		line is excluded. No syntax carrier, newline, indentation, literal, or
-		comment edit is ever admitted by this proof.
+		节点简写的路径语法对空白敏感，因此排除其整行。此证明只允许同行 token 之间的空白变化。
 		"""
 		self._bounded_preview()
 		if not self.path.endswith(".gd"):
@@ -142,6 +144,7 @@ class FormatPlan:
 		))
 
 	def diff(self, candidate: str) -> str:
+		"""比较候选文本与创建计划时的原文，返回统一差异文本。"""
 		return "".join(difflib.unified_diff(
 			self.source.splitlines(keepends=True), candidate.splitlines(keepends=True),
 			fromfile=self.path, tofile=self.path + " (suggested)",

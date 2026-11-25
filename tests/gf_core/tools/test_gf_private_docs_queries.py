@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Public API queries and opt-in private maintenance documentation views."""
+"""验证默认 API 查询与显式维护查询对私有声明的可见范围。"""
 
 from __future__ import annotations
 
@@ -94,6 +94,7 @@ class PublicView:
 
 
 def fixture_scripts(private_docs: bool = True):
+	"""构造含公开与私有成员的脚本，让同一份输入可用于对照两种查询范围。"""
 	private_block = "## Release retained session state.\n## @api private" if private_docs else "# Release retained session state."
 	return [
 		parse_gdscript_source(
@@ -124,6 +125,7 @@ def fixture_scripts(private_docs: bool = True):
 
 
 def without_locations(value):
+	"""从结果中剔除位置后再比较文档语义，避免把单纯的行号变化计为 API 变化。"""
 	if isinstance(value, dict):
 		return {key: without_locations(child) for key, child in value.items() if key != "line"}
 	if isinstance(value, list):

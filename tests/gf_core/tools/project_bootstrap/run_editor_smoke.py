@@ -24,7 +24,7 @@ import gf_gdscript_readability as readability
 import gf_path_security as path_security
 import gf_process_supervisor as supervisor
 
-# Reuse existing bounded/pinned inventory capture; this is test support only.
+# 复用现有的有界清单采集来固定输入，仅作为本测试的准备步骤。
 _SPEC = importlib.util.spec_from_file_location(
 	"gf_bootstrap_smoke_capture", ROOT / "tests/gf_core/tools/scene_placement/run_editor_smoke.py",
 )
@@ -78,6 +78,7 @@ def run_phase(
 	name: str, command: list[str], project: Path, environment: dict[str, str],
 	logs: Path, marker: str = "",
 ) -> dict[str, object]:
+	"""在独立进程中执行一阶段引导测试，并记录引擎诊断、退出状态和问题。"""
 	log = logs / f"{name}.godot.log"
 	engine_command = list(command)
 	separator = engine_command.index("--") if "--" in engine_command else len(engine_command)
@@ -115,9 +116,8 @@ def run_phase(
 		for channel, text in (("stdout", result.stdout), ("stderr", result.stderr), ("godot_log", log_text))
 	}
 	if name == "runtime_empty":
-		# This one phase intentionally removes the real Gf AutoLoad from the tree.
-		# Require the sole exact product diagnostic independently in both channels;
-		# missing, repeated, additional or differently worded diagnostics fail closed.
+		# 此阶段刻意移除实际的 Gf AutoLoad。两个输出通道都应各出现一次预期诊断，措辞不同、
+		# 额外或遗漏均视为失败。
 		if diagnostics != {"stdout": [], "stderr": [EXPECTED_BOOT_FAILURE], "godot_log": [EXPECTED_BOOT_FAILURE]}:
 			issues.append("The real Boot failure must produce exactly the expected stderr/log diagnostic and no other diagnostics.")
 	elif any(diagnostics.values()):
@@ -178,6 +178,7 @@ def run_phase(
 
 
 def write_project(project: Path, enabled: bool) -> None:
+	"""写入临时项目配置，按 enabled 决定是否加载真实插件。"""
 	plugins = '"res://addons/bootstrap_smoke/plugin.cfg"' if enabled else ""
 	(project / "project.godot").write_text(
 		'config_version=5\n\n[application]\nconfig/name="GF Project Bootstrap Smoke"\n\n'
@@ -259,6 +260,7 @@ def configure_runtime_observer(project: Path, *, empty: bool) -> None:
 
 
 def main() -> int:
+	"""在临时工程中依次核验插件引导与生成场景，输出带失败阶段的报告。"""
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--keep-logs", action="store_true")
 	args = parser.parse_args()
@@ -304,7 +306,7 @@ def main() -> int:
 				phases.append(run_phase("runtime", runtime, project, environment, logs, RUNTIME_SUCCESS))
 				if phases[-1]["ok"]:
 					configure_runtime_observer(project, empty=True)
-					# Engine flags precede the user-argument separator, including log-file.
+					# 引擎选项（包括 log-file）必须放在用户参数分隔符之前。
 					empty_runtime = [*runtime, "--", "--empty-project"]
 					phases.append(run_phase("runtime_empty", empty_runtime, project, environment, logs, RUNTIME_SUCCESS))
 			report["source_fixtures_unchanged"] = capture.inventory(ROOT / FIXTURES) == fixture_hashes

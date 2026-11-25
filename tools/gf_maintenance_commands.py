@@ -1,9 +1,7 @@
-"""Data-only descriptions of the uniform, read-only maintenance commands.
+"""描述只读维护命令的名称、帮助和 JSON 调用形式。
 
-Descriptions own spelling, help, and the JSON invocation. They grant no execution
-authority: the runner still binds trusted callables, while the Validation Catalog
-independently owns check admission, suites, dependencies, and executor kinds.
-Commands with options or different exit semantics retain explicit adapters.
+CLI 绑定受信任的执行函数，验证目录独立决定检查、套件、依赖及执行种类。
+具有额外选项或特殊退出语义的命令使用专用适配器。
 """
 
 from __future__ import annotations
@@ -14,6 +12,7 @@ from types import MappingProxyType
 
 @dataclass(frozen=True)
 class CommandDescriptor:
+	"""描述可从 CLI 与 MCP 共同调用的只读命令，执行函数由运行器另行绑定。"""
 	action_id: str
 	help: str
 
@@ -22,6 +21,7 @@ class CommandDescriptor:
 		return self.action_id.replace("_", "-")
 
 	def arguments(self, *, json_output: bool = False) -> tuple[str, ...]:
+		"""生成该动作对应的 CLI 参数元组，按需加上 --json。"""
 		return (self.name, "--json") if json_output else (self.name,)
 
 

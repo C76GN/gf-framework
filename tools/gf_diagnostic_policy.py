@@ -1,11 +1,8 @@
-"""Check framework-owned native diagnostic templates without executing GDScript.
+"""通过有界词法扫描检查 GF 自有开发者诊断的 ID、严重级别及英文模板。
 
-This bounded lexer recognizes output calls and literal/constant templates. It is
-not a GDScript compiler or a data-flow proof. Reviewed forwarding boundaries are
-explicit, expression-bound records; arbitrary new dynamic output fails closed.
-Runtime arguments (including translated project text and Unicode paths) are not
-subject to the English template rule. Human review still owns wording and
-severity semantics, while GUT owns observable emission and failure behavior.
+只识别输出调用和字面量或常量模板，转发入口按经过审查的表达式识别。新的动态模板需要显式审查。
+运行时参数可含 Unicode 路径及项目译文。措辞和严重级别的语义由审查判断，
+实际输出及失败行为由 GUT 验证。
 """
 
 from __future__ import annotations
@@ -35,6 +32,7 @@ CLOSE = frozenset(OPEN.values())
 @dataclass(frozen=True)
 class Token:
 
+	"""保留解码后的标记、原始位置及行号，供诊断定位模板来源。"""
 	kind: str
 	value: str
 	line: int
@@ -43,11 +41,12 @@ class Token:
 
 
 class SourceError(ValueError):
+	"""输入超出静态诊断扫描器能可靠分析的范围。"""
 	pass
 
 
 def tokenize(source: str) -> list[Token]:
-	"""Keep decoded strings and offsets; comments never become call sites."""
+	"""保留解码后的字符串和偏移，排除注释中的调用样例。"""
 	if len(source.encode("utf-8")) > MAX_SOURCE_BYTES:
 		raise SourceError("Source exceeds the diagnostic scan budget.")
 	tokens: list[Token] = []
@@ -236,7 +235,7 @@ def _literal(tokens: list[Token], constants: dict[str, list[Token]], seen: froze
 
 
 def _operand_end(tokens: list[Token], start: int = 0) -> int:
-	"""Accept one primary expression; require brackets around operator expressions."""
+	"""接受单个基本表达式，含运算符的输入须用括号分组。"""
 	if start >= len(tokens):
 		return start
 	token = tokens[start]
@@ -263,7 +262,7 @@ def _numeric_literal(tokens: list[Token]) -> bool:
 
 
 def _static_prefix(parts: list[list[Token]], constants: dict[str, list[Token]]) -> str | None:
-	"""Resolve literal-only concatenation prefixes within the existing byte budget."""
+	"""在现有字节预算内解析只由字面量拼接而成的前缀。"""
 	values: list[str] = []
 	size = 0
 	for part in parts:
@@ -282,9 +281,8 @@ def _template(tokens: list[Token], constants: dict[str, list[Token]]) -> str | N
 	parts = _groups(tokens, "%")
 	if len(parts) == 2:
 		return _literal(parts[0], constants) if _operand_end(parts[1]) == len(parts[1]) or _numeric_literal(parts[1]) else None
-	# Redundant groups around the final formatted operand preserve precedence.
-	# Earlier operands must remain literal-only; output appended after formatting
-	# and dynamic prefixes are still outside this static template contract.
+	# 末尾格式化操作数周围的冗余括号不改变优先级。前面的操作数仍须是字面量，
+	# 动态前缀及格式化后拼接另行处理。
 	parts = _groups(tokens, "+")
 	if len(parts) > 1:
 		prefix = _static_prefix(parts[:-1], constants)
@@ -297,7 +295,7 @@ def _template(tokens: list[Token], constants: dict[str, list[Token]]) -> str | N
 		if len(value.encode("utf-8")) > MAX_TEMPLATE_BYTES:
 			raise SourceError("Expanded diagnostic template exceeds its byte budget.")
 		return value
-	# String.format parameters are runtime context, not template language.
+	# String.format 的参数属于运行时上下文。
 	for index in range(len(tokens) - 2):
 		if tokens[index].kind == "symbol" and tokens[index].value == "." and tokens[index + 1].kind == "identifier" and tokens[index + 1].value == "format" and tokens[index + 2].kind == "symbol" and tokens[index + 2].value == "(" and _closing(tokens, index + 2) == len(tokens) - 1:
 			return _literal(tokens[:index], constants)
@@ -348,7 +346,7 @@ def _format_issues(path: str, line: int, tokens: list[Token], constants: dict[st
 
 
 def _string_origins(tokens: list[Token], constants: dict[str, list[Token]], seen: set[str] | None = None) -> set[int]:
-	"""Avoid treating a resolved template fragment or opaque argument as a producer."""
+	"""识别字符串的实际生产位置，排除已解析的模板片段和不透明的实参。"""
 	if seen is None:
 		seen = set()
 	starts = {token.start for token in tokens if token.kind == "string"}
@@ -362,7 +360,7 @@ def _string_origins(tokens: list[Token], constants: dict[str, list[Token]], seen
 
 
 def _opaque_arguments(tokens: list[Token]) -> set[int]:
-	"""Track argument occurrences, not shared constant identities."""
+	"""按参数出现位置记录，而非按共享常量的身份合并。"""
 	indexes: set[int] = set()
 	for index, token in enumerate(tokens):
 		if token.kind == "symbol" and token.value == "%":
@@ -373,7 +371,7 @@ def _opaque_arguments(tokens: list[Token]) -> set[int]:
 
 
 def _function_contexts(tokens: list[Token], source: str) -> dict[int, str]:
-	"""Bind forwarding sites to lexical bodies, never the last preceding method."""
+	"""按词法函数体定位转发位置，避免误归于上方最近的另一方法。"""
 	lines = source.split("\n")
 	indents = [len(line) - len(line.lstrip(" \t")) for line in lines]
 	headers: dict[int, tuple[str, int, int]] = {}
@@ -408,6 +406,7 @@ def _issue(kind: str, path: str, line: int, message: str) -> dict[str, object]:
 
 
 def scan_source(path: str, source: str) -> dict[str, object]:
+	"""从给定的 GDScript 文本提取诊断调用、模板和问题，达到输入预算时停止。"""
 	issues: list[dict[str, object]] = []
 	calls: list[dict[str, object]] = []
 	templates: list[dict[str, object]] = []
@@ -416,9 +415,7 @@ def scan_source(path: str, source: str) -> dict[str, object]:
 		constants = _constant_values(tokens)
 		contexts = _function_contexts(tokens, source)
 		required_strings: set[int] = set()
-		# Formatting parameters are opaque runtime data even when their text
-		# happens to resemble a diagnostic code. The complete native expression
-		# is still validated below; producers outside it are checked separately.
+		# 格式化实参即使形似诊断码也属于运行时数据。下方校验整个输出表达式，其他位置的生产者单独检查。
 		opaque = _opaque_arguments(tokens)
 		consumed_strings = _string_origins([tokens[index] for index in sorted(opaque)], constants)
 		for index, token in enumerate(tokens):
@@ -468,8 +465,7 @@ def _validate_template(path: str, line: int, template: str, *, check_owner: bool
 		return [_issue("template_shape", path, line, "Expected [GFOwner][namespace.reason] followed by an English explanation.")], ""
 	code = match.group(2)
 	body = match.group(3)
-	# Ignore word separators here so acronym/numeric owners (UI, 3D, etc.)
-	# retain their existing snake_case spelling without a special-name table.
+	# 忽略单词分隔符，让 UI、3D 等缩写或含数字的名称保留现有的 snake_case 拼写。
 	owner_identity = match.group(1)[2:].lower() or "gf"
 	if check_owner and code.split(".", 1)[0].replace("_", "") != owner_identity:
 		issues.append(_issue("owner_namespace", path, line, "The diagnostic namespace must name its GF owner."))
@@ -508,6 +504,7 @@ def _forwarders(policy: object) -> list[dict[str, object]]:
 
 
 def audit_sources(sources: dict[str, str], policy: object) -> dict[str, object]:
+	"""按调用方提供的策略汇总诊断生产者、稳定 ID 与违规位置。"""
 	issues: list[dict[str, object]] = []
 	calls: list[dict[str, object]] = []
 	templates: list[dict[str, object]] = []
@@ -535,8 +532,7 @@ def audit_sources(sources: dict[str, str], policy: object) -> dict[str, object]:
 		templates.append(call)
 	for record in templates:
 		template = record["template"]
-		# Private forwarding producers may supply the code/body separately from
-		# a project-owned warning_prefix; native literal calls still need an owner.
+		# 私有转发可将代码、正文与项目自己的 warning_prefix 分开传入，直接输出字面量仍须标识所属组件。
 		without_owner = not template.startswith("[GF") and not record["callee"]
 		validated = "[GFDiagnostic]" + template if without_owner else template
 		template_issues, code = _validate_template(record["path"], record["line"], validated, check_owner=not without_owner)
@@ -562,7 +558,7 @@ def _result(files: int, calls: int, forwarded: int, codes: int, issues: list[dic
 
 
 def audit_files(root: Path, paths: list[Path], read_text: Callable[[Path], str]) -> dict[str, object]:
-	"""Use the maintenance invocation's inventory and strict text snapshot cache."""
+	"""使用本次维护调用的文件清单和严格文本快照缓存执行检查。"""
 	try:
 		policy = json.loads(read_text(root / POLICY_PATH), object_pairs_hook=_unique_object)
 		sources = {path.relative_to(root).as_posix(): read_text(path) for path in paths}

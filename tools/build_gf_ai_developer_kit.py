@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate, validate, build, and audit the optional GF AI Developer Kit."""
+"""从框架契约生成可选 AI 开发工具包，验证知识目录及最终插件归档。"""
 
 from __future__ import annotations
 
@@ -128,7 +128,7 @@ _PRIVATE_OWNED_ROOTS: dict[Path, Any] = {}
 
 @dataclass(frozen=True)
 class PluginSourceLimits:
-	"""Hard work budgets for collecting one AI Developer Kit source set."""
+	"""采集一次 AI 开发工具包源码集合时使用的硬上限。"""
 
 	max_directories: int = PLUGIN_SOURCE_DIRECTORY_LIMIT
 	max_files: int = PLUGIN_SOURCE_FILE_LIMIT
@@ -138,7 +138,7 @@ class PluginSourceLimits:
 
 @dataclass
 class PluginSourceBudget:
-	"""Mutable counters shared by all fixed and traversed plugin sources."""
+	"""记录已消耗的源码采集预算，固定文件与目录遍历共用同一份计数。"""
 
 	directories: int = 0
 	files: int = 0
@@ -219,7 +219,7 @@ class PluginSourceBudget:
 
 @dataclass(frozen=True)
 class PluginWorkLimits:
-	"""Invocation-level bounds for physical and logical plugin work."""
+	"""一次插件操作允许的物理读写量和逻辑工作量上限。"""
 
 	max_total_io_bytes: int = PLUGIN_INVOCATION_TOTAL_IO_BYTE_LIMIT
 	max_source_bytes: int = PLUGIN_INVOCATION_SOURCE_BYTE_LIMIT
@@ -233,7 +233,7 @@ class PluginWorkLimits:
 
 @dataclass
 class PluginWorkBudget:
-	"""Mutable counters shared by one build-and-audit invocation."""
+	"""在同一轮构建与验收之间共享的工作量计数器。"""
 
 	io_bytes: int = 0
 	source_bytes: int = 0
@@ -298,7 +298,7 @@ class PluginWorkBudget:
 
 
 class _BudgetedBinaryIO:
-	"""Charge every delegated binary read or write to one invocation budget."""
+	"""将代理的每次二进制读写计入本次调用的预算。"""
 
 	def __init__(
 		self,
@@ -409,7 +409,7 @@ class _BudgetedBinaryIO:
 
 @dataclass(frozen=True)
 class PluginArchivePreflight:
-	"""Bounded EOCD facts validated before ZipFile parses the directory."""
+	"""在 ZipFile 解析中央目录前已按上限核验的 ZIP 结束记录。"""
 
 	entry_count: int
 	central_directory_bytes: int
@@ -429,6 +429,7 @@ finally:
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""按选项校验源码、生成项目工具包或审计插件归档，并以结果决定退出状态。"""
 	configure_stdio()
 	parser = argparse.ArgumentParser(description="Build and validate the GF AI Developer Kit.")
 	parser.add_argument("--version", default="", help="GF SemVer used for the generated Codex plugin.")
@@ -525,8 +526,7 @@ def render_api_index() -> dict[str, Any]:
 		files_by_module.setdefault(module_id, []).append(path)
 	package_payload: list[dict[str, Any]] = []
 	for record in records:
-		# The generated API index belongs to this package but must not influence its
-		# own deterministic package summary when bootstrapping from a clean tree.
+		# 生成的 API 索引属于本包，但从干净目录引导时不能让该索引参与计算自身的包摘要。
 		representative_candidates = [
 			path for path in files_by_module.get(record["id"], [])
 			if path != API_INDEX_PATH.relative_to(ROOT).as_posix()
@@ -606,6 +606,7 @@ def write_api_index(payload: dict[str, Any] | None = None) -> None:
 
 
 def check_source(rendered_payload: dict[str, Any] | None = None) -> dict[str, Any]:
+	"""把工具包的实际知识文件和模板与预期生成内容对照，汇总缺失或不一致项。"""
 	issues: list[str] = []
 	payload: dict[str, Any] = {}
 	try:
@@ -1178,7 +1179,7 @@ def resolve_storage_backend_acceptance_engine(
 	environment: Mapping[str, str],
 	cwd: Path,
 ) -> str:
-	"""Resolve a real foreground Godot process before acceptance supervision."""
+	"""先解析真正位于前台的 Godot 可执行文件，以便监督实际运行验收的进程。"""
 	configured_environment = (
 		frozen_environment_value(environment, GODOT_EXECUTABLE_ENV_VAR) or ""
 	).strip()
@@ -1208,7 +1209,7 @@ def _verify_storage_acceptance_project_binding(
 	owner_root: Path,
 	cleanup_state: dict[str, bool] | None = None,
 ) -> Path:
-	"""Require one active exact binding to keep the process cwd pinned."""
+	"""要求工程目录仍匹配当前绑定，使进程的工作目录保持固定。"""
 	try:
 		absolute_owner_root = Path(os.path.abspath(owner_root))
 		registered = _registered_owned_binding_for(absolute_owner_root)
@@ -1246,7 +1247,7 @@ def _assert_storage_acceptance_empty_project(
 	try:
 		return _assert_owned_empty_directory(project_root, owner_root)
 	except FileExistsError:
-		# Stable non-emptiness is an ordinary setup rejection, not ownership debt.
+		# 已确认目录非空属于普通准备失败，目录本身的归属仍然明确。
 		raise
 	except BaseException:
 		cleanup_state["permitted"] = False
@@ -1254,7 +1255,7 @@ def _assert_storage_acceptance_empty_project(
 
 
 class _StorageAcceptanceTemporaryRoot:
-	"""Identity-pinned context manager for a supervised acceptance session."""
+	"""在受监督的验收会话内持有临时根目录的固定身份。"""
 
 	def __init__(self, *, prefix: str) -> None:
 		self.prefix = prefix
@@ -1278,7 +1279,7 @@ class _StorageAcceptanceTemporaryRoot:
 		try:
 			add_exception_note(error, f"{reason}: {root}")
 		except BaseException:
-			# Diagnostics must not replace the primary or revoke retention.
+			# 记录诊断时保留原始异常和已作出的保留目录决定。
 			pass
 		try:
 			attributes = BaseException.__getattribute__(error, "__dict__")
@@ -1339,8 +1340,7 @@ class _StorageAcceptanceTemporaryRoot:
 		self.root = root
 		self.owned_root_chain = _snapshot_absolute_directory_chain(root)
 
-		# Disarm automatic recursive deletion before any child can start. The guard
-		# covers interruption both before and after the finalizer actually detaches.
+		# 在子进程启动前解除临时目录的自动递归删除，即便清理器解绑前后被中断也要保留目录。
 		try:
 			owner._finalizer.detach()  # type: ignore[attr-defined]
 		except BaseException as detach_error:
@@ -1373,9 +1373,8 @@ class _StorageAcceptanceTemporaryRoot:
 		del error_type, traceback
 		primary_error = error
 		if error is not None:
-			# An exception may have escaped the supervisor after a partial start. Clean
-			# only when it carries an explicit positive no-child proof; every
-			# unclassified exception (including controls) retains the owned root.
+			# 异常可能发生在部分启动之后。只有确认没有子进程时才清理，否则保留本次拥有的目录，
+			# 包括中断退出的情况。
 			debt_state = _storage_acceptance_cleanup_debt_state(error)
 			if debt_state is False:
 				try:
@@ -1391,8 +1390,7 @@ class _StorageAcceptanceTemporaryRoot:
 					or error_proves_quiescence
 				)
 			else:
-				# Explicit, chained, or uninspectable debt always overrides an older
-				# pre-process cleanup authorization.
+				# 显式、异常链上或无法检查的清理欠项都优先于进程启动前取得的旧清理许可。
 				cleanup_permitted = False
 			self.cleanup_state["permitted"] = cleanup_permitted
 			if not cleanup_permitted:
@@ -1432,9 +1430,7 @@ class _StorageAcceptanceTemporaryRoot:
 				if retained_error is not primary_error:
 					raise retained_error from primary_error
 
-		# Returning false lets the interpreter re-raise the exact body exception;
-		# unlike contextlib's generator wrapper, this never dispatches through a
-		# hostile exception object's ``__traceback__`` descriptor.
+		# 返回 False 让解释器重新抛出原异常，避免生成器包装器访问异常对象自定义的 __traceback__ 描述符。
 		return False
 
 
@@ -1448,7 +1444,7 @@ def _storage_acceptance_temporary_root(
 def _storage_acceptance_cleanup_debt_state(
 	error: BaseException,
 ) -> bool | None:
-	"""Return cleanup debt only when exception marker access is trustworthy."""
+	"""仅当能够可信地读取异常标记时才判断是否存在未完成的清理。"""
 	seen: set[int] = set()
 	pending: list[BaseException] = [error]
 	while pending:
@@ -1523,8 +1519,7 @@ def _run_storage_acceptance_process(
 		cleanup_state["permitted"] = True
 		return result
 	except SupervisedProcessStartError as error:
-		# The supervisor proved no child was created and every owner boundary was
-		# closed, so legacy environment classification and ordinary cleanup are safe.
+		# 监督器已确认没有创建子进程且所有边界均已关闭，此时可按环境异常处理并正常清理。
 		original_error = error.original_error
 		cleanup_state["permitted"] = True
 		try:
@@ -1539,8 +1534,7 @@ def _run_storage_acceptance_process(
 					"No-child start error could not retain its positive boundary proof."
 				)
 		except BaseException:
-			# The wrapper itself is the authoritative proof. Marker diagnostics on a
-			# hostile original error must not replace that exact original exception.
+			# 包装异常本身携带确认结果，读取原异常上的诊断标记不能替换原异常。
 			pass
 		raise original_error from error
 	except Exception as error:
@@ -1553,7 +1547,7 @@ def _run_storage_acceptance_process(
 def run_storage_backend_template_acceptance(
 	godot_executable: str = "",
 ) -> dict[str, Any]:
-	"""Copy templates into a clean project, import them, and run their GUT suite."""
+	"""将模板复制到干净工程，实际导入并运行其 GUT 测试套件。"""
 	base_environment = dict(os.environ)
 	issues = validate_storage_backend_templates()
 	if issues:
@@ -1867,9 +1861,7 @@ def run_storage_backend_template_acceptance(
 					"lifecycle_ok": lifecycle_ok,
 				}
 	except WorkspaceProcessBoundaryError:
-		# A retained acceptance root and its ownership debt are part of the
-		# fail-closed boundary. Do not collapse them into an ordinary environment
-		# diagnostic that permits callers to continue without the preserved path.
+		# 保留验收目录时，错误必须同时携带目录位置和未完成的清理，调用方才能接管后续处理。
 		raise
 	except (OSError, RuntimeError, UnicodeError, ValueError) as exc:
 		if _storage_acceptance_cleanup_debt_state(exc) is not False:
@@ -2591,6 +2583,7 @@ def build_plugin_archive(
 	work_budget: PluginWorkBudget | None = None,
 	work_limits: PluginWorkLimits | None = None,
 ) -> None:
+	"""将插件暂存到目标目录内再发布。版本须是精确 SemVer，输出的父目录须已存在。"""
 	if _parse_exact_semver(version) is None:
 		raise ValueError(f"Plugin version must be SemVer: {version!r}")
 	active_work_budget = work_budget or PluginWorkBudget()
@@ -3187,6 +3180,7 @@ def audit_plugin_archive(
 	work_budget: PluginWorkBudget | None = None,
 	work_limits: PluginWorkLimits | None = None,
 ) -> dict[str, Any]:
+	"""根据插件交付契约检查归档成员、内容与结构，将不一致项保留在审计结果中。"""
 	active_work_budget = work_budget or PluginWorkBudget()
 	active_work_limits = work_limits or PluginWorkLimits()
 	issues: list[str] = []
@@ -3896,7 +3890,7 @@ class _OwnedTargetBinding:
 
 
 class _OwnedRootBinding:
-	"""Pin an existing root and create targets only below pinned parents."""
+	"""固定现有根目录的身份，只在同样已固定的父目录内创建目标。"""
 
 	def __init__(self, root: Path) -> None:
 		self.root = Path(os.path.abspath(root))
@@ -4053,7 +4047,7 @@ class _OwnedRootBinding:
 		return absolute_directory
 
 	def require_registered_directory(self, directory: Path) -> Path:
-		"""Require an existing directory already pinned by this exact binding."""
+		"""要求目录已存在且由当前绑定登记，以免其他绑定误用其所有权。"""
 		self.verify()
 		absolute_directory, _absolute_root = _absolute_owned_path(
 			directory,
@@ -4160,9 +4154,7 @@ class _OwnedRootBinding:
 				"Owned publication source identity changed."
 			)
 		self.verify()
-		# The atomic rename below is the publication commit point. A later
-		# durability or identity check can still fail after the target changed,
-		# so callers must treat such an exception as an ambiguous commit result.
+		# 原子重命名即发布点。后续持久化或身份检查失败时目标可能已经改变，调用方须核实实际发布状态。
 		if os.name == "nt":
 			target_parent_handle = self._ensure_windows_directory(
 				absolute_target.parent
@@ -4832,7 +4824,7 @@ def _windows_handle_file_index(handle: int) -> int:
 
 @lru_cache(maxsize=1)
 def _windows_file_information_api() -> tuple[Any, type]:
-	"""Reuse ABI definitions only; each caller still queries live handle identity."""
+	"""复用 ABI 声明，每位调用方仍需核对当前句柄的实际身份。"""
 	import ctypes
 	from ctypes import wintypes
 
@@ -4973,7 +4965,7 @@ def _mark_storage_owned_cleanup_debt(
 
 
 class _PrivateOwnedRoot:
-	"""Pin and register one process-created private target root."""
+	"""为当前进程创建的私有根目录登记并固定身份。"""
 
 	def __init__(self, root: Path) -> None:
 		self.requested_root = root
@@ -5553,7 +5545,7 @@ def _assert_owned_empty_directory(
 	directory: Path,
 	owner_root: Path,
 ) -> Path:
-	"""Pin and verify an existing owned directory before first population."""
+	"""首次填充目录前核对并固定已有空目录的身份。"""
 	absolute_directory, directory_before = _assert_owned_path(
 		directory,
 		owner_root,

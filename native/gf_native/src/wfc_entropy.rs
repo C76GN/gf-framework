@@ -1,4 +1,4 @@
-//! Entropy-based tiled WFC. Directional masks and fixed cells arrive in GF declaration order.
+//! 按 GF 声明顺序解释方向约束和固定格，以加权熵选择待折叠格子。
 use godot::builtin::{PackedFloat64Array, PackedInt32Array, PackedInt64Array};
 use godot::prelude::*;
 use std::collections::{HashMap, VecDeque};
@@ -17,8 +17,8 @@ impl GfWfcEntropyBackend {
         1
     }
 
-    // Empty rules permit every neighbor. An empty result requests the portable solver.
-    // Otherwise the header contains steps and COMPLETE, STEP_LIMIT, or a contradiction cell.
+    /// 空规则允许所有相邻组合。结果前两项为步数和终止状态，空结果表示需要脚本回退。
+    /// 终止状态为 `-1` 表示完成，`-2` 表示步数耗尽，非负值是出现矛盾的格子索引。
     #[func]
     #[allow(clippy::too_many_arguments)]
     fn solve_entropy(
@@ -52,7 +52,8 @@ fn draw(state: &mut u32) -> f64 {
     f64::from(*state) / 4294967296.0
 }
 
-// Each cell returns its low word followed by its high word for tilesets above 64 entries.
+/// 返回步数、终止原因以及各格的候选位集。超过 64 种瓦片时每格按低字、高字排列。
+/// 输入尺寸、权重或规则超出后端支持范围时返回 `None`，由适配层回退。
 fn solve(
     size: Vector2i,
     packed_rules: &[i64],
@@ -95,7 +96,7 @@ fn solve(
     let equal_weights = weights.iter().all(|w| *w == weights[0]);
     let mut uniform_entropies = [None; 129];
     let mut entropies = HashMap::new();
-    // Zero marks a cell with no fixed assignment until initialization completes.
+    // 初始化期间用零区分尚未固定的格子，填充完整候选集之前可据此发现重复指定。
     let mut domains = vec![0; count];
     let mut steps = 0;
     let mut rng = if seed == 0 { 0x6d2b79f5 } else { seed };
@@ -163,6 +164,7 @@ fn solve(
     }
 }
 
+/// 原地收紧相邻格的候选集。返回首个候选集变空的格号，队列耗尽时返回 `None`。
 fn propagate(
     domains: &mut [u128],
     queue: &mut VecDeque<usize>,
@@ -265,7 +267,7 @@ fn entropy(domain: u128, weights: &[f64]) -> f64 {
     godot::global::log(sum) - weighted_log / sum
 }
 
-// Right, left, down, up. Equal-cost ties in GF's queue preserve insertion order.
+/// 按规则表的右、左、下、上顺序返回邻格，周期边界回绕，普通边界的越界位置为 `None`。
 fn neighbors(cell: usize, size: Vector2i, periodic: bool) -> [Option<usize>; 4] {
     let width = size.x as usize;
     let x = (cell % width) as i32;

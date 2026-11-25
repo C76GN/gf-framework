@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFSegmentVisibility2D" path="addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd" module="standard" extends="RefCounted" classDigest="f5b2c96467fce5871aa5bba73ce1f38f9ee24e98731d5180dc25303263823b84">
+<class name="GFSegmentVisibility2D" path="addons/gf/standard/foundation/math/gf_segment_visibility_2d.gd" module="standard" extends="RefCounted" classDigest="794dff9a15ffdfca7c77704a1bbf99b4e5abd6215eed8c052f859f346822da86">
 	<description>GFSegmentVisibility2D: 按稳定端点身份计算有界整数闭线段之间的可见图层。
 每份拓扑独立持有已校验的数据，单对查询与批量输出采用相同的接触规则。</description>
 	<tags>
@@ -97,7 +97,7 @@
 				<tag name="param">max_pairs: 输出点对预算，范围 0 至 MAX_PAIRS。</tag>
 				<tag name="param">max_segment_tests: 点对数乘以输入障碍数的预算，范围 0 至 MAX_SEGMENT_TESTS。</tag>
 				<tag name="return">独立的批量结果。零或一个点合法，成功时数组为空。</tag>
-				<tag name="schema">return: Dictionary，含 ok（bool）、error（StringName）、masks（调用方持有的 PackedInt64Array）。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。</tag>
+				<tag name="schema">return: Dictionary，含 ok（bool）、error（StringName）、backend（StringName）和 masks（调用方持有的 PackedInt64Array）。backend 为实际执行的 gdscript 或 native，准入失败时为空。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。</tag>
 				<tag name="since">unreleased</tag>
 			</tags>
 		</member>

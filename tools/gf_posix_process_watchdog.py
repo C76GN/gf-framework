@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""POSIX process-tree watchdog for invocation-owned long-lived services.
+"""为本次调用拥有的长期服务监督 POSIX 进程树。
 
-The watchdog is intentionally a separate session and the direct parent of the
-service.  Parent-pipe EOF, an authenticated CANCEL message, or the immutable
-monotonic deadline all enter the same kill-group/reap/confirm state machine.
+看门狗在独立会话中直接启动服务。父管道关闭、经过验证的取消消息或单调截止时间到期，
+都进入同一套终止进程组、回收子进程和确认清理的流程。
 """
 
 from __future__ import annotations
@@ -53,7 +52,7 @@ def _read_initial_config(
 	control_fd: int,
 	bootstrap_deadline_ns: int,
 ) -> tuple[dict[str, Any], bytearray]:
-	"""Read exactly one bounded CONFIG frame while retaining later control bytes."""
+	"""只读取一帧有长度上限的 CONFIG，保留紧随其后的控制字节。"""
 	buffer = bytearray()
 	os.set_blocking(control_fd, False)
 	while True:
@@ -175,9 +174,8 @@ def _spawn_service(
 	try:
 		service_pid = os.fork()
 	except BaseException:
-		# If fork returned in the parent but asynchronous control flow interrupted
-		# its STORE_FAST, closing the only guard writer makes the not-yet-execed
-		# service child exit instead of becoming an orphan.
+		# fork 已在父进程返回而尚未保存结果时可能遇到中断。关闭唯一的保护管道写端，
+		# 可让尚未 exec 的服务子进程自行退出。
 		_close_fd(guard_write_fd)
 		_close_fd(guard_read_fd)
 		_close_fd(error_write_fd)
@@ -239,7 +237,7 @@ def _spawn_service(
 		_close_fd(identity_read_fd)
 		if int(identity_payload.decode("ascii").strip()) != service_pid:
 			raise RuntimeError("watchdog service identity handshake failed")
-		# This publication precedes every other fallible parent-side operation.
+		# 先公布创建结果，再进行其他可能失败的父进程操作。
 		ownership_guard[0] = service_pid
 		_close_fd(guard_read_fd)
 		_close_fd(error_write_fd)
@@ -286,12 +284,11 @@ def _read_child_identity(identity_fd: int, deadline_ns: int) -> bytes:
 
 
 def _settle_unknown_service_child() -> bool:
-	"""Reap the helper's only possible child without ever signalling a raw id."""
+	"""回收看门狗唯一可能的子进程，避免向身份不明的数值 PID 发信号。"""
 	reap_inflight = False
 	while True:
 		if reap_inflight:
-			# waitpid may already have consumed the only identity. Fail closed and
-			# retain this helper forever rather than publish a false no-child proof.
+			# waitpid 可能已经消耗唯一可用的进程身份。无法确认时保留看门狗，避免误报从未创建子进程。
 			time.sleep(0.05)
 			continue
 		reap_inflight = True
@@ -337,17 +334,16 @@ def _direct_exit_observed(service_pid: int) -> bool:
 			os.WEXITED | os.WNOHANG | os.WNOWAIT,
 		)
 	except ChildProcessError:
-		# ECHILD is not a reap proof. The PID/PGID authority may already have
-		# been released, so callers must stop signalling and fail closed.
+		# ECHILD 无法证明由本次调用完成回收。PID 或 PGID 可能已释放，此时须停止发信号。
 		raise
 	except BaseException:
-		# Unknown is live for cleanup purposes. The persistent loop will retry.
+		# 清理时将未知状态按仍然存活处理，持续清理循环会重试。
 		return False
 	return status is not None and int(getattr(status, "si_pid", 0)) == service_pid
 
 
 def _process_group_state(process_group_id: int) -> tuple[bool, bool]:
-	"""Return (group_found, live_member_found) without signalling a reused PGID."""
+	"""返回是否找到进程组及是否发现存活成员，查询过程中避免向已复用的 PGID 发信号。"""
 	proc_root = Path("/proc")
 	if not proc_root.is_dir():
 		try:
@@ -396,7 +392,7 @@ def _process_group_state(process_group_id: int) -> tuple[bool, bool]:
 
 
 def _preflight_procfs_visibility(deadline_ns: int) -> None:
-	"""Require one full, bounded, parseable Linux process-table snapshot."""
+	"""要求取得一份完整、可解析且在预算内的 Linux 进程表快照。"""
 	proc_root = Path("/proc")
 	if not proc_root.is_dir():
 		raise RuntimeError("watchdog requires a mounted Linux /proc")
@@ -426,7 +422,7 @@ def _preflight_procfs_visibility(deadline_ns: int) -> None:
 					with open(Path(entry.path) / "stat", "rb") as stream:
 						payload = stream.read(PROC_STAT_MAX_BYTES + 1)
 				except FileNotFoundError:
-					# Concurrent exit is not a visibility failure.
+					# 进程在枚举期间正常退出不算可见性故障。
 					continue
 				if len(payload) > PROC_STAT_MAX_BYTES:
 					raise RuntimeError("watchdog procfs stat exceeded its byte budget")
@@ -465,11 +461,10 @@ def _terminate_and_reap(
 	trigger: str,
 	terminal_guard: dict[str, Any],
 ) -> tuple[int, bool, bool]:
-	"""Persistently kill, reap, and prove the owned group empty.
+	"""持续终止、回收并确认本次拥有的进程组为空。
 
-	The direct child remains waitable until the group proof is complete.  A
-	one-shot signal is not sufficient evidence: a transient signal failure must
-	not turn the watchdog into a permanent live-group polling loop.
+	取得进程组确实清空的证据前，直接子进程保持可等待。发送信号可能暂时失败，须继续尝试终止，
+	不能只轮询仍存活的进程组。
 	"""
 	if terminal_guard.get("reaped") is True:
 		return (
@@ -521,8 +516,7 @@ def _terminate_and_reap(
 		if not authority_lost and not reap_uncertain:
 			signal_owned_group()
 		if reap_uncertain:
-			# waitpid may have consumed the kernel identity before Python could
-			# publish its return value. Never touch the raw PID/PGID again.
+			# Python 保存返回值前，waitpid 可能已经释放内核身份。此后不能复用原始 PID 或 PGID。
 			direct_exited = False
 			live_member_found = True
 		else:
@@ -541,14 +535,12 @@ def _terminate_and_reap(
 			try:
 				terminal_guard["reap_inflight"] = True
 				wait_result = os.waitpid(service_pid, 0)
-				# First post-syscall publication: once this is true no exception
-				# path may ever signal or scan the released raw identity again.
+				# 系统调用后首先公布此状态。此后即便抛出异常也不能再按原身份扫描或发送信号。
 				terminal_guard["reaped"] = True
 			except ChildProcessError:
 				authority_lost = True
 			except BaseException:
-				# The syscall may have succeeded before CALL returned to STORE_FAST.
-				# Retain a fail-closed helper forever, but never signal a reusable id.
+				# 系统调用可能已成功但尚未保存结果。保留看门狗处理不确定状态，不能再用可被回收的标识发送信号。
 				reap_uncertain = True
 			else:
 				try:
@@ -590,6 +582,7 @@ def _terminate_and_reap(
 
 
 def main() -> int:
+	"""从父进程建立控制协议并监督服务，结束时通过退出状态和协议报告清理结果。"""
 	args = _parse_args()
 	control_fd = args.control_fd
 	status_fd = args.status_fd
@@ -620,8 +613,8 @@ def main() -> int:
 		if time.monotonic_ns() >= deadline_ns:
 			raise TimeoutError("watchdog deadline expired before service spawn")
 		_preflight_procfs_visibility(deadline_ns)
-		# SIG_IGN/SA_NOCLDWAIT survives exec on POSIX. Restore a waitable child
-		# contract before fork so ECHILD can never be mistaken for our reap proof.
+		# POSIX 的 SIG_IGN/SA_NOCLDWAIT 会跨 exec 保留。fork 前恢复可等待的子进程语义，
+		# 避免把 ECHILD 当作回收证明。
 		signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 		os.set_blocking(control_fd, False)
 		exec_error_fd = _spawn_service(
@@ -696,11 +689,8 @@ def main() -> int:
 									"process_group_id": service_pid,
 								})
 							except BaseException as error:
-								# Once READY cannot be observed, keeping the service alive
-								# would leave the parent with no authenticated authority
-								# evidence. Enter the same persistent cleanup path now;
-								# terminal status publication may also fail, but tree cleanup
-								# remains independent of the status channel.
+								# 父进程无法观察 READY 时已失去经验证的服务身份，应立即转入持续清理。即使终态也无法送达，
+								# 仍须独立完成进程树清理。
 								primary_error = error
 								trigger = "status_error"
 								break
@@ -730,7 +720,7 @@ def main() -> int:
 					)
 					break
 				except BaseException:
-					# A hostile checkpoint must not bypass the only cleanup authority.
+					# 检查点即便抛出异常也必须保留唯一具备清理权限的路径。
 					continue
 			cancelled = trigger == "cancel" and termination_cancelled
 			try:

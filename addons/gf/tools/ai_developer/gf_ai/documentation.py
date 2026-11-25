@@ -289,8 +289,7 @@ def _scan_documentation(
 					continue
 				if _is_link_or_reparse(candidate, metadata):
 					if name.casefold().endswith(".md"):
-						# Markdown-shaped unsafe entries share the regular-file
-						# budget, so unsafe_file_path_count cannot escape it.
+						# 疑似 Markdown 的不安全路径也占普通文件的预算，unsafe_file_path_count 因此受同一上限约束。
 						file_names.append(name)
 					else:
 						unsafe_directory_count += 1
@@ -439,8 +438,7 @@ def _bounded_directory_entry_names(
 		with os.scandir(path) as entries:
 			for entry in entries:
 				if len(names) >= remaining_entries:
-					# The single extra DirEntry proves truncation. Its name is
-					# never retained/sorted, and its path is never stat'ed or read.
+					# 多读一个目录项即可证明遍历被截断，无需保留或排序它的名称，也无需读取其文件状态和内容。
 					return tuple(sorted(names)), True, False
 				names.append(entry.name)
 	except OSError:
@@ -548,8 +546,7 @@ def _markdown_contexts(text: str) -> bytearray:
 		if fence_character:
 			container_content = _strip_container_content(content, fence_containers)
 			if container_content is None:
-				# CommonMark closes an unclosed fence at the end of its quote/list
-				# container. Reprocess this physical line outside that container.
+				# CommonMark 在引用或列表容器结束处关闭未闭合的围栏，当前物理行须在容器外重新解析。
 				fence_character = ""
 				fence_length = 0
 				fence_containers = ()
@@ -619,9 +616,8 @@ def _mark_inline_code_and_html_comments(
 	*,
 	html_comment_open: bool,
 ) -> bool:
-	# Closed code spans bind before raw inline HTML. Marking them first lets a
-	# literal ``<!--`` inside code remain code, while a real comment can then
-	# overwrite every code-looking delimiter inside its disabled range.
+	# 先标记已经闭合的代码片段，让其中的 `<!--` 保持字面含义。
+	# 真正的 HTML 注释再覆盖自身范围内的定界符。
 	_mark_inline_code_segment(text, contexts, line_start, line_end)
 	cursor = line_start
 	if html_comment_open:
@@ -653,8 +649,7 @@ def _mark_inline_code_and_html_comments(
 
 
 def _same_line_html_comment_closing_end(text: str, opening: int, line_end: int) -> int | None:
-	# CommonMark also accepts the two empty comment forms ``<!-->`` and
-	# ``<!--->``. They must not leave the rest of the document disabled.
+	# CommonMark 的空注释也可以写成 `<!-->` 或 `<!--->`，两种形式都在当处结束。
 	if text.startswith("<!-->", opening, line_end):
 		return opening + 5
 	if text.startswith("<!--->", opening, line_end):

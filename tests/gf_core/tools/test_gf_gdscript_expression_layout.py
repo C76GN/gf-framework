@@ -1,4 +1,4 @@
-"""Complete-expression formatting contracts shared by diagnostics and migration."""
+"""用完整 GDScript 表达式验证诊断与迁移工具采用同一套空白判定。"""
 
 from __future__ import annotations
 

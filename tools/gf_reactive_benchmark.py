@@ -41,7 +41,7 @@ REPORT_KIND = "gf_reactive_benchmark"
 
 
 class _ProcessCPU:
-	"""Exact direct-process accounting on Windows; no synthetic POSIX substitute."""
+	"""在 Windows 上准确统计直接进程的 CPU 用量，其他平台不以估算值代替。"""
 
 	def __init__(self) -> None:
 		self.handle: Any = None
@@ -186,6 +186,7 @@ def _summarize(runs: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
+	"""在独立 Godot 工程中运行响应式基准，报告测量样本、样本身份和本次运行是否有效。"""
 	output = _validate_output(args.output)
 	godot = args.godot.resolve(strict=True)
 	if not godot.is_file():
@@ -236,9 +237,8 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 			boundary_quiescent = result.process_boundary_quiescent is True
 		except BaseException as error:
 			run_error = error
-			# The supervisor rethrows our exact callback exception only after quiet
-			# cleanup; unproven cleanup instead wraps it in CleanupError. Generic
-			# supervision failures carry no positive proof and retain the sandbox.
+			# 监督器在确认清理完毕后才重新抛出原回调异常；无法确认时以 CleanupError 保留原因。
+			# 其他监督错误缺少终止证明，应保留隔离工程。
 			boundary_quiescent = (
 				((isinstance(error, SupervisedProcessStartError) and error.process_boundary_quiescent is True)
 					or error is callback_error)
@@ -276,7 +276,7 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 	try:
 		stage_metadata = stage.stat()
 		stage_identity = (stage_metadata.st_dev, stage_metadata.st_ino)
-		# Establish ownership before any project or environment staging can fail.
+		# 在写入工程或准备运行环境之前先建立所有权，以便任一阶段失败时正确清理。
 		(stage / "owner.receipt").write_bytes(owner_bytes)
 		report["stage"] = str(stage)
 		project = stage / "project"
@@ -302,9 +302,7 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 		log_root.mkdir(parents=True)
 		report["fixture_sha256"] = _sha256(project / "benchmark.gd")
 		report["runner_sha256"] = _sha256(Path(__file__))
-		# Bind fixture identity to the bytes the private Godot project consumes.
-		# A source edit after copying must be detected, not adopted as the identity
-		# of an older staged fixture.
+		# 按私有 Godot 工程实际消费的字节绑定样本身份。复制后变化的源文件不能被误认为暂存副本的身份。
 		inputs_manifest = [{"path": str(Path(__file__).resolve().relative_to(ROOT)), "sha256": report["runner_sha256"]}]
 		for source_name, staged_name in (("project.godot.fixture", "project.godot"), ("reactive_pull_benchmark.gd", "benchmark.gd")):
 			inputs_manifest.append({
@@ -340,8 +338,7 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 		report["error"] = safe_exception_detail(error)
 		raise
 	finally:
-		# Only delete this exact created sandbox with its unchanged ownership receipt,
-		# after the supervisor has proven the last process boundary quiescent.
+		# 只有监督器确认最后一棵进程树已停止，且目录仍匹配创建时的凭据，才能删除这个隔离工程。
 		try:
 			report["stage"] = str(stage)
 			can_cleanup = (
@@ -370,6 +367,7 @@ def run_benchmark(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def main() -> int:
+	"""按命令行配置运行隔离基准并输出结果，以证据是否有效决定退出状态。"""
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--godot", type=Path, required=True, help="Explicit trusted Godot executable.")
 	parser.add_argument("--output", type=Path, default=ROOT / "build/reactive-benchmark.json")

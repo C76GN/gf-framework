@@ -116,6 +116,8 @@
 
 ## 3. 注释风格
 
+GDScript 声明文档、Rust 的 rustdoc、Python 的 Google 风格 docstring 及中英文选择见 [GF 源码文档注释规范](docs/maintainers/source-comments.md)。
+
 声明文档用于说明职责、使用约束和维护者需要知道的事实；函数体注释用于解释**“为什么”**。`##` 表示绑定到声明的文档，`@api` 决定可见性：公开、可重写和内部协作 API 必须用 `##` 明确标注，私有声明必须用 `## @api private` 编写维护文档。生成器只收录显式公开投影，文档化不会把私有实现变成公开 API。完整可见性、类型分类和迁移标记规则见仓库根目录的 `API_SURFACE.md`。
 
 ### 3.1 文件级注释

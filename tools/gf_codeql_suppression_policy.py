@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject CodeQL suppressions and configuration escape hatches in tracked sources."""
+"""检查已跟踪的源码和配置，报告偏离仓库 CodeQL 抑制策略的记录。"""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ def audit_tracked_sources(
 	tracked_paths: list[str],
 	git_error: str = "",
 ) -> dict[str, object]:
-	"""Audit only the explicit tracked-file inventory supplied by the maintenance runner."""
+	"""按维护运行器显式提供的 Git 跟踪清单进行审计。"""
 	issues: list[dict[str, object]] = []
 	if git_error:
 		issues.append(_issue(
@@ -152,7 +152,7 @@ def _audit_tracked_path_inventory(
 
 
 def audit_python_source(path: str, source: str) -> tuple[list[dict[str, object]], int]:
-	"""Reject suppression comment tokens while ignoring directive-looking string content."""
+	"""只从 Python 注释 token 中检查抑制指令，避免将字符串中的样例误判为抑制。"""
 	issues: list[dict[str, object]] = []
 	try:
 		tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
@@ -193,7 +193,7 @@ def audit_python_source(path: str, source: str) -> tuple[list[dict[str, object]]
 
 
 def audit_codeql_config(path: str, source: str) -> list[dict[str, object]]:
-	"""Conservatively reject broad CodeQL escape hatches from YAML mapping keys."""
+	"""从 YAML 映射键检查可能放宽仓库扫描范围的 CodeQL 配置。"""
 	if path.lower().endswith(".qls"):
 		return [_issue(
 			"codeql_suppression.custom_queries_forbidden",
@@ -397,7 +397,7 @@ def _yaml_mapping_key_lines(
 
 
 def _yaml_without_block_plain_value(line: str) -> str:
-	# Flow indicators embedded in a block plain value are text, not new nodes.
+	# 块级普通标量中的流式标点属于文本，不另起 YAML 节点。
 	key_pattern = r'''(?:"(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^\s\[\]{},&*!|>'"%@`?:][^:]*?)'''
 	match = re.match(rf"^\s*(?:-\s+)?{key_pattern}\s*:\s+", line)
 	if match is None:

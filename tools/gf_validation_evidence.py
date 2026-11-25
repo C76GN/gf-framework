@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
-"""Bounded in-memory evidence records for GF validation shadow mode.
+"""在内存中记录只观察模式的动作内容和实际执行证据。
 
-This module deliberately cannot skip validation or persist evidence.  It only
-constructs content-addressed action material, records actual executions, and
-reports only whether an execution meets structural conditions that a future
-acceptance policy might evaluate.  The acceptance decision remains
-fail-closed: execute in shadow-only mode.
+记录仅表明一次执行是否具备可评估的结构条件，验证照常执行。此模块不持久化证据，
+也不决定复用或跳过检查。
 """
 
 from __future__ import annotations
@@ -64,7 +61,7 @@ _HEX_DIGITS = frozenset("0123456789abcdef")
 
 
 class ValidationEvidenceError(ValueError):
-	"""Raised when validation evidence is incomplete, unsafe, or over budget."""
+	"""验证证据不完整、不安全或超出采集预算。"""
 
 
 @dataclass
@@ -88,7 +85,7 @@ class _JsonBudget:
 
 
 def canonical_json_bytes(value: Any) -> bytes:
-	"""Encode a bounded JSON value with deterministic ordering and finite numbers."""
+	"""按确定顺序编码有界 JSON 值，数值必须有限。"""
 	normalized = _normalize_json_value(
 		value,
 		budget=_JsonBudget(),
@@ -111,7 +108,7 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 
 def canonical_json_sha256(value: Any, *, domain: bytes = b"") -> str:
-	"""Return a domain-separated SHA-256 digest for bounded canonical JSON."""
+	"""在给定用途的摘要域内计算规范 JSON 字节的 SHA-256。"""
 	if type(domain) is not bytes or len(domain) > MAX_IDENTIFIER_BYTES:
 		raise ValidationEvidenceError("Canonical JSON hash domain is invalid.")
 	digest = hashlib.sha256()
@@ -182,7 +179,7 @@ def _normalize_json_value(
 
 @dataclass(frozen=True, init=False)
 class ActionKeyMaterial:
-	"""Validated material used to identify one validation action."""
+	"""用于标识一次验证动作的已校验输入。"""
 
 	action_name: str
 	implementation_epoch: int
@@ -284,6 +281,7 @@ class ActionKeyMaterial:
 
 	@property
 	def action_key(self) -> str:
+		"""将完整动作材料置于独立的动作摘要域内计算稳定身份。"""
 		return canonical_json_sha256(self.to_dict(), domain=ACTION_KEY_DOMAIN)
 
 	def to_dict(self) -> dict[str, Any]:
@@ -305,11 +303,12 @@ class ActionKeyMaterial:
 
 
 def make_action_key_material(**kwargs: Any) -> ActionKeyMaterial:
-	"""Construct validated ActionKey material without accepting free-form payloads."""
+	"""从已定义的字段构造并校验动作身份材料。"""
 	return ActionKeyMaterial(**kwargs)
 
 
 def action_key_for_material(material: ActionKeyMaterial) -> str:
+	"""仅从经过校验的 ActionKeyMaterial 读取动作身份，拒绝自由格式对象。"""
 	if not isinstance(material, ActionKeyMaterial):
 		raise ValidationEvidenceError("Action key material has an invalid type.")
 	return material.action_key
@@ -317,7 +316,7 @@ def action_key_for_material(material: ActionKeyMaterial) -> str:
 
 @dataclass(frozen=True, init=False)
 class ExecutionEvidence:
-	"""One actual execution observation; reused records are forbidden in phase one."""
+	"""记录一次实际执行的观察结果，现有观察流程只接受本轮执行的记录。"""
 
 	action_key: str
 	action_name: str
@@ -430,9 +429,8 @@ class ExecutionEvidence:
 		)
 		object.__setattr__(self, "result_fingerprint", validated_result_fingerprint)
 		object.__setattr__(self, "invocation_id", validated_invocation_id)
-		# Phase one only records local/self-asserted observations. Trusted authority
-		# must later come from a protected attestation verifier, never a constructor
-		# argument or untrusted JSON field.
+		# 现阶段只记录本地自述的观察结果。受信权威须由受保护的证明验证器建立，
+		# 不能由构造参数或外部 JSON 自行声明。
 		object.__setattr__(
 			self,
 			"evidence_authority",
@@ -444,6 +442,7 @@ class ExecutionEvidence:
 
 	@property
 	def structurally_reusable_candidate(self) -> bool:
+		"""返回本次观察是否满足结构条件，仅供比较，实际验证仍须执行。"""
 		return (
 			self.input_complete
 			and self.execution == EXECUTION_EXECUTED
@@ -460,13 +459,14 @@ class ExecutionEvidence:
 
 	@property
 	def evidence_fingerprint(self) -> str:
+		"""计算整份执行观察的摘要，便于区分动作相同但观测内容不同的记录。"""
 		return canonical_json_sha256(
 			self.to_dict(),
 			domain=EVIDENCE_FINGERPRINT_DOMAIN,
 		)
 
 	def semantic_result(self) -> dict[str, Any]:
-		"""Return result semantics while excluding run-specific metadata and logs."""
+		"""提取执行结果的语义字段，排除本轮特有的日志与元数据。"""
 		return {
 			"outcome": self.outcome,
 			"exit_code": self.exit_code,
@@ -509,13 +509,13 @@ def make_execution_evidence(
 	material: ActionKeyMaterial,
 	**kwargs: Any,
 ) -> ExecutionEvidence:
-	"""Record one actual execution and derive structural eligibility only."""
+	"""登记一次真实执行，仅推导结构上是否具备候选条件。"""
 	return ExecutionEvidence(material, **kwargs)
 
 
 @dataclass(frozen=True)
 class EvidenceComparison:
-	"""Semantic comparison for two execution observations."""
+	"""两份执行观察之间的语义对照结果。"""
 
 	relation: str
 	conflict: bool
@@ -533,7 +533,7 @@ def compare_evidence(
 	left: ExecutionEvidence,
 	right: ExecutionEvidence,
 ) -> EvidenceComparison:
-	"""Compare contract results while ignoring timing and run-specific metadata."""
+	"""比较契约约定的执行结果，忽略耗时及特定运行的元数据。"""
 	if not isinstance(left, ExecutionEvidence) or not isinstance(right, ExecutionEvidence):
 		raise ValidationEvidenceError("Evidence comparison requires execution evidence.")
 	if left.action_key != right.action_key:
@@ -563,7 +563,7 @@ def compare_evidence(
 
 @dataclass(frozen=True, init=False)
 class AcceptanceDecision:
-	"""A phase-one fail-closed decision that can never authorize a skip."""
+	"""只观察模式的保守判定，任何结果都要求实际执行检查。"""
 
 	action_key: str
 	decision: str
@@ -622,7 +622,7 @@ def decide_shadow_acceptance(
 	evidence: ExecutionEvidence | None = None,
 	conflict_detected: bool = False,
 ) -> AcceptanceDecision:
-	"""Always execute; evidence can only be observed as a shadow candidate."""
+	"""记录观察证据的候选状态，检查照常执行。"""
 	validated_action_key = _validated_sha256("action_key", action_key)
 	if type(conflict_detected) is not bool:
 		raise ValidationEvidenceError("conflict_detected must be a boolean.")
@@ -658,7 +658,7 @@ def build_shadow_evidence_report(
 	material: ActionKeyMaterial,
 	evidence_records: Sequence[ExecutionEvidence],
 ) -> dict[str, Any]:
-	"""Build a bounded report without persisting evidence or changing execution."""
+	"""在规定预算内生成观察报告，整个过程不持久化证据也不改变检查执行。"""
 	if not isinstance(material, ActionKeyMaterial):
 		raise ValidationEvidenceError("Shadow report requires ActionKey material.")
 	if type(evidence_records) not in (list, tuple):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a compact AI-facing API index for GF GDScript files."""
+"""从 GF 的 GDScript 声明生成供维护工具检索的精简 API 索引。"""
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ REFERENCE_DEFINITION_PATTERN = re.compile(r"^\s{0,3}\[[^\]\n]+\]:\s+\S+")
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""按 CLI 选择生成或核验维护用 API 索引，返回脚本退出码供调用方汇总。"""
 	parser = argparse.ArgumentParser(description="Generate GF AI API docs.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--output", default="ai_analysis/generated_api", help="Output directory.")
@@ -415,6 +416,7 @@ def check_wiki_coverage(api_owners: list[ApiOwner], wiki_root: Path) -> int:
 
 
 def markdown_mentions_identifier(text: str, identifier: str) -> bool:
+	"""判断文档是否提到完整标识符，避免把其他较长名称中的子串计作覆盖。"""
 	if not identifier:
 		return False
 	return re.search(
@@ -424,7 +426,7 @@ def markdown_mentions_identifier(text: str, identifier: str) -> bool:
 
 
 def visible_markdown_text(text: str) -> str:
-	"""Return only text rendered as page prose or link labels."""
+	"""仅返回渲染成正文或链接标签的 Markdown 文本。"""
 	without_comments = HTML_COMMENT_PATTERN.sub("", text)
 	visible_lines: list[str] = []
 	fence_marker = ""

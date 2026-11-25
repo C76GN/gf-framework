@@ -28,7 +28,7 @@ EXTENSION = Path(dist.ADDON) / dist.LOADER
 
 
 def parse_acceptance(output: str) -> dict:
-    """Accept exactly one complete differential report, never a stray success marker."""
+    """要求唯一且完整的差分报告，单独出现成功标记无法构成验收结果。"""
     reports = [json.loads(line.split('=', 1)[1]) for line in output.splitlines()
                if line.startswith('GF_NATIVE_DATA_BATCH=')]
     if len(reports) != 1 or not isinstance(reports[0], dict):
@@ -57,6 +57,7 @@ def parse_acceptance(output: str) -> dict:
 
 
 def require_timings(sample: dict, fields: tuple[str, str], count: int) -> None:
+    """要求两个耗时字段分别包含规定数量的有效测量，否则拒绝该报告。"""
     for field in fields:
         values = sample.get(field)
         if (not isinstance(values, list) or len(values) != count
@@ -65,7 +66,7 @@ def require_timings(sample: dict, fields: tuple[str, str], count: int) -> None:
 
 
 def file_digest(path: Path, deadline: float) -> str:
-    """Read bounded file chunks and reject deadline expiry or identity drift."""
+    """按块读取文件并计算摘要，超过截止时间或读到身份变化时拒绝结果。"""
     digest = hashlib.sha256()
     before = path.stat()
     if before.st_size > 64 * 1024 * 1024:
@@ -90,7 +91,7 @@ def file_digest(path: Path, deadline: float) -> str:
 
 
 def source_digest(deadline: float) -> str:
-    """Bind native results to the exact runtime, crate, fixture and runner bytes."""
+    """以运行时、crate、验收工程和运行器的实际字节标识本次原生验收。"""
     paths = [*(CRATE / name for name in ('Cargo.toml', 'Cargo.lock', 'build.rs', '.cargo/config.toml', 'rust-toolchain.toml',
                                        EXTENSION.name, 'THIRD_PARTY_NOTICES.txt', '.gdignore')),
              ROOT / 'addons/gf/standard/foundation/math/gf_heightfield_3d.gd',
@@ -115,6 +116,7 @@ def source_digest(deadline: float) -> str:
 
 def run(command: list[str], cwd: Path, name: str, timeout: float, logs: Path,
         deadline: float) -> str:
+    """在单阶段及全程截止时间内执行命令，记录两个输出流和进程状态。成功时返回标准输出。"""
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise RuntimeError('Native acceptance exhausted its overall deadline.')
@@ -137,12 +139,23 @@ def run(command: list[str], cwd: Path, name: str, timeout: float, logs: Path,
 
 
 def check_engine_diagnostics(output: str, name: str, logs: Path) -> None:
+    """在阶段输出中发现引擎、解析、泄漏或 Rust panic 诊断时抛出 RuntimeError。"""
     if re.search(r'(?m)^(?:SCRIPT ERROR|ERROR|WARNING):|Parse Error|ObjectDB instances leaked|panicked at', output):
         raise RuntimeError(f'{name} reported an engine/compiler diagnostic; see {logs}')
 
 
 def run_fresh_import(godot: str, workspace: Path, logs: Path, deadline: float) -> None:
-    """Require successful first discovery by Godot in a project with no import cache."""
+    """验证完全没有导入缓存的项目能够首次发现并加载扩展。
+
+    Args:
+        godot: 用于此次导入的 Godot 可执行文件。
+        workspace: 已准备好且不含 .godot 缓存的项目。
+        logs: 保存本次导入的进程日志的目录。
+        deadline: 整轮验收共享的单调时钟截止值，单位为秒。
+
+    Raises:
+        RuntimeError: 项目已有缓存、导入失败、日志含引擎诊断，或初次建立的扩展注册表与预期不符。
+    """
     cache = workspace / '.godot'
     if cache.exists():
         raise RuntimeError('Fresh import requires a project without a .godot cache.')
@@ -154,6 +167,7 @@ def run_fresh_import(godot: str, workspace: Path, logs: Path, deadline: float) -
 
 
 def prepare_project(workspace: Path, *, standard_only: bool = False, platform_token: str = '') -> None:
+    """新建验收工程并复制能力测试脚本，按标准库模式和平台令牌配置其启动场景。"""
     workspace.mkdir()
     for capability in ('terrain_rgb', 'wfc_entropy', 'segment_visibility'):
         fixture = Path('tests/native') / capability / 'acceptance.gd'
@@ -185,6 +199,7 @@ def prepare_project(workspace: Path, *, standard_only: bool = False, platform_to
 
 def verify_upgrade(portable: Path, supplement: Path, workspace: Path, godot: str,
                    logs: Path, deadline: float) -> None:
+    """先运行便携安装，再在同一工程安装原生补充包，核对后端选择是否随实际安装改变。"""
     prepare_project(workspace)
     with zipfile.ZipFile(portable) as archive:
         archive.extractall(workspace)
@@ -194,7 +209,7 @@ def verify_upgrade(portable: Path, supplement: Path, workspace: Path, godot: str
     output = run(selection, workspace, 'portable-selection', 60, logs, deadline)
     if output.splitlines().count('GF_NATIVE_SELECTION=script') != 1:
         raise RuntimeError('Portable project did not exercise automatic script gather.')
-    # Install only the supplement into an existing project, at a different location.
+    # 只把增量包安装到另一个位置上的已有工程，验证用户从便携版升级的路径。
     relocated = workspace / 'addons/vendor/acceleration'
     with zipfile.ZipFile(supplement) as archive:
         for info in archive.infolist():
@@ -211,7 +226,7 @@ def verify_upgrade(portable: Path, supplement: Path, workspace: Path, godot: str
 
 
 def verify_standard_only_export(bundle: Path, fixture: Path, presets: Path, godot: str, logs: Path, deadline: float) -> None:
-    """Export the standard heightfield and WFC APIs from the complete Windows installation with no GF extensions enabled."""
+    """从完整 Windows 安装包导出仅使用标准库的高度场与 WFC，所有 GF 扩展均禁用。"""
     workspace = fixture / 'standard-only'
     prepare_project(workspace, standard_only=True)
     with zipfile.ZipFile(bundle) as archive:
@@ -237,7 +252,7 @@ def verify_standard_only_export(bundle: Path, fixture: Path, presets: Path, godo
 
 
 def check_windows_dependencies(dll: Path, logs: Path, deadline: float) -> list[str]:
-    """Inspect the shipped binary even when the build machine has the VC++ redistributable."""
+    """检查交付的实际 DLL 所依赖的库，即使构建机预装了 VC++ 运行库也须核对。"""
     dumpbin = shutil.which('dumpbin.exe')
     if not dumpbin:
         vswhere = Path(os.environ['ProgramFiles(x86)']) / 'Microsoft Visual Studio/Installer/vswhere.exe'
@@ -252,6 +267,7 @@ def check_windows_dependencies(dll: Path, logs: Path, deadline: float) -> list[s
 
 
 def check_dependency_report(output: str) -> list[str]:
+    """从 dumpbin 输出提取并排序 DLL 名。没有可识别的依赖或仍动态依赖 MSVC 运行库时抛出 ValueError。"""
     imports = sorted(set(re.findall(r'(?im)^\s*([\w.-]+\.dll)\s*$', output)), key=str.lower)
     if not imports or any(name.lower().startswith(('vcruntime', 'msvcp', 'concrt', 'vcomp')) for name in imports):
         raise ValueError(f'Expected a Windows DLL with a statically linked MSVC runtime, found {imports}.')
@@ -261,6 +277,7 @@ def check_dependency_report(output: str) -> list[str]:
 def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revision: str, *,
             export: bool, skip_build: bool = False, cargo_name: str = 'cargo',
             timeout: float = 900, candidate_library: bytes | None = None) -> dict:
+    """构建或复用 Windows 原生 DLL，核验安装归档，并在隔离工程执行实际能力测试。"""
     if sys.platform != 'win32':
         raise ValueError('Building GF Native requires a Windows x64 MSVC toolchain.')
     deadline = time.monotonic() + timeout
@@ -298,7 +315,7 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
     dist.assemble(portable, supplement, bundle, dll.read_bytes(), std_notices, version, revision)
     dist.verify(portable, supplement, bundle, version, revision)
     archives = (portable, supplement, bundle)
-    # Whole-framework archives can exceed the per-source input budget.
+    # 完整框架归档可能大于单个源码文件的输入预算。
     archive_digests = {p.name: archive_digest(p, deadline) for p in archives}
     fixture = Path(tempfile.mkdtemp(prefix='gf-native-', dir=ROOT / 'build'))
     workspace = fixture / 'project'
@@ -351,6 +368,7 @@ def qualify(portable: Path, supplement: Path, bundle: Path, version: str, revisi
 
 
 def remove_completed_fixture(path: Path) -> None:
+    """递归清理已完成的原生验收工程，只接受 build 的直接子目录中经核实的 gf-native-* 真实路径。"""
     build = (ROOT / 'build').resolve(strict=True)
     resolved = path.resolve(strict=True)
     if path.is_symlink() or path != resolved or resolved.parent != build or not resolved.name.startswith('gf-native-'):
@@ -359,6 +377,7 @@ def remove_completed_fixture(path: Path) -> None:
 
 
 def archive_digest(path: Path, deadline: float) -> str:
+    """在单调截止时间内计算完整归档的 SHA-256，按块读取以控制内存占用。"""
     with path.open('rb') as stream:
         digest = hashlib.sha256()
         while block := stream.read(1024 * 1024):
@@ -369,6 +388,7 @@ def archive_digest(path: Path, deadline: float) -> str:
 
 
 def main() -> int:
+    """为当前 Windows 安装构建验收归档，实际导入并运行私有项目，按选项追加导出验收。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cargo', default='cargo')
     parser.add_argument('--skip-build', action='store_true', help='Use the existing DLL for a local diagnostic.')

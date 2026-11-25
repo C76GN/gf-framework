@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Immutable workspace snapshots and bounded parallel validation helpers."""
+"""在受控输入上建立隔离工作区，并为并行验证限制并发数及运行时间。"""
 
 from __future__ import annotations
 
@@ -42,23 +42,23 @@ WINDOWS_LONG_PATH_MAX_CHARACTERS = 32768
 
 
 class WorkspaceSnapshotError(RuntimeError):
-	"""Base error for fail-closed workspace snapshot operations."""
+	"""采集、还原或核实工作区快照时的错误基类。"""
 
 
 class UnsafeWorkspacePathError(WorkspaceSnapshotError):
-	"""Raised when a workspace path can escape through a link or invalid name."""
+	"""工作区路径可能因链接或无效名称而超出允许的范围。"""
 
 
 class WorkspaceDriftError(WorkspaceSnapshotError):
-	"""Raised when the source workspace no longer matches its captured state."""
+	"""当前源码工作区与已采集的状态不一致。"""
 
 
 class WorkspaceDeadlineError(WorkspaceSnapshotError):
-	"""Raised when snapshot setup exhausts its owning suite deadline."""
+	"""快照准备工作用尽了所属套件的时限。"""
 
 
 class WorkspaceProcessBoundaryError(WorkspaceSnapshotError):
-	"""Raised when a materializer Git process boundary cannot be proven quiet."""
+	"""创建工作区的 Git 进程树未能提供清理完毕的证明。"""
 
 	def __init__(
 		self,
@@ -83,7 +83,7 @@ class WorkspaceProcessBoundaryError(WorkspaceSnapshotError):
 			)
 
 	def preserve_owned_paths(self, paths: Iterable[Path]) -> None:
-		"""Attach exact materializer roots retained for external diagnosis."""
+		"""记录实际保留的物化工作区根目录，以供后续诊断。"""
 		preserved_paths = tuple(_absolute_lexical_path(Path(path)) for path in paths)
 		attributes = BaseException.__getattribute__(self, "__dict__")
 		attributes["cleanup_debt"] = True
@@ -106,7 +106,7 @@ def _mark_workspace_cleanup_debt(
 	cleanup_error: BaseException,
 	preserved_paths: tuple[Path, ...],
 ) -> BaseException:
-	"""Retain exact owned roots when bounded materializer cleanup cannot finish."""
+	"""有限时间内未能完成清理时，登记并保留确切的自有根目录。"""
 	message = "Owned workspace materialization cleanup could not be proven complete."
 	if primary_error is None and isinstance(cleanup_error, Exception):
 		debt_error: BaseException = WorkspaceProcessBoundaryError(
@@ -147,7 +147,7 @@ def _mark_workspace_cleanup_debt(
 
 @dataclass(frozen=True)
 class CapturedWorkspaceFile:
-	"""One untracked, non-ignored regular file captured as immutable bytes."""
+	"""一个已捕获为不可变字节的未跟踪、未忽略的普通文件。"""
 
 	relative_path: str
 	mode: int
@@ -160,7 +160,7 @@ class CapturedWorkspaceFile:
 
 @dataclass(frozen=True)
 class CapturedWorkspace:
-	"""An immutable HEAD + binary diff + untracked workspace snapshot."""
+	"""由 HEAD、二进制差异和未跟踪文件组成的不可变工作区快照。"""
 
 	source_root: Path
 	head: str
@@ -174,6 +174,7 @@ class CapturedWorkspace:
 
 	@property
 	def dirty(self) -> bool:
+		"""只要存在已跟踪差异或未跟踪输入，就视为与 HEAD 不同。"""
 		return bool(self.binary_diff or self.untracked_files)
 
 	@property
@@ -181,6 +182,7 @@ class CapturedWorkspace:
 		return len(self.untracked_files)
 
 	def workspace_state(self) -> dict[str, object]:
+		"""返回仓库 HEAD、脏状态及未跟踪数量等摘要，供报告引用，无需泄露源码内容。"""
 		return {
 			"schema_version": 1,
 			"head": self.head,
@@ -192,7 +194,7 @@ class CapturedWorkspace:
 
 @dataclass(frozen=True)
 class ParallelShard:
-	"""One command whose working directory is private to that shard."""
+	"""一个在分片专用工作目录内执行的命令。"""
 
 	name: str
 	command: tuple[str, ...]
@@ -231,7 +233,7 @@ class ParallelShard:
 
 @dataclass(frozen=True)
 class ParallelShardResult:
-	"""Structured outcome for a parallel shard, including stable cancellation codes."""
+	"""分片的结构化执行结果，包含稳定的取消状态码。"""
 
 	name: str
 	command: tuple[str, ...]
@@ -246,17 +248,17 @@ class ParallelShardResult:
 	pid: int
 	started: bool
 	notes: tuple[str, ...] = ()
-	# Kept in-memory so callers that own disposable roots can gate cleanup without
-	# changing the long-standing serialized parallel-report schema.
+	# 进程清理状态只保存在内存中，供临时目录所有者判定何时可清理，序列化的并行报告维持原有结构。
 	process_boundary_quiescent: bool = False
 
 	@property
 	def ok(self) -> bool:
+		"""仅在分片实际启动、成功退出，且符合完成状态的条件时返回 True。"""
 		return self.started and self.exit_code == 0 and not self.timed_out and not self.cancelled
 
 	@property
 	def return_code(self) -> int:
-		"""Stable aggregate code: 124 for timeout and 130 for cancellation."""
+		"""返回汇总用的稳定退出码，超时为 124，取消为 130。"""
 		return self.exit_code
 
 	@property
@@ -311,7 +313,7 @@ def capture_workspace(
 	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 ) -> CapturedWorkspace:
-	"""Capture a stable Git workspace or fail when it changes during capture."""
+	"""采集稳定的 Git 工作区，采集途中发现变更时抛出异常。"""
 	if not isinstance(git_process, FrozenGitProcess):
 		raise TypeError("workspace capture requires a frozen Git process authority.")
 	_check_deadline(deadline, "workspace capture")
@@ -345,7 +347,7 @@ def materialize_workspace(
 	verify_source: bool = True,
 	identity_callback: Callable[[tuple[int, int, int]], None] | None = None,
 ) -> Path:
-	"""Materialize a verified local shared clone of ``snapshot`` at ``target``."""
+	"""将已核验的快照物化为目标目录下的本地共享克隆。"""
 	_check_deadline(deadline, "workspace materialization")
 	if not isinstance(snapshot, CapturedWorkspace):
 		raise TypeError("snapshot must be a CapturedWorkspace instance.")
@@ -556,10 +558,8 @@ def materialize_workspace(
 			raise debt_error from error
 		raise
 	except BaseException as error:
-		# A process-control exception is intentionally preserved by _run_git, but it
-		# carries no positive proof that a concurrently failing supervisor reaped its
-		# child tree. Retain every owned materialization root rather than racing a
-		# still-running Git process during recursive cleanup.
+		# _run_git 保留进程控制异常，但异常本身不能证明监督器已回收并发失败的进程树。保留各物化目录，
+		# 以免与运行中的 Git 竞争。
 		cleanup_allowed = False
 		if publication_attempted and not published:
 			cleanup_error = WorkspaceSnapshotError(
@@ -603,7 +603,7 @@ def assert_source_matches_snapshot(
 	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 ) -> None:
-	"""Verify one captured source at an orchestration boundary."""
+	"""在调度阶段的交界处核对源码是否仍匹配采集时的快照。"""
 	if not isinstance(snapshot, CapturedWorkspace):
 		raise TypeError("snapshot must be a CapturedWorkspace instance.")
 	_assert_source_matches_snapshot(
@@ -623,7 +623,7 @@ def run_parallel_shards(
 	output_callback: Callable[[str, str, str], None] | None = None,
 	on_quiet_interruption: Callable[[list[ParallelShardResult]], None] | None = None,
 ) -> list[ParallelShardResult]:
-	"""Run isolated shard commands with bounded workers and cooperative cancellation."""
+	"""以有限的并发数执行相互隔离的分片命令，支持协作式取消。"""
 	shard_list = list(shards)
 	if not shard_list:
 		return []
@@ -708,8 +708,7 @@ def run_parallel_shards(
 					results[index] = _not_started_result(shard_list[index], cancellation.reason())
 				elif future.exception() is None:
 					results[index] = future.result()
-			# Reserve each result index before submission. A partially published
-			# submission leaves a missing result and cannot authorize cleanup.
+			# 提交任务前先预留结果位置。如果提交只完成一半，缺失的结果会阻止目录清理。
 			dispatched_results = [result for result in results[:next_index] if result is not None]
 			if len(dispatched_results) == next_index and all(
 				result.process_boundary_quiescent is True for result in dispatched_results
@@ -740,7 +739,7 @@ def _capture_workspace_once(
 		git_process=git_process,
 		deadline=deadline,
 	)
-	# Match the live fingerprint's complete object IDs across object-store growth.
+	# 使用完整对象 ID 与当前指纹比较，避免对象库增长改变缩写。
 	binary_diff = _run_git(
 		root,
 		["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--"],
@@ -986,8 +985,7 @@ def _materialize_untracked_files(
 					os.fchmod(output_file.fileno(), desired_mode)
 				elif os.name != "nt":
 					raise NotImplementedError("descriptor-based chmod is unavailable")
-				# Windows before Python 3.13 has no safe descriptor/no-follow chmod;
-				# its os.open creation mode is verified against this live handle below.
+				# Python 3.13 以前的 Windows 缺少基于描述符且不跟随链接的 chmod，下方通过已打开的句柄核实创建模式。
 				opened_after = os.fstat(output_file.fileno())
 		except (NotImplementedError, OSError) as exc:
 			raise WorkspaceSnapshotError(
@@ -1067,7 +1065,7 @@ def _repository_root_paths_match(
 	*,
 	deadline: float | None = None,
 ) -> bool:
-	"""Match exact roots plus a narrowly verified Windows DOS short-name spelling."""
+	"""验证实际仓库根，仅额外接受经过核实的 Windows DOS 短路径别名。"""
 	_check_deadline(deadline, "repository root comparison")
 	if os.path.normcase(str(reported_path)) == os.path.normcase(str(root_path)):
 		return True
@@ -1099,7 +1097,7 @@ def _windows_repository_root_alias_is_safe(
 		os.PathLike[str],
 	],
 ) -> bool:
-	"""Verify one Windows short/long root pair without widening path aliases."""
+	"""核实单对 Windows 长短路径是否指向同一个根，限制别名的接受范围。"""
 	_check_deadline(deadline, "Windows repository root alias validation")
 	if not _windows_repository_paths_share_normal_drive(root_path, reported_path):
 		return False
@@ -1137,7 +1135,7 @@ def _windows_repository_paths_share_normal_drive(
 	root_path: os.PathLike[str],
 	reported_path: os.PathLike[str],
 ) -> bool:
-	"""Reject UNC, device, relative, and cross-drive aliases without filesystem I/O."""
+	"""只接受同盘的普通绝对路径形式，判定过程不读文件系统。"""
 	root_windows_path = PureWindowsPath(root_path)
 	reported_windows_path = PureWindowsPath(reported_path)
 	return (
@@ -1158,7 +1156,7 @@ def _windows_long_repository_paths_match(
 		os.PathLike[str],
 	],
 ) -> bool:
-	"""Compare same-drive DOS paths after bounded long-name expansion."""
+	"""在限定长度内展开同盘 DOS 路径后比较其身份。"""
 	_check_deadline(deadline, "Windows repository root long-name expansion")
 	if not _windows_repository_paths_share_normal_drive(root_path, reported_path):
 		return False
@@ -1180,7 +1178,7 @@ def _windows_long_path_name(
 	path: os.PathLike[str],
 	deadline: float | None = None,
 ) -> Path:
-	"""Expand DOS 8.3 components without resolving links or namespace aliases."""
+	"""展开 DOS 8.3 路径段，保留链接及命名空间别名的原有语义。"""
 	if os.name != "nt":
 		raise OSError("Windows long-path expansion is unavailable on this platform.")
 	import ctypes
@@ -1217,7 +1215,7 @@ def _bounded_windows_long_path_name(
 	deadline: float | None,
 	read_long_path: Callable[[str, int], tuple[int, str]],
 ) -> Path:
-	"""Grow a bounded WinAPI buffer and fail closed on malformed native results."""
+	"""按上限扩展 WinAPI 缓冲区，拒绝格式异常的系统返回值。"""
 	path_text = os.fspath(path)
 	buffer_characters = 260
 	while buffer_characters <= WINDOWS_LONG_PATH_MAX_CHARACTERS:
@@ -1293,7 +1291,7 @@ def _validate_workspace_tree_safety(
 
 
 def _validate_tracked_path_components(root: Path, relative_paths: set[str]) -> None:
-	"""Inspect each existing worktree component once, including reparse metadata."""
+	"""逐个核实已有工作树路径段，每个只检查一次并包含重解析点元数据。"""
 	_assert_path_has_no_link_components(root)
 	inspected: set[str] = set()
 	for relative_path in relative_paths:
@@ -1375,7 +1373,7 @@ def _snapshot_real_directory_chain(
 	*,
 	deadline: float | None = None,
 ) -> tuple[tuple[Path, os.stat_result], ...]:
-	"""Pin every real parent directory identity from the filesystem root."""
+	"""从文件系统根开始固定每个真实父目录的身份。"""
 	current = _absolute_lexical_path(directory)
 	reversed_snapshot: list[tuple[Path, os.stat_result]] = []
 	while True:
@@ -1591,7 +1589,7 @@ def _same_owned_directory_identity(left: os.stat_result, right: os.stat_result) 
 
 
 def _owned_directory_identity(metadata: os.stat_result) -> tuple[int, int, int]:
-	"""Return the portable identity token used by materialization ownership checks."""
+	"""返回物化工作区进行归属检查时使用的可移植目录身份。"""
 	device = int(getattr(metadata, "st_dev", 0))
 	inode = int(getattr(metadata, "st_ino", 0))
 	if (

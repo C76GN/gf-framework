@@ -37,12 +37,15 @@ class ProjectInspection:
 	_snapshot_json: str
 
 	def contract_result(self) -> dict[str, Any]:
+		"""从已保存的 JSON 返回独立的契约副本，供调用方自由修改。"""
 		return json.loads(self._contract_json)
 
 	def snapshot_result(self) -> dict[str, Any]:
+		"""从同一次采集结果解码快照，避免共享可变的嵌套对象。"""
 		return json.loads(self._snapshot_json)
 
 	def validation_result(self) -> dict[str, Any]:
+		"""从同一代的契约和观察结果汇总有效性与偏离情况。"""
 		contract = self.contract_result()
 		observed = self.snapshot_result()
 		return {
@@ -66,6 +69,7 @@ def build_snapshot(
 	project_root: Path,
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Observe the current project against its intent contract and return the in-memory snapshot."""
 	return inspect_project(project_root, contract_relative_path).snapshot_result()
 
 
@@ -211,6 +215,7 @@ def write_snapshot(
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 	output_relative_path: str = DEFAULT_SNAPSHOT_PATH,
 ) -> dict[str, Any]:
+	"""Publish a project snapshot to a separate JSON artifact after rechecking the captured source."""
 	output_path = resolve_project_path(project_root, output_relative_path)
 	contract_path = resolve_project_path(project_root, contract_relative_path)
 	if output_path == contract_path or output_path.suffix != ".json":
@@ -227,9 +232,7 @@ def write_snapshot(
 			"Generated project snapshot violates its schema: "
 			+ "; ".join(f"{item['path']}: {item['message']}" for item in schema_issues[:10])
 		)
-	# A scan can take long enough for the project to create or replace this file.
-	# Revalidate the captured source immediately before publishing; atomic replace
-	# alone protects complete writes, not ownership of the destination.
+	# 扫描期间项目可能创建或替换目标文件。发布前再次核对捕获的源身份，原子替换本身只保证写入完整。
 	output_path = resolve_project_path(project_root, output_relative_path)
 	current_bytes = read_bounded_bytes(output_path, DEFAULT_MAX_JSON_BYTES) if output_path.exists() else None
 	if current_bytes != previous_bytes:
@@ -242,6 +245,7 @@ def project_context(
 	project_root: Path,
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Return declared intent and observed drift from a single inspection of the project."""
 	inspection = inspect_project(project_root, contract_relative_path)
 	contract_result = inspection.contract_result()
 	snapshot = inspection.snapshot_result()
@@ -381,7 +385,7 @@ def _api_package_policy_drift_issues(analysis: dict[str, Any]) -> list[dict[str,
 	issues: list[dict[str, str]] = []
 	status = str(analysis.get("status", "partial"))
 	if status == "contract_invalid":
-		# The contract root diagnostic already explains this blocked judgment.
+		# 契约根节点的诊断已说明本次判定受阻的原因。
 		return issues
 	if status != "complete":
 		issues.append(_issue(

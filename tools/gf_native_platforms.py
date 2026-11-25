@@ -25,7 +25,7 @@ MAC = 'aarch64-apple-darwin'
 IOS = 'aarch64-apple-ios'
 SIM = 'aarch64-apple-ios-sim'
 XCFRAMEWORK = 'bin/libgf_native.xcframework'
-# Godot feature tag and install path. Both Apple embedded slices share one descriptor entry.
+# Apple 的设备与模拟器切片共用一个描述符条目，按 Godot 特性标签选择各自的安装路径。
 TARGETS = {
     WINDOWS: ('windows.x86_64', dist.DLL),
     LINUX: ('linux.x86_64', 'bin/linux-x86_64/libgf_native.so'),
@@ -41,11 +41,13 @@ TOOLCHAIN = tomllib.loads((dist.CRATE / 'rust-toolchain.toml').read_text(encodin
 
 
 def sha(data: bytes) -> str:
+    """按给定原始字节计算小写十六进制 SHA-256。"""
     return hashlib.sha256(data).hexdigest()
 
 
 def invoke(command: list[str], timeout: int = 180, *, cwd: Path = dist.ROOT,
            environment: dict[str, str] | None = None, log: Path | None = None) -> str:
+    """在受监督的进程内运行构建命令，超时或进程树未收尾时抛出运行错误。"""
     result = run_supervised_process(command, cwd=cwd, environment=dict(os.environ) if environment is None else environment,
                                     timeout_seconds=timeout, max_stdout_characters=8_000_000, max_stderr_characters=1_000_000,
                                     heartbeat_callback=lambda elapsed, _pid: print(f'{Path(command[0]).name}: {elapsed:.0f}s', flush=True))
@@ -59,6 +61,7 @@ def invoke(command: list[str], timeout: int = 180, *, cwd: Path = dist.ROOT,
 
 
 def revision() -> str:
+    """从当前工作区 Git HEAD 读取用来标识构建来源的提交。"""
     return invoke(['git', 'rev-parse', 'HEAD']).strip()
 
 
@@ -68,7 +71,7 @@ def std_notices() -> bytes:
 
 
 def check_binary(target: str, data: bytes) -> None:
-    """Reject swapped ABIs, desktop libc on Android, and simulator/device mixups on every host."""
+    """核验原生库的机器架构及平台格式，包括 Android 和 Apple 设备与模拟器的区别。"""
     if not 64 <= len(data) <= dist.MAX_NATIVE_FILE:
         raise ValueError(f'Invalid library size for {target}.')
     if target == WINDOWS:
@@ -105,6 +108,7 @@ def check_binary(target: str, data: bytes) -> None:
 
 
 def macho_commands(target: str, data: bytes) -> list[tuple[int, bytes]]:
+    """按文件顺序返回 arm64 动态库的加载命令及原始字节。命令数、边界或总长度不一致时抛出 ValueError。"""
     if len(data) < 32 or struct.unpack_from('<4I', data) != (0xfeedfacf, 0x100000c, 0, 6):
         raise ValueError(f'Expected an arm64 Mach-O dynamic library for {target}.')
     count, length = struct.unpack_from('<II', data, 16)
@@ -125,7 +129,7 @@ def macho_commands(target: str, data: bytes) -> list[tuple[int, bytes]]:
 
 
 def apple_code_identity(target: str, data: bytes) -> tuple[bytes, str]:
-    """Godot changes the install name and Xcode signs the framework. Both preserve the UUID and instructions."""
+    """从 Apple 二进制提取可比较的代码身份，供导出改名和签名后核对交付内容。"""
     uuids = []
     text = []
     for kind, command in macho_commands(target, data):
@@ -147,7 +151,7 @@ def apple_code_identity(target: str, data: bytes) -> tuple[bytes, str]:
 
 
 def elf_dependencies(data: bytes, headers: list[tuple], loads: list[tuple]) -> set[bytes]:
-    # DT_STRTAB is a virtual address. Only file-backed bytes in PT_LOAD can supply its strings.
+    """返回 ELF 动态段中 DT_NEEDED 声明的依赖库名。"""
     dynamic = [h for h in headers if h[0] == 2]
     if len(dynamic) != 1:
         raise ValueError('Expected one ELF dynamic segment.')
@@ -166,6 +170,7 @@ def elf_dependencies(data: bytes, headers: list[tuple], loads: list[tuple]) -> s
     if len(addresses) != 1 or len(lengths) != 1:
         raise ValueError('Missing ELF dynamic string table.')
     address, size = addresses[0], lengths[0]
+    # DT_STRTAB 给出虚拟地址，须在具备实际文件字节的 PT_LOAD 段中读取字符串。
     offsets = [h[2] + address - h[3] for h in loads if h[3] <= address and address + size <= h[3] + h[5]]
     if len(offsets) != 1:
         raise ValueError('Invalid ELF dynamic string table address.')
@@ -181,6 +186,7 @@ def elf_dependencies(data: bytes, headers: list[tuple], loads: list[tuple]) -> s
 
 
 def xcframework_info() -> bytes:
+    """生成包含 arm64 真机和模拟器两个条目的 XCFramework Info.plist 字节。"""
     libraries = []
     for target in (IOS, SIM):
         binary = Path(TARGETS[target][1])
@@ -194,11 +200,13 @@ def xcframework_info() -> bytes:
 
 
 def stage_record(target: str, data: bytes, source_revision: str) -> dict:
+    """将目标文件的 SHA-256 与原生源码摘要、修订和工具链一起记录，供组装阶段复核。"""
     return dict(target=target, sha256=sha(data), native_source_sha256=dist.native_source_digest(),
                 source_revision=source_revision, rust_toolchain=TOOLCHAIN)
 
 
 def check_linux_symbol_versions(library: Path) -> None:
+    """读取 ELF 声明的 GLIBC 版本需求。无法辨认版本或高于 2.34 基线时抛出 ValueError。"""
     listing = invoke(['readelf', '--version-info', '--wide', str(library)], environment={**os.environ, 'LC_ALL': 'C'})
     versions = re.findall(r'\bName: GLIBC_([\w.]+)', listing)
     if not versions:
@@ -211,7 +219,7 @@ def check_linux_symbol_versions(library: Path) -> None:
 def build(target: str, stage: Path, ndk: Path | None) -> None:
     environment = os.environ.copy()
     if target in (IOS, SIM):
-        # The Godot 4.7 iOS template deploys to iOS 15 or later.
+        # Godot 4.7 的 iOS 模板以 iOS 15 为最低部署版本。
         environment['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
     if target in (ANDROID_ARM, ANDROID_X64):
         if ndk is None:
@@ -242,6 +250,7 @@ def build(target: str, stage: Path, ndk: Path | None) -> None:
 
 
 def staged_binary(stage: Path, target: str, source_revision: str) -> bytes:
+    """核对目标、修订及收据后读取已暂存的二进制，收据不一致时拒绝组装。"""
     directory = stage / target
     data = (directory / Path(TARGETS[target][1]).name).read_bytes()
     if json.loads((directory / 'build.json').read_text(encoding='utf-8')) != stage_record(target, data, source_revision):
@@ -273,6 +282,7 @@ def metadata(targets: set[str], files: dict[str, bytes], version: str, source_re
 
 
 def assemble(path: Path, stage: Path, targets: set[str], version: str, source_revision: str) -> None:
+    """将已暂存的各目标库与描述符装入可重定位的 GF Native 归档。"""
     standard = (stage / WINDOWS / dist.STD_NOTICES).read_bytes() if WINDOWS in targets else std_notices()
     files = support_files(targets, standard)
     for target in sorted(targets):
@@ -289,6 +299,7 @@ def assemble(path: Path, stage: Path, targets: set[str], version: str, source_re
 
 
 def verify(path: Path, targets: set[str], version: str, source_revision: str, windows_package: Path | None = None) -> None:
+    """核对目标切片、版本、源码修订和原生归档中的实际文件。"""
     with zipfile.ZipFile(path) as archive:
         for info in archive.infolist():
             if not 0 < info.file_size <= dist.MAX_NATIVE_FILE:
@@ -318,6 +329,7 @@ def verify(path: Path, targets: set[str], version: str, source_revision: str, wi
 
 
 def main() -> None:
+    """根据子命令构建、组装或核实指定平台的原生库和归档。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=('build', 'package', 'verify'))
     parser.add_argument('--targets', nargs='+', choices=TARGETS, default=list(TARGETS))

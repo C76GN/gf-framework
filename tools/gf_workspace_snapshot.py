@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Invocation-scoped read cache for GF maintenance suites."""
+"""在一次维护调用中复用同一输入身份的读取结果及派生值。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ Value = TypeVar("Value")
 
 
 class WorkspaceSnapshot:
-	"""Cache immutable workspace reads for one maintenance suite invocation."""
+	"""在单次维护调用内复用已读取的文本和计算结果，调用结束后随实例一同丢弃。"""
 
 	def __init__(self, root: Path) -> None:
 		self.root = root
@@ -27,12 +27,14 @@ class WorkspaceSnapshot:
 		self._value_misses = 0
 
 	def read_utf8_text(self, path: Path) -> str:
+		"""读取 UTF-8 文本，文件系统错误时返回空串。需要区分空文件和读取失败时使用严格入口。"""
 		try:
 			return self.read_utf8_text_strict(path)
 		except OSError:
 			return ""
 
 	def read_utf8_text_strict(self, path: Path) -> str:
+		"""按路径、修改时间与大小缓存文本，读取或解码失败时向调用方传播异常。"""
 		file_stat = path.stat()
 		path_key = str(path)
 		identity = (path_key, file_stat.st_mtime_ns, file_stat.st_size)
@@ -55,6 +57,7 @@ class WorkspaceSnapshot:
 		key: Hashable,
 		factory: Callable[[], Value],
 	) -> Value:
+		"""在同一命名空间内按键复用对象，只有工厂成功返回后才登记结果。"""
 		cache_key = (namespace, key)
 		if cache_key in self._values:
 			self._value_hits += 1
@@ -65,6 +68,7 @@ class WorkspaceSnapshot:
 		return value
 
 	def stats(self) -> dict[str, int]:
+		"""返回本次调用中文本与派生值的条目数、命中次数和未命中次数。"""
 		return {
 			"text_entry_count": len(self._text_by_identity),
 			"text_cache_hits": self._text_hits,

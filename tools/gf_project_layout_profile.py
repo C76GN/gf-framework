@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Bounded transport to the single native Project Layout authority.
+"""为 Project Layout 的原生 GDScript 检查提供有界传输。
 
-Python deliberately has no profile compiler, selectors, regular expressions or
-rule evaluator. The same GDScript session owns admission and analysis in both
-the editor and this maintenance adapter.
+编辑器和维护适配器使用同一套 GDScript 会话校验配置并分析项目。配置编译、选择器、
+正则和规则求值均由该会话负责。
 """
 
 from __future__ import annotations
@@ -32,7 +31,7 @@ PROJECT_PROFILE_MAX_BYTES = 1024 * 1024
 
 
 def project_profile_artifacts(*, root: Path = ROOT) -> dict[str, Any]:
-	"""Check trusted artifacts without interpreting a project's profile."""
+	"""核验受信的布局检查产物，项目配置本身留给原生规则解释。"""
 	paths = (
 		"addons/gf/tools/project_layout/gf_project_layout_session.gd",
 		"addons/gf/tools/project_layout/gf_project_layout_profile_compiler.gd",
@@ -70,7 +69,7 @@ def project_profile_boundary(
 	snapshot_path: str = "",
 	native_executor: Callable[[dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
-	"""Read one pinned UTF-8 input and delegate every product decision to Godot."""
+	"""从固定身份的文件读取一份 UTF-8 输入，将产品规则判定交给 Godot。"""
 	source_root = absolute_lexical_path(root)
 	base: dict[str, Any] = {
 		"root": str(source_root), "profile_found": False, "profile_path": "",
@@ -86,8 +85,7 @@ def project_profile_boundary(
 		candidates = (snapshot_path,) if snapshot_path else ((profile_path,) if profile_path else PROJECT_PROFILE_DEFAULT_FILES)
 		for candidate in candidates:
 			if not profile_path and not snapshot_path and candidate == ".gf/project_profile.json" and not os.path.lexists(source_root / ".gf"):
-				# Prove the absent optional parent as a pinned leaf. A directory that
-				# appears during this observation fails closed instead of being skipped.
+				# 对可选父目录的缺失也须固定其身份。观察期间如果目录突然出现，应拒绝该输入。
 				if read_optional_pinned_utf8_regular_file(source_root, ".gf", max_bytes=0) is None:
 					continue
 			path = absolute_lexical_path(source_root / candidate)

@@ -1,4 +1,4 @@
-//! Decode the RGB channels of the base mip level into independent height samples.
+//! 从基础 mip 层的 RGB 通道解码地形高度，并对实际输出的 `f32` 样本统计极值。
 use godot::builtin::{PackedByteArray, PackedFloat32Array, VarArray};
 use godot::prelude::*;
 
@@ -13,8 +13,7 @@ impl GfTerrainRgbBackend {
         1
     }
 
-    // Protocol 1 returns [samples, minimum, maximum]. An empty result tells GF to use
-    // its portable decoder, which owns the public diagnostic for the first invalid pixel.
+    /// 返回 `[samples, minimum, maximum]`。空数组表示需要回退，具体错误由脚本解码器报告。
     #[func]
     fn decode(
         &self,
@@ -55,6 +54,8 @@ impl GfTerrainRgbBackend {
     }
 }
 
+/// 按每像素 3 或 4 字节写入高度，忽略 alpha。调用者提供完整像素和等长的样本区。
+/// 任一样本转为 `f32` 后非有限时返回 `None`，此前写入的样本不得发布。
 fn decode_base(
     bytes: &[u8],
     stride: usize,

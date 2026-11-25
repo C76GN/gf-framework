@@ -183,6 +183,8 @@ python tools\check_docs_quality.py --strict
 
 AI 维护任务需要快速索引源码时，仍可使用 `tools/generate_ai_api.py` 生成 `ai_analysis/generated_api`。该目录只服务 AI 阅读，不作为正式文档中间源。
 
+GDScript、Rust 和 Python 的 API 文档注释格式、正文语言和完整示例见 [GF 源码文档注释规范](source-comments.md)。
+
 私有声明可以通过 `## @api private` 记录生命周期、所有权与实现约束，采用独立于公开 API 的轻量文档要求。示范、分批补写边界和验证流程见 [私有维护文档编写指南](private-doc-comments.md)。
 
 ## AI MCP 维护入口

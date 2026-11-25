@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Human-readable output rendering for the GF maintenance CLI."""
+"""将同一份结构化维护结果呈现为终端文字、GitHub 注解或 UTF-8 JSON。"""
 
 from __future__ import annotations
 
@@ -15,12 +15,13 @@ _JSON_OUTPUT_PATH: Path | None = None
 
 
 def set_json_output_path(path: Path | None) -> None:
-	"""Route JSON output to an explicit UTF-8 file instead of shell stdout."""
+	"""为 JSON 结果指定 UTF-8 文件目的地，传入 None 时恢复标准输出。"""
 	global _JSON_OUTPUT_PATH
 	_JSON_OUTPUT_PATH = path
 
 
 def print_output(data: dict[str, Any], as_json: bool, renderer: Any) -> None:
+	"""按调用方选择输出文本或严格 JSON，只有 JSON 模式使用已配置的文件目的地。"""
 	if as_json:
 		payload = encode_strict_json(data, indent=2, trailing_newline=True)
 		if _JSON_OUTPUT_PATH is not None:
@@ -37,7 +38,7 @@ def encode_strict_json(
 	indent: int | None = None,
 	trailing_newline: bool = False,
 ) -> str:
-	"""Encode standards-compliant JSON and reject non-finite numbers."""
+	"""编码标准 JSON，拒绝 NaN 或无穷大等非有限数值。"""
 	payload = json.dumps(
 		data,
 		ensure_ascii=False,
@@ -48,7 +49,7 @@ def encode_strict_json(
 
 
 def write_json_object_atomic(path: Path, data: Any) -> None:
-	"""Serialize strict JSON before atomically replacing the destination."""
+	"""先完成严格 JSON 序列化，成功后再原子替换目标。"""
 	write_utf8_json_output(
 		path,
 		encode_strict_json(data, indent=2, trailing_newline=True),
@@ -56,7 +57,7 @@ def write_json_object_atomic(path: Path, data: Any) -> None:
 
 
 def write_utf8_json_output(path: Path, payload: str) -> None:
-	"""Atomically write UTF-8 JSON without a byte-order mark."""
+	"""将 JSON 文本以不带 BOM 的 UTF-8 原子写入目标。"""
 	path.parent.mkdir(parents=True, exist_ok=True)
 	temporary_path: Path | None = None
 	try:
@@ -81,6 +82,7 @@ def write_utf8_json_output(path: Path, payload: str) -> None:
 
 
 def render_summary_text(data: dict[str, Any]) -> str:
+	"""汇总分支、版本和 API 规模，发布检查未执行时在文字中明确标出。"""
 	release = data["release"]
 	catalog = data["api_catalog"]
 	release_ok = release.get("ok")
@@ -102,6 +104,7 @@ def render_summary_text(data: dict[str, Any]) -> str:
 
 
 def render_api_search_text(data: dict[str, Any]) -> str:
+	"""列出查询范围和匹配的所有者，每项至多展示前三个匹配成员。"""
 	lines = [f"query: {data['query']} scope={data['scope']} matches={data['count']}"]
 	for item in data["results"]:
 		lines.append(f"- {item['owner_name']} [{item['visibility']}] | {item['module']} | {item['path']}")
@@ -111,6 +114,7 @@ def render_api_search_text(data: dict[str, Any]) -> str:
 
 
 def render_api_class_text(data: dict[str, Any]) -> str:
+	"""显示类型的继承、路径和按种类分组的成员，维护查询同时呈现成员说明。"""
 	if not data.get("found"):
 		return data["message"]
 	lines = [
@@ -134,6 +138,7 @@ def render_api_class_text(data: dict[str, Any]) -> str:
 
 
 def render_api_module_text(data: dict[str, Any]) -> str:
+	"""显示模块的总数与返回数，找不到模块时列出可用候选。"""
 	if not data.get("found"):
 		lines = [data["message"]]
 		available = data.get("available_modules", [])
@@ -164,6 +169,7 @@ def render_api_module_text(data: dict[str, Any]) -> str:
 
 
 def render_workspace_status_text(data: dict[str, Any]) -> str:
+	"""按类别显示工作区变更，每类列出至多二十个路径，并附推荐检查。"""
 	lines = [
 		f"root: {data['root']}",
 		f"git: {data['branch']} {data['head']} dirty={data['dirty_file_count']}",
@@ -187,6 +193,7 @@ def render_workspace_status_text(data: dict[str, Any]) -> str:
 
 
 def render_project_settings_drift_text(data: dict[str, Any]) -> str:
+	"""分别呈现暂存和未暂存的项目设置差异，以便定位改写来源。"""
 	lines = [
 		(
 			f"project_settings_drift: ok={data['ok']} "
@@ -203,6 +210,7 @@ def render_project_settings_drift_text(data: dict[str, Any]) -> str:
 
 
 def render_path_hygiene_text(data: dict[str, Any]) -> str:
+	"""按问题种类和路径列出跟踪清单中的路径异常。"""
 	lines = [
 		(
 			f"path_hygiene: ok={data['ok']} "
@@ -221,6 +229,7 @@ def render_path_hygiene_text(data: dict[str, Any]) -> str:
 
 
 def render_diagnostic_policy_text(data: dict[str, Any]) -> str:
+	"""列出诊断模板与转发计数，并把问题定位到源码行。"""
 	lines = [
 		f"diagnostic_policy: {'PASS' if data['ok'] else 'FAIL'}",
 		f"scripts={data['scanned_file_count']} calls={data['native_call_count']} codes={data['diagnostic_code_count']} forwarders={data['forwarded_call_count']}",
@@ -233,6 +242,7 @@ def render_diagnostic_policy_text(data: dict[str, Any]) -> str:
 
 
 def render_gdscript_readability_text(data: dict[str, Any]) -> str:
+	"""按行列展示违反的排版规则及建议，同时标明扫描是否完整。"""
 	lines = [
 		f"gdscript_readability: {'PASS' if data['ok'] else 'FAIL'}",
 		(
@@ -250,6 +260,7 @@ def render_gdscript_readability_text(data: dict[str, Any]) -> str:
 
 
 def render_codeql_suppression_policy_text(data: dict[str, Any]) -> str:
+	"""汇总已检查的源码、CodeQL 配置及发现的抑制项。"""
 	lines = [
 		(
 			f"codeql_suppression_policy: ok={data['ok']} "
@@ -269,6 +280,7 @@ def render_codeql_suppression_policy_text(data: dict[str, Any]) -> str:
 
 
 def render_api_since_touched_text(data: dict[str, Any]) -> str:
+	"""列出本次变更触及的 API 版本标签问题，并报告实际扫描量。"""
 	lines = [
 		(
 			f"api_since_touched: ok={data['ok']} "
@@ -286,6 +298,7 @@ def render_api_since_touched_text(data: dict[str, Any]) -> str:
 
 
 def render_dependency_boundary_text(data: dict[str, Any]) -> str:
+	"""展示扩展清单、标准库与扩展类型的扫描数量及依赖违规。"""
 	lines = [
 		(
 			f"dependency_boundary: ok={data['ok']} "
@@ -307,6 +320,7 @@ def render_dependency_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_changelog_policy_text(data: dict[str, Any]) -> str:
+	"""按版本段与源码行显示更新日志的发布策略问题。"""
 	lines = [
 		(
 			f"changelog_policy: ok={data['ok']} "
@@ -343,6 +357,7 @@ def render_changelog_policy_text(data: dict[str, Any]) -> str:
 
 
 def render_public_docs_boundary_text(data: dict[str, Any]) -> str:
+	"""将公开手册暴露内部内容的问题按类型列出。"""
 	lines = [
 		(
 			f"public_docs_boundary: ok={data['ok']} "
@@ -359,6 +374,7 @@ def render_public_docs_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_public_api_boundary_text(data: dict[str, Any]) -> str:
+	"""显示公开 API 边界扫描的文件量及具体违规。"""
 	lines = [
 		(
 			f"public_api_boundary: ok={data['ok']} "
@@ -384,6 +400,7 @@ def format_counter_summary(items: list[dict[str, Any]], limit: int = 8) -> str:
 
 
 def render_resource_boundary_text(data: dict[str, Any]) -> str:
+	"""从资源引用检查报告生成摘要，并呈现所选的定位信息。"""
 	lines = [
 		(
 			f"resource_boundary: ok={data['ok']} "
@@ -468,6 +485,7 @@ def render_resource_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_content_package_boundary_text(data: dict[str, Any]) -> str:
+	"""汇总内容包、清单及资源数，并呈现资源归属问题。"""
 	lines = [
 		(
 			f"content_package_boundary: ok={data['ok']} "
@@ -492,6 +510,7 @@ def render_content_package_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_asset_lifecycle_boundary_text(data: dict[str, Any]) -> str:
+	"""展示资源生命周期规则涉及的文件数及问题位置。"""
 	lines = [
 		(
 			f"asset_lifecycle_boundary: ok={data['ok']} "
@@ -517,6 +536,7 @@ def render_asset_lifecycle_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_project_profile_boundary_text(data: dict[str, Any]) -> str:
+	"""把项目布局配置检查的结论与问题整理为终端文本。"""
 	lines = [
 		(
 			f"project_profile_boundary: ok={data['ok']} "
@@ -546,6 +566,7 @@ f"executor={data.get('executor', 'godot_gdscript')} "
 
 
 def render_package_boundary_text(data: dict[str, Any]) -> str:
+	"""按模块清单、包与源码路径汇总归属检查。"""
 	lines = [
 		(
 			f"package_boundary: ok={data['ok']} "
@@ -573,6 +594,7 @@ def render_package_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_package_closure_audit_text(data: dict[str, Any]) -> str:
+	"""按严重程度汇总模块依赖闭包中的错误、警告及信息项。"""
 	lines = [
 		(
 			f"package_closure_audit: ok={data['ok']} "
@@ -629,6 +651,7 @@ def render_package_closure_audit_text(data: dict[str, Any]) -> str:
 
 
 def render_package_source_boundary_text(data: dict[str, Any]) -> str:
+	"""展示模块源码归属扫描的文件数与跨边界问题。"""
 	lines = [
 		(
 			f"package_source_boundary: ok={data['ok']} "
@@ -653,6 +676,7 @@ def render_package_source_boundary_text(data: dict[str, Any]) -> str:
 
 
 def render_package_external_command_audit_text(data: dict[str, Any]) -> str:
+	"""显示外部命令审计摘要，并仅展开显示上限内的问题。"""
 	lines = [
 		(
 			f"package_external_command_audit: ok={data['ok']} "
@@ -689,6 +713,7 @@ def render_package_external_command_audit_text(data: dict[str, Any]) -> str:
 
 
 def render_core_only_smoke_text(data: dict[str, Any]) -> str:
+	"""显示仅安装内核时发现的标准库依赖及检查结果。"""
 	lines = [
 		(
 			f"core_only_smoke: ok={data['ok']} "
@@ -712,6 +737,7 @@ def render_core_only_smoke_text(data: dict[str, Any]) -> str:
 
 
 def render_core_plugin_bootstrap_smoke_text(data: dict[str, Any]) -> str:
+	"""按实际插件启动场景汇总验收结果与问题。"""
 	lines = [
 		(
 			f"core_plugin_bootstrap_smoke: ok={data['ok']} "
@@ -740,6 +766,7 @@ def render_core_plugin_bootstrap_smoke_text(data: dict[str, Any]) -> str:
 
 
 def render_package_focused_gut_mapping_text(data: dict[str, Any]) -> str:
+	"""汇总模块至定向 GUT 测试的映射及异常。"""
 	lines = [
 		(
 			f"package_focused_gut_mapping: ok={data['ok']} "
@@ -765,6 +792,7 @@ def render_package_focused_gut_mapping_text(data: dict[str, Any]) -> str:
 
 
 def render_gut_shard_plan_text(data: dict[str, Any]) -> str:
+	"""列出分片的脚本与测试数量，并呈现用于分片比较的计时观察。"""
 	lines = [
 		(
 			f"gut_shard_plan: ok={data['ok']} mode={data['mode']} "
@@ -862,6 +890,7 @@ def render_gut_shard_plan_text(data: dict[str, Any]) -> str:
 
 
 def render_gut_shard_run_text(data: dict[str, Any]) -> str:
+	"""分别报告分片完成、失败、未报告和未调度的数量，以及与对照结果的核对状态。"""
 	lines = [
 		(
 			f"gut_shard_run: ok={data['ok']} candidate_eligible={data['candidate_eligible']} "
@@ -923,6 +952,7 @@ def render_gut_shard_run_text(data: dict[str, Any]) -> str:
 
 
 def render_maintenance_self_test_text(data: dict[str, Any]) -> str:
+	"""显示自测总数和失败的具名用例。"""
 	lines = [
 		(
 			f"maintenance_self_test: ok={data['ok']} "
@@ -936,6 +966,7 @@ def render_maintenance_self_test_text(data: dict[str, Any]) -> str:
 
 
 def render_maintenance_log_hygiene_text(data: dict[str, Any]) -> str:
+	"""显示日志清理的候选、保留、实际删除数量及字节数，区分预演与执行。"""
 	lines = [
 		(
 			f"maintenance_log_hygiene: ok={data['ok']} dry_run={data['dry_run']} "
@@ -963,6 +994,7 @@ def render_maintenance_log_hygiene_text(data: dict[str, Any]) -> str:
 
 
 def render_godot_exit_leak_report_text(data: dict[str, Any]) -> str:
+	"""汇总退出日志中的实例、RID、资源路径与缺失日志。"""
 	lines = [
 		f"godot_exit_leak_report: ok={data['ok']} has_leaks={data['has_leaks']} logs={len(data['logs'])}",
 		(
@@ -997,6 +1029,7 @@ def render_godot_exit_leak_report_text(data: dict[str, Any]) -> str:
 
 
 def print_check_progress(event: str, name: str, duration_seconds: float | None) -> None:
+	"""通过进度输出通道公布检查名、事件和可用的耗时信息。"""
 	if event == "started":
 		print(f"[gf-maintenance] starting {name}", file=sys.stderr, flush=True)
 		return
@@ -1005,6 +1038,7 @@ def print_check_progress(event: str, name: str, duration_seconds: float | None) 
 
 
 def print_check_output(name: str, stream: str, text: str) -> None:
+	"""把检查产生的输出连同检查名及流名发给进度消费者。"""
 	if stream == "heartbeat":
 		print(f"[gf-maintenance] {name}: {text}", file=sys.stderr, flush=True)
 		return
@@ -1013,6 +1047,7 @@ def print_check_output(name: str, stream: str, text: str) -> None:
 
 
 def render_checks_text(data: dict[str, Any]) -> str:
+	"""呈现整个套件的逐项状态、退出码和问题，保留汇总判定。"""
 	lines = [
 		f"suite: {data['suite']} ok={data['ok']} duration={data.get('duration_seconds', 0.0):.2f}s"
 	]
@@ -1055,6 +1090,7 @@ def render_checks_text(data: dict[str, Any]) -> str:
 
 
 def render_failed_checks_text(data: dict[str, Any]) -> str:
+	"""只展开需要调查的检查结果，以便从整套报告定位失败。"""
 	failed_results = failed_check_results(data)
 	lines = [
 		(
@@ -1148,6 +1184,7 @@ def failed_check_results(data: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def print_github_check_annotations(data: dict[str, Any]) -> None:
+	"""把失败检查转为能被 GitHub Actions 识别的工作流注解。"""
 	for result in failed_check_results(data):
 		name = str(result.get("name", "unknown"))
 		title = github_workflow_command_escape_property(f"GF check failed: {name}")
@@ -1211,6 +1248,7 @@ def github_workflow_command_escape_property(value: str) -> str:
 
 
 def render_release_status_text(data: dict[str, Any]) -> str:
+	"""将框架版本、标签身份及扩展版本不一致项整理为发布状态摘要。"""
 	lines = [f"version: {data['version']} ok={data['ok']}"]
 	lines.append(f"plugin: {data['plugin_version']}")
 	lines.append(
@@ -1279,6 +1317,7 @@ def render_release_status_text(data: dict[str, Any]) -> str:
 
 
 def render_api_baseline_diff_text(data: dict[str, Any]) -> str:
+	"""按变更种类展示公开 API 与基线的差异和对应问题。"""
 	summary = data.get("summary", {})
 	lines = [
 		(
@@ -1358,6 +1397,7 @@ def format_api_diff_item(group: str, item: dict[str, Any]) -> str:
 
 
 def render_api_index_text(data: dict[str, Any]) -> str:
+	"""列出查询范围内的模块、类型和方法数量，保留可见性统计。"""
 	lines = [
 		f"source: {data['source_root']}",
 		f"scope: {data['scope']}",
@@ -1376,6 +1416,7 @@ def render_api_index_text(data: dict[str, Any]) -> str:
 
 
 def trim_text(text: str, max_chars: int) -> str:
+	"""在正数上限内返回文本末尾。未超长时原样返回，以便保留命令结束时的诊断。"""
 	if len(text) <= max_chars:
 		return text
 	return text[-max_chars:]

@@ -21,6 +21,7 @@ def plan_contract_migration(
 	project_root: Path,
 	relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Preview one schema migration and bind the proposed change to the source, target and project path."""
 	try:
 		path = contract_path(project_root, relative_path)
 	except ValueError as exc:
@@ -160,6 +161,17 @@ def apply_contract_migration(
 	*,
 	human_approved: bool = False,
 ) -> dict[str, Any]:
+	"""Apply the reviewed migration after rechecking the plan and source contract.
+
+	Args:
+	    project_root: Project owning the contract.
+	    expected_plan_sha256: Digest from the reviewed migration plan.
+	    relative_path: Contract path relative to the project.
+	    human_approved: Whether the interactive caller obtained approval for this change.
+
+	Returns:
+	    The plan with applied status on success, or a blocked result explaining why the migration could not be confirmed.
+	"""
 	if not isinstance(expected_plan_sha256, str) or _SHA256_PATTERN.fullmatch(expected_plan_sha256) is None:
 		return _apply_blocked(relative_path, "invalid_expected_plan_sha256", "Expected plan hash must be exactly 64 lowercase hexadecimal characters.")
 	plan = plan_contract_migration(project_root, relative_path)

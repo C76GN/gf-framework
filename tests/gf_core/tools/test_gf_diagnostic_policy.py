@@ -1,4 +1,4 @@
-"""Executable contract for framework-native diagnostic convention checks."""
+"""验证 GF 开发者诊断的稳定 ID、模板、严重级别及允许的转发入口。"""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class DiagnosticPolicyTests(unittest.TestCase):
 		for argument in ('"[level.name] 中文"', '"[GFProject][project.text] 中文"', '_PATH'):
 			with self.subTest(argument=argument):
 				source = 'const _PATH = "[level.name] 中文"\npush_error("[GFFixture][fixture.failed] Failed at %s." % ' + argument + ')'
-				# An unused project-data constant is not introduced in other cases.
+				# 只在这个用例引入未使用的项目数据常量，避免干扰其他判定。
 				if argument != '_PATH':
 					source = source.split('\n', 1)[1]
 				report = self.check_source(source)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for repository-owned Python test execution evidence."""
+"""验证仓库自有 Python 测试的执行记录与目录清单能互相核对。"""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import gf_maintenance
 
 
 def _repository_python_test_modules() -> list[Path]:
+	"""取得仓库维护测试模块的集合，供检查每个模块是否已登记到其执行入口。"""
 	return sorted((ROOT / "tests" / "gf_core").rglob("test_*.py"))
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for strict, advisory GF validation input analysis."""
+"""验证工作区变更与内容指纹的只读采集，覆盖输入在读取期间改变的情况。"""
 
 from __future__ import annotations
 

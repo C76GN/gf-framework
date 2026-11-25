@@ -6,7 +6,8 @@
 
 ### 🚀 新增特性 (Added)
 
-- 空间标准库新增 `GFSegmentVisibility2D`，可按多层障碍查询两点间的视线，也可批量计算整份拓扑。主线程可使用 GF Native 批量加速。[整数线段可见性](standard/input-flow/spatial-query.md#segment-visibility-masks)
+- 诊断标准库新增 `GFFrameIntervalSeries`，可按需计算有界帧间隔的分位数、超预算次数和最慢连续窗口。[帧间隔统计](standard/utilities/runtime/debug-observability/runtime-telemetry/build-diagnostics/operation-diagnostics.md#frame-interval-series)
+- 空间标准库新增 `GFSegmentVisibility2D`，可按多层障碍查询两点间的视线，也可批量计算整份拓扑。GF Native 支持主线程和 Windows x64 工作线程批量加速，结果报告实际执行后端。[整数线段可见性](standard/input-flow/spatial-query.md#segment-visibility-masks)
 - Data Batch 新增 `GFDataBatchRowMatch.match_ids()`，可按稳定 ID 对齐两份批次，返回每个当前实体的旧行号。支持任意行序，并可自动使用 GF Native 加速。[对齐两份批次](extensions/data-batch/index.md#stable-id-row-matching)
 - 场景组查询新增已保存 GDScript 调用位置，可按组名跳转到脚本行，并单独查看动态组名和接收对象待确认的调用。
 - Resource 表格支持按当前可见选择粘贴一列。逐行核对资源与新旧值后，可用一次撤销或重做整批修改。

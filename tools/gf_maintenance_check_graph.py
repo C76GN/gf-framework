@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check graph, timeout budgets, and provenance fingerprints for GF maintenance."""
+"""为维护动作解析依赖、超时预算，以及标识输入和执行结果的指纹。"""
 
 from __future__ import annotations
 
@@ -28,19 +28,19 @@ MAX_WORKSPACE_FINGERPRINT_UNTRACKED_TOTAL_BYTES = 256 * 1024 * 1024
 
 
 class WorkspaceFingerprintError(RuntimeError):
-	"""Base error for fail-closed workspace fingerprint operations."""
+	"""计算可靠工作区指纹时可能出现的错误基类。"""
 
 
 class WorkspaceFingerprintSetupError(WorkspaceFingerprintError):
-	"""Raised when a workspace entry cannot be fingerprinted safely."""
+	"""工作区条目无法安全纳入当前指纹。"""
 
 
 class WorkspaceFingerprintDriftError(WorkspaceFingerprintError):
-	"""Raised when a workspace entry changes during fingerprinting."""
+	"""工作区条目在计算指纹期间发生变化。"""
 
 
 class WorkspaceFingerprintProcessBoundaryError(WorkspaceFingerprintError):
-	"""Raised when a fingerprint Git process is not proven fully quiescent."""
+	"""用于计算指纹的 Git 进程树尚未确认清理完毕。"""
 
 	def __init__(self, message: str) -> None:
 		super().__init__(message)
@@ -49,7 +49,7 @@ class WorkspaceFingerprintProcessBoundaryError(WorkspaceFingerprintError):
 
 
 def stable_fingerprint(value: Any) -> str:
-	"""Return a stable SHA-256 fingerprint for JSON-compatible maintenance data."""
+	"""为可用 JSON 表达的维护数据计算稳定的 SHA-256。"""
 	payload = json.dumps(
 		value,
 		allow_nan=False,
@@ -66,7 +66,7 @@ def workspace_fingerprint(
 	git_process: FrozenGitProcess,
 	deadline: float | None = None,
 ) -> dict[str, Any]:
-	"""Fingerprint committed state plus every non-ignored local change."""
+	"""将当前提交连同每一项未被忽略的本地变更纳入工作区指纹。"""
 	_check_deadline(deadline, "workspace fingerprint")
 	head = run_git_bytes(
 		root,
@@ -77,7 +77,7 @@ def workspace_fingerprint(
 		"utf-8",
 		errors="replace",
 	).strip()
-	# Abbreviated object IDs can change without any source content changing.
+	# Git 对象的缩写可能随对象库增长改变，即使源码字节完全相同。
 	diff = run_git_bytes(
 		root,
 		["diff", "--binary", "--full-index", "--no-ext-diff", "HEAD", "--"],
@@ -177,7 +177,7 @@ def _update_digest_from_stable_regular_file(
 	*,
 	deadline: float | None,
 ) -> Any:
-	"""Append one regular file without buffering it or accepting a replaced path."""
+	"""流式读取一个普通文件并更新摘要，拒绝读取期间被替换的路径。"""
 	_check_deadline(deadline, "workspace fingerprint file reading")
 	if (
 		before.st_size < 0
@@ -323,7 +323,7 @@ def _same_regular_file_snapshot(left: os.stat_result, right: os.stat_result) -> 
 
 
 def _same_regular_file_cross_view(left: os.stat_result, right: os.stat_result) -> bool:
-	"""Compare lstat/fstat views without relying on Windows' differing ctime view."""
+	"""核对 lstat 与 fstat 所见的文件身份，避开 Windows 两者 ctime 语义不同的字段。"""
 	return (
 		stat.S_ISREG(left.st_mode)
 		and stat.S_ISREG(right.st_mode)
@@ -346,7 +346,7 @@ def run_git_bytes(
 	input_bytes: bytes | None = None,
 	deadline: float | None = None,
 ) -> bytes:
-	"""Run Git under the shared tree owner while preserving exact binary I/O."""
+	"""在共享的进程树监督器下运行 Git，保留原始二进制输入输出。"""
 	timeout_seconds = _remaining_timeout(deadline, "workspace fingerprint git operation")
 	effective_timeout = min(30.0, timeout_seconds)
 	command_identity = git_process.command(args)
@@ -403,7 +403,7 @@ def _check_deadline(deadline: float | None, operation: str) -> None:
 
 
 class CheckGraph:
-	"""Validate and expand a deterministic dependency graph of maintenance checks."""
+	"""校验维护检查的依赖图，并以确定顺序展开依赖。"""
 
 	def __init__(
 		self,
@@ -418,7 +418,7 @@ class CheckGraph:
 		self._validate()
 
 	def expand(self, requested_names: Iterable[str]) -> list[str]:
-		"""Return a topologically ordered closure with every check exactly once."""
+		"""按拓扑序返回依赖闭包，每项检查只出现一次。"""
 		expanded: list[str] = []
 		completed: set[str] = set()
 		visiting: list[str] = []
@@ -444,9 +444,11 @@ class CheckGraph:
 		return expanded
 
 	def dependencies_for(self, name: str) -> tuple[str, ...]:
+		"""返回检查的直接依赖，缺少依赖条目时返回空元组。"""
 		return self._dependencies.get(name, ())
 
 	def describe(self, selected_names: Iterable[str]) -> dict[str, Any]:
+		"""将指定检查集合投影为可序列化的节点和边。"""
 		selected = list(selected_names)
 		selected_set = set(selected)
 		edges = [
@@ -481,7 +483,7 @@ class CheckGraph:
 
 @dataclass(frozen=True)
 class TimeoutBudget:
-	"""Resolved timeout layers for one check invocation."""
+	"""记录一次检查实际采用的各层时限，单位为秒。"""
 
 	policy_seconds: float
 	requested_minimum_seconds: float | None
@@ -502,6 +504,7 @@ def resolve_timeout_budget(
 	requested_minimum_seconds: float | None,
 	suite_remaining_seconds: float | None,
 ) -> TimeoutBudget:
+	"""按检查策略和调用方请求合并时限，再受套件剩余秒数约束。"""
 	policy_seconds = _validated_timeout_seconds("policy_seconds", policy_seconds)
 	if requested_minimum_seconds is not None:
 		requested_minimum_seconds = _validated_timeout_seconds(
@@ -544,6 +547,7 @@ def make_check_input_fingerprint(
 	dependency_fingerprints: Mapping[str, str],
 	timeout_budget: TimeoutBudget,
 ) -> str:
+	"""将动作名、原始与实际命令、依赖指纹、工作区和超时预算绑定为一个摘要。"""
 	return stable_fingerprint({
 		"schema_version": 2,
 		"name": name,
@@ -563,6 +567,7 @@ def make_check_result_fingerprint(
 	stdout: str,
 	stderr: str,
 ) -> str:
+	"""按输入指纹、执行结果与捕获的输出计算结果摘要。"""
 	return make_check_result_fingerprint_from_output_evidence(
 		input_fingerprint,
 		exit_code=exit_code,
@@ -584,7 +589,7 @@ def make_check_result_fingerprint_from_output_evidence(
 	stdout_sha256: str,
 	stderr_sha256: str,
 ) -> str:
-	"""Bind a result to complete-output digests without requiring output replay."""
+	"""用完整输出的摘要绑定执行结果，无需重新读取或回放全部输出。"""
 	return stable_fingerprint({
 		"schema_version": 1,
 		"input_fingerprint": input_fingerprint,

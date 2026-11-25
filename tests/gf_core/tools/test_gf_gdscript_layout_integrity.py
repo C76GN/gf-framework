@@ -1,4 +1,4 @@
-"""Observable formatting contracts for structural whitespace integrity."""
+"""验证缩进、代码块和物理行的空白规则，覆盖字符串与注释边界。"""
 
 from pathlib import Path
 from dataclasses import replace
@@ -137,7 +137,7 @@ class FormatPlanTests(unittest.TestCase):
 			try:
 				os.symlink(outside, target)
 			except OSError:
-				return  # Some Windows test accounts cannot create symlinks.
+				return  # 部分 Windows 测试账户没有创建符号链接的权限。
 			with self.assertRaises(OSError):
 				formatting.capture_file(root, self.PATH)
 

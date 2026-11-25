@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-platform subprocess supervision for GF maintenance commands."""
+"""监督维护子进程及其后代，区分运行完成、输出收集和进程树清理。"""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ _LINUX_TERMINATED_PROCESS_STATES = frozenset(("Z", "X", "x"))
 
 
 class SupervisedProcessStartError(OSError):
-	"""A command-start failure with a positive no-child boundary proof."""
+	"""启动命令失败，且监督器已经明确确认未创建子进程。"""
 
 	def __init__(self, error: OSError) -> None:
 		try:
@@ -65,7 +65,7 @@ class SupervisedProcessStartError(OSError):
 
 
 class SupervisedProcessCleanupError(OSError):
-	"""A supervision failure whose owner/resource cleanup was not proven complete."""
+	"""监督失败，进程所有者或相关资源的清理尚未确认完成。"""
 
 	def __init__(
 		self,
@@ -97,10 +97,9 @@ class SupervisedProcessCleanupError(OSError):
 
 
 def exception_has_cleanup_debt(error: BaseException) -> bool:
-	"""Return whether an exception chain carries an unproven cleanup boundary.
+	"""判断整条异常链中是否存在未证实的清理责任。
 
-	The inspection is deliberately fail-closed: custom exception attribute access,
-	descriptors, or an unreadable cause/context chain cannot grant cleanup authority.
+	若异常的自定义属性、描述符、cause 或 context 无法安全读取，应继续保留清理责任。
 	"""
 	uninspectable = object()
 
@@ -166,7 +165,7 @@ def exception_has_cleanup_debt(error: BaseException) -> bool:
 
 
 def safe_exception_detail(error: BaseException) -> str:
-	"""Format diagnostics without letting hostile exception text replace control flow."""
+	"""提取可显示的异常说明，避免异常对象自己的文本转换打断现有控制流程。"""
 	try:
 		return str(error)
 	except BaseException:
@@ -174,7 +173,7 @@ def safe_exception_detail(error: BaseException) -> str:
 
 
 def add_exception_note(error: BaseException, note: str) -> bool:
-	"""Attach one diagnostic note on every supported Python without raising."""
+	"""在受支持的 Python 版本上附加一条诊断备注，此操作本身不抛出异常。"""
 	if not isinstance(note, str):
 		return False
 	native_add_note = getattr(BaseException, "add_note", None)
@@ -210,7 +209,7 @@ def rmtree_with_exception_callback(
 	path: Path | str,
 	callback: Callable[[Callable[..., object], str, BaseException], None],
 ) -> None:
-	"""Use the Python 3.12 ``onexc`` contract while supporting Python 3.10/3.11."""
+	"""在 Python 3.10 和 3.11 也提供 Python 3.12 onexc 的异常回调语义。"""
 	if sys.version_info >= (3, 12):
 		shutil.rmtree(path, onexc=callback)
 		return
@@ -229,7 +228,7 @@ def rmtree_with_exception_callback(
 
 
 def safe_exception_traceback(error: BaseException) -> TracebackType | None:
-	"""Capture only a real traceback without dispatching through hostile accessors."""
+	"""只读取真实的 traceback，避免经过异常对象自定义的访问器。"""
 	try:
 		traceback = BaseException.__getattribute__(error, "__traceback__")
 	except BaseException:
@@ -244,12 +243,11 @@ def _select_preferred_cleanup_error(
 	*,
 	context: str,
 ) -> tuple[BaseException, TracebackType | None]:
-	"""Prefer the first control-flow interruption, otherwise the first error.
+	"""优先选择首个流程控制中断，没有时取首个普通错误。
 
-	Cleanup must continue after every failure, but ``KeyboardInterrupt``/
-	``SystemExit``/other direct ``BaseException`` subclasses cannot be hidden by an
-	earlier ordinary ``Exception``.  The non-selected failure remains attached as a
-	diagnostic note without invoking hostile exception string conversion.
+	清理在每次失败后都继续。KeyboardInterrupt、
+	SystemExit 等直接继承 BaseException 的中断优先于较早的普通异常。其他失败以诊断备注保留，
+	避免调用异常自定义的文本转换。
 	"""
 	candidate_traceback = safe_exception_traceback(candidate)
 	if current is None:
@@ -270,11 +268,11 @@ def _select_preferred_cleanup_error(
 
 
 def _process_supervision_checkpoint(_name: str) -> None:
-	"""Private no-op seam for deterministic maintenance fault injection."""
+	"""供维护测试确定性注入故障的内部检查点，正常执行时无操作。"""
 
 
 def _close_process_pipes(process: subprocess.Popen[str]) -> None:
-	"""Close both captured streams even when closing the first stream fails."""
+	"""关闭两个捕获流，即使关闭第一个流出错也要处理第二个。"""
 	try:
 		if process.stdout is not None:
 			process.stdout.close()
@@ -284,14 +282,13 @@ def _close_process_pipes(process: subprocess.Popen[str]) -> None:
 
 
 def _darwin_group_contains_only_exited_leader(group_id: int) -> bool:
-	"""Call only with an owned, unreaped, independently confirmed exited leader."""
+	"""只允许在持有未回收的首进程且已独立确认其退出后，检查组中是否仅余该进程。"""
 	if sys.platform != "darwin" or group_id <= 0:
 		return False
 	import ctypes
 
-	# XNU skips zombies when signalling a group and can return EPERM for a group
-	# containing only its zombie leader. PROC_PGRP_ONLY enumerates live and zombie
-	# members under the kernel process-list lock. Two PID slots detect any companion.
+	# XNU 发组信号时会跳过僵尸进程，仅剩僵尸首进程时可能返回 EPERM。
+	# PROC_PGRP_ONLY 在内核锁内枚举两类成员，用两个 PID 槽就能发现同组伙伴。
 	try:
 		libproc = ctypes.CDLL("/usr/lib/libproc.dylib", use_errno=True)
 		list_pids = libproc.proc_listpids
@@ -311,7 +308,7 @@ def _linux_process_group_cleanup_state(
 	proc_root: Path | None = None,
 	scan_deadline: float | None = None,
 ) -> str | None:
-	"""Classify one Linux process group without treating terminal zombies as live."""
+	"""判断 Linux 进程组的清理状态，已终止的僵尸进程单独计入。"""
 	if process_group_id <= 0:
 		return None
 	if proc_root is None:
@@ -374,7 +371,7 @@ def _linux_process_group_cleanup_state(
 
 
 class _ProcessTreeOwner:
-	"""Kernel-backed ownership for every process launched by one command."""
+	"""用内核机制持有由一次命令启动的整棵进程树。"""
 
 	def __init__(self) -> None:
 		self.cleanup_failed = False
@@ -414,7 +411,7 @@ class _ProcessTreeOwner:
 		cwd: Path,
 		environment: dict[str, str],
 	) -> subprocess.Popen[bytes]:
-		"""Start a long-lived child with zero-byte DEVNULL output capture."""
+		"""启动长期子进程，输出定向到 DEVNULL，不保留捕获字节。"""
 		raise NotImplementedError
 
 	def wait_for_direct_exit(
@@ -479,7 +476,7 @@ class _ProcessTreeOwner:
 		return False
 
 class _PosixProcessGroupOwner(_ProcessTreeOwner):
-	"""Keep the group leader unreaped until its independently owned group is empty."""
+	"""保持首进程尚未回收，直到其独立进程组确认清空。"""
 
 	def __init__(self) -> None:
 		super().__init__()
@@ -569,16 +566,14 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 			return process
 		except BaseException:
 			if process is not None:
-				# Popen completed start_new_session before returning. Publish the
-				# process and PGID to the already-installed outer cleanup guard; do
-				# not reap locally if group termination has not succeeded.
+				# Popen 返回时新会话已经建立。将进程与 PGID 交给已安装的外层清理器，
+				# 在进程组未确认终止前保留首进程。
 				self._started_process = process
 				self.process_group_id = process.pid
 				try:
 					setattr(process, "_gf_process_tree_owner", self)
 				except BaseException:
-					# Preserve the first startup error. The outer guard will fail
-					# closed if this otherwise ordinary Popen attribute cannot bind.
+					# 保留第一次启动错误。若无法绑定 Popen 的属性，外层清理器会保守地保留资源。
 					pass
 			raise
 
@@ -685,8 +680,7 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 		self._cleanup_confirmation_succeeded = False
 		if self._cleanup_probe_group_id <= 0 and self.process_group_id > 0:
 			self._cleanup_probe_group_id = self.process_group_id
-		# Reaping releases the leader PID. From this point onward, retain only a
-		# probe-only identity that is never used for a nonzero signal.
+		# 回收首进程会释放其 PID。此后只保留用于探测的身份，不能再发送非零信号。
 		self.process_group_id = 0
 		if self._cleanup_probe_group_id <= 0:
 			self._cleanup_confirmation_succeeded = True
@@ -698,7 +692,7 @@ class _PosixProcessGroupOwner(_ProcessTreeOwner):
 		probe_permission_denied = False
 		while True:
 			try:
-				# Signal zero only probes existence and permissions; it does not deliver a signal.
+				# 零号信号只查询存在性与权限，不向目标投递信号。
 				os.killpg(process_group_id, 0)
 			except ProcessLookupError:
 				self._cleanup_probe_group_id = 0
@@ -947,8 +941,7 @@ if os.name == "nt":
 
 
 	def _close_windows_handle_worker(owner: Any, operation: _WindowsHandleCloseOperation) -> None:
-		# Retrying a close whose Thread.start() was interrupted may create another
-		# contender. Exactly one worker can claim the numeric handle.
+		# Thread.start() 中断后重试关闭可能产生多个竞争者，只有一个线程能领取该数值句柄。
 		with operation.claim_lock:
 			if operation.claimed or operation.aborted_before_claim:
 				return
@@ -974,18 +967,13 @@ if os.name == "nt":
 			with owner._handle_state_lock:
 				if owner._close_operation is operation:
 					if close_result is False:
-						# False is the only result that proves the numeric handle
-						# remains valid and may safely be retried.
+						# 只有明确返回 False 才能证明数值句柄仍有效且可以重试。
 						owner.handle = operation.handle
 						owner._closed = False
 						owner._close_succeeded = False
 					else:
-						# An exception after entering CloseHandle makes the kernel
-						# result unknowable. Consume the numeric value rather than
-						# risking a close against a reused handle.  A created child
-						# remains published until the outer cleanup chain has proved
-						# termination, direct reap, and tree confirmation; returncode
-						# alone is not an ownership-release proof.
+						# 进入 CloseHandle 后抛异常时内核结果未知，应放弃该数值以免误关已复用的句柄。
+						# 已创建的子进程仍归外层管理，直到终止、直接回收和整树确认均完成。
 						owner.handle = 0
 						owner._closed = True
 						owner._close_succeeded = close_result is True
@@ -1026,8 +1014,7 @@ if os.name == "nt":
 						error_traceback=None,
 					)
 				operation = _WindowsHandleCloseOperation(owner.handle)
-				# Publish the operation before hiding the raw numeric handle. Any
-				# interrupted retry will join this operation instead of closing twice.
+				# 先发布关闭操作再隐藏数值句柄，中断后的重试即可接入同一操作，避免关闭两次。
 				owner._close_operation = operation
 				owner.handle = 0
 				owner._closed = False
@@ -1038,8 +1025,8 @@ if os.name == "nt":
 		with operation.claim_lock:
 			already_claimed = operation.claimed
 		if not already_claimed and not operation.finished.is_set():
-			# Thread.start() can be interrupted after creating its native thread.
-			# Multiple contenders are safe because the operation has one claim lock.
+			# Thread.start() 可能在系统线程已创建后被中断。每次关闭操作共用同一把领取锁，
+			# 防止多个竞争者重复关闭。
 			for _attempt in range(2):
 				worker = threading.Thread(
 					target=_close_windows_handle_worker,
@@ -1073,9 +1060,8 @@ if os.name == "nt":
 						context="Windows low-level handle-close worker launch",
 					)
 		if not worker_launched:
-			# An earlier ambiguous Thread.start() may still have created a contender.
-			# Wait only after it claims; otherwise retain the operation for a later
-			# close retry without ever exposing its numeric handle.
+			# 先前的启动失败仍可能留下竞争者。只等待已领取操作的线程，否则保留操作供稍后重试，
+			# 并继续隐藏数值句柄。
 			with operation.claim_lock:
 				claimed = operation.claimed
 			if not claimed and not operation.finished.is_set():
@@ -1132,9 +1118,8 @@ if os.name == "nt":
 			worker_claimed = operation.claimed
 			abort_launch = not worker_launched and not worker_claimed
 			if abort_launch:
-				# A Thread.start() exception can be ambiguous. Claim cancellation while
-				# holding the same lock used by every target so a late native thread
-				# cannot consume a handle that has been restored to the owner.
+				# Thread.start() 的异常可能出现在启动之后。取消也须持有所有线程使用的同一把锁，
+				# 防止迟到的线程拿走已交还的句柄。
 				operation.aborted_before_claim = True
 		if abort_launch:
 			with owner._handle_state_lock:
@@ -1171,10 +1156,8 @@ if os.name == "nt":
 				):
 					raise ctypes.WinError(ctypes.get_last_error())
 			except BaseException as configuration_error:
-				# The Job is still empty. Route every configuration-failure close
-				# through the same interruption-safe state machine, retrying explicit
-				# False.  A repeated close failure is resource cleanup debt, not a
-				# reason to silently restore the configuration exception.
+				# 此时 Job 仍为空。配置失败后的关闭使用同一套可中断状态机，仅对明确的 False 重试。
+				# 重复失败须保留清理错误。
 				close_notes: list[str] = []
 				for _attempt in range(2):
 					try:
@@ -1295,10 +1278,8 @@ if os.name == "nt":
 					)
 				return process
 			except BaseException:
-				# The caller installs the complete terminate -> reap -> confirm ->
-				# close chain before calling start().  Retain every created child and
-				# its assignment state for that chain; performing a second private
-				# cleanup here previously swallowed every cleanup-stage exception.
+				# 调用方在 start() 前安装了终止、回收、确认、关闭的完整链。已创建的子进程及分配状态留给该链处理，
+				# 以保留各阶段的错误。
 				if process is not None:
 					self._started_process = process
 					self._started_process_assigned_to_job = assigned_to_job
@@ -1371,9 +1352,7 @@ if os.name == "nt":
 				)
 			if not direct_exited:
 				try:
-					# Before assignment the process is still suspended and therefore
-					# cannot have created descendants.  Keep its Popen identity retained
-					# until the outer chain separately reaps it.
+					# 分配前子进程仍处于挂起状态，不可能产生后代。外层完成单独回收之前保留其 Popen 身份。
 					process.kill()
 				except BaseException as error:
 					record(error, "unassigned Windows child termination")
@@ -1639,17 +1618,7 @@ def _new_process_tree_owner() -> _ProcessTreeOwner:
 
 @dataclass(frozen=True)
 class SupervisedProcessResult:
-	"""One command result with an explicit platform-boundary cleanup proof.
-
-	``process_boundary_quiescent`` is true only when the Windows Job Object was
-	observed empty, or the POSIX process group was absent/contained no executable
-	members, before its owner was released (or no process was ever started). On
-	POSIX this does not claim
-	containment against a descendant that deliberately leaves the owned group.
-	The field is independent of command success, timeout/cancellation, and output
-	completeness. The stream truncation flags also cover failed reads or decoding:
-	no caller may treat a partially captured stream as complete evidence.
-	"""
+	"""文本模式的进程结果，分别记录退出码、超时或取消、输出截断和进程树清理状态。"""
 
 	return_code: int
 	stdout: str
@@ -1665,12 +1634,10 @@ class SupervisedProcessResult:
 
 
 class _LocalSupervisedProcessLeaseBackend:
-	"""Caller-owned long-lived process tree with one immutable lifetime deadline.
+	"""持有由调用方管理的长期进程树，并使用固定的生命周期截止时间。
 
-	Lease stdout and stderr are routed directly to ``DEVNULL``.  This is a
-	zero-byte, intrinsically bounded output policy intended for services that own
-	their durable diagnostics separately (for example Godot's explicit log file).
-	No supervisor or output-helper thread exists behind this object.
+	两个输出流直接进入 DEVNULL，捕获字节数为零。服务应自行保存持久诊断，例如 Godot 显式日志。
+	此对象背后没有监督或输出读取线程。
 	"""
 
 	def __init__(
@@ -1709,7 +1676,7 @@ class _LocalSupervisedProcessLeaseBackend:
 		return self._process.pid
 
 	def poll_health(self) -> None:
-		"""Fail when the service exited or exhausted its immutable lifetime."""
+		"""服务已退出或租约的固定期限届满时报告失败。"""
 		if self._result is not None:
 			raise RuntimeError("Supervised process lease is already closed.")
 		if time.perf_counter() >= self.deadline:
@@ -1728,7 +1695,7 @@ class _LocalSupervisedProcessLeaseBackend:
 			)
 
 	def poll_operation_health(self) -> None:
-		"""Fail when the child exits or the operation portion of its lease ends."""
+		"""子进程退出或租约的操作预算耗尽时报告失败。"""
 		self.poll_health()
 		if time.perf_counter() >= self.operation_deadline:
 			raise TimeoutError(
@@ -1737,7 +1704,7 @@ class _LocalSupervisedProcessLeaseBackend:
 			)
 
 	def cancel_and_close(self, *, deadline: float) -> SupervisedProcessResult:
-		"""Cancel and close while retaining the first asynchronous interruption."""
+		"""取消并关闭本地租约，保留最先出现的异步中断。"""
 		if (
 			isinstance(deadline, bool)
 			or not isinstance(deadline, (int, float))
@@ -1838,8 +1805,7 @@ class _LocalSupervisedProcessLeaseBackend:
 					"the shared absolute deadline.",
 					pid=self.pid,
 				)
-		# Event publication is the terminal memory barrier.  Consume an already
-		# published result/error without reacquiring a lock after the deadline.
+		# 事件置位是最终的内存同步点。过期后读取已发布的结果或异常，无需再获取锁。
 		terminal_error = self._close_terminal_error
 		terminal_traceback = self._close_terminal_traceback
 		result = self._result
@@ -1915,7 +1881,7 @@ class _LocalSupervisedProcessLeaseBackend:
 		except BaseException as error:
 			record_error("process-tree termination", error)
 
-		# DEVNULL has no caller-owned pipe and is therefore already drained.
+		# DEVNULL 没有调用方持有的管道，因此可直接视为输出已排尽。
 		termination_succeeded = False
 		try:
 			termination_succeeded = self._owner.termination_succeeded()
@@ -1949,9 +1915,8 @@ class _LocalSupervisedProcessLeaseBackend:
 		except BaseException as error:
 			record_error("process-tree owner close", error)
 
-		# Windows kill-on-close is the final kernel boundary if explicit Job
-		# termination could not be confirmed. Reap only after close published its
-		# atomic outcome; POSIX never signals or reaps by this fallback.
+		# Windows 无法确认显式终止时，Job 的关闭即终止提供最终边界。等关闭结果公布后才回收；
+		# POSIX 走自己的信号和回收路径。
 		owner_closed = False
 		close_succeeded = False
 		close_terminates_tree = False
@@ -2024,7 +1989,7 @@ class _LocalSupervisedProcessLeaseBackend:
 					notes=tuple(notes),
 				)
 				deferred_cleanup = SupervisedBinaryCleanupHandle(deferred_operation)
-				# Publish retained authority on the lease before starting any worker.
+				# 启动任何工作线程前先把保留的清理权限发布到租约。
 				self._deferred_cleanup_handle = deferred_cleanup
 			else:
 				deferred_operation = deferred_cleanup._operation
@@ -2072,13 +2037,7 @@ class _LocalSupervisedProcessLeaseBackend:
 
 
 class SupervisedProcessLeasePublicationSlot:
-	"""Caller-owned lease reference published before spawn authority transfers.
-
-	The slot uses a deadline-bounded compare-and-set lock. The reference assignment
-	is the publication commit point: asynchronous control flow can interrupt the
-	surrounding call, but competing starters cannot overwrite an existing lease.
-	Callers must retain the slot before asking the supervisor to create a child.
-	"""
+	"""在启动长期进程前建立租约交接位置，使中途抛出异常时仍可找到清理所有者。"""
 
 	def __init__(self) -> None:
 		self._lease: Any = None
@@ -2089,6 +2048,7 @@ class SupervisedProcessLeasePublicationSlot:
 		return self._lease is not None
 
 	def publish(self, lease: Any, *, deadline: float) -> None:
+		"""在给定的单调时钟截止值前公布租约，使启动中断后调用方仍可接管。"""
 		if type(lease) is not SupervisedProcessLease:
 			raise TypeError(
 				"Process lease publication accepts only the public lease facade."
@@ -2108,6 +2068,7 @@ class SupervisedProcessLeasePublicationSlot:
 		return self._lease is lease
 
 	def get(self) -> Any:
+		"""返回已公布的同一租约，空槽抛出 RuntimeError。"""
 		lease = self._lease
 		if lease is None:
 			raise RuntimeError("Process lease publication slot is empty.")
@@ -2122,7 +2083,7 @@ def start_supervised_process_lease(
 	environment: dict[str, str],
 	publication_slot: SupervisedProcessLeasePublicationSlot,
 ) -> SupervisedProcessLease:
-	"""Start a caller-owned long-lived process with a fixed monotonic deadline."""
+	"""启动调用方负责清理的长期进程，租约截止值使用单调时钟。"""
 	if environment is None:
 		raise TypeError("Supervised process lease requires an explicit environment.")
 	if type(publication_slot) is not SupervisedProcessLeasePublicationSlot:
@@ -2317,6 +2278,7 @@ def _start_local_supervised_process_lease(
 
 @dataclass(frozen=True)
 class SupervisedBinaryCleanupStatus:
+	"""二进制调用的一次清理状态观察，用于决定能否释放调用方拥有的目录。"""
 	complete: bool
 	cleanup_complete: bool
 	owner_closed: bool
@@ -2328,6 +2290,7 @@ class SupervisedBinaryCleanupStatus:
 
 @dataclass(frozen=True)
 class SupervisedBinaryProcessResult:
+	"""分别保留两个原始字节流、截断标记和清理状态。若清理被推迟，应通过所附句柄确认终态。"""
 	return_code: int
 	stdout: bytes
 	stderr: bytes
@@ -2354,7 +2317,7 @@ class _BoundedBinaryPipeState:
 
 
 class _PosixWatchdogProtocolError(RuntimeError):
-	"""The independent POSIX watchdog violated its strict status protocol."""
+	"""独立的 POSIX 看门狗返回了不符合状态协议的数据。"""
 
 
 def _close_pipe_fd(fd: int) -> None:
@@ -2365,7 +2328,7 @@ def _close_pipe_fd(fd: int) -> None:
 
 
 class _PosixWatchdogHelperProcess:
-	"""Wait-safe facade for the isolated watchdog helper process."""
+	"""为隔离看门狗提供可安全等待其退出的进程接口。"""
 
 	def __init__(
 		self,
@@ -2406,9 +2369,8 @@ class _PosixWatchdogHelperProcess:
 			try:
 				return_code = self._process.poll()
 			except ChildProcessError:
-				# pidfd readability proves this exact helper exited. ECHILD means
-				# SIGCHLD=SIG_IGN/SA_NOCLDWAIT auto-reaped it, or an interrupted
-				# prior waitpid already consumed it; both are terminal ownership proof.
+				# pidfd 可读证明这个看门狗已经退出。此时 ECHILD 表示自动回收，或之前被打断的 waitpid 已完成回收，
+				# 两者都可确认所有权终结。
 				return_code = 0
 				self._process.returncode = return_code
 			except Exception:
@@ -2467,7 +2429,7 @@ def _spawn_posix_watchdog_helper(
 	nonce: str,
 	publication: Callable[[_PosixWatchdogHelperProcess], None],
 ) -> _PosixWatchdogHelperProcess:
-	"""Start the isolated helper and retain it across every later failure."""
+	"""启动独立看门狗并保留其身份，使后续步骤失败仍可清理。"""
 	helper_process: subprocess.Popen[bytes] | None = None
 	helper_pidfd = -1
 	helper_pidfd_stream: BinaryIO | None = None
@@ -2552,7 +2514,7 @@ def _spawn_posix_watchdog_helper(
 
 
 class _PosixWatchdogTransport:
-	"""Authenticated parent-side transport to one independent watchdog helper."""
+	"""持有父进程到一个独立看门狗的已验证控制与状态通道。"""
 
 	def __init__(
 		self,
@@ -2573,10 +2535,8 @@ class _PosixWatchdogTransport:
 		self._control_io_lock = threading.Lock()
 		self._status_io_lock = threading.Lock()
 		self._state_lock = threading.Lock()
-		# The production transport is Linux-only, but its authenticated protocol is
-		# exercised on every supported Python. Windows Python before 3.12 cannot
-		# make anonymous pipes non-blocking, so cross-host parsing uses the same
-		# PeekNamedPipe boundary as binary capture instead of risking a blocking read.
+		# 生产传输用于 Linux，协议解析在其他受支持的 Python 上也要能测。
+		# Windows 的 Python 3.12 以前用 PeekNamedPipe 避免匿名管道读取阻塞。
 		self._uses_windows_status_peek = os.name == "nt"
 		if not self._uses_windows_status_peek:
 			os.set_blocking(self._control.fileno(), False)
@@ -2953,9 +2913,8 @@ class _PosixWatchdogTransport:
 		self._try_reap_helper()
 		if isinstance(pending_error, _PosixWatchdogProtocolError):
 			try:
-				# Once the authenticated status channel is broken the service is no
-				# longer observable.  Revoke its liveness authority immediately; do
-				# not depend on an outer caller reaching a finally block.
+				# 经过验证的状态通道断开后，无法继续观察服务，应立即撤回存活凭据，
+				# 不能依赖外层调用恰好进入 finally。
 				self.close_control()
 			except BaseException as close_error:
 				pending_error, pending_traceback = _select_preferred_cleanup_error(
@@ -3124,7 +3083,7 @@ class _PosixWatchdogSpawnHandoff:
 
 
 class _PosixWatchdogSpawnOperation:
-	"""Retained non-daemon authority across helper Popen and lease publication."""
+	"""在启动看门狗到公布租约的整个过程中，由非守护线程保留清理责任。"""
 
 	def __init__(
 		self,
@@ -3293,8 +3252,7 @@ class _PosixWatchdogSpawnOperation:
 		return self._acknowledged.is_set()
 
 	def abandon(self, *, deadline: float | None = None) -> None:
-		# Decision publication is the worker's cleanup authority transfer.  It must
-		# never wait behind the very state lock whose deadline-bounded claim failed.
+		# 发布决定会转交工作线程的清理责任，不能再等待已因截止时间耗尽而未取得的状态锁。
 		self._decision.set()
 		acquired = (
 			self._state_lock.acquire(blocking=False)
@@ -3549,9 +3507,8 @@ class _PosixWatchdogSpawnOperation:
 				notes=tuple(notes),
 				error_type=type(pending_error).__name__,
 			), pending_error, pending_traceback
-		# CONFIG cannot have been published before the spawn-ready event. Closing
-		# stdin therefore proves the helper cannot create a service. Reap the raw
-		# helper under this retained non-daemon worker before publishing completion.
+		# 发出 spawn-ready 前尚不能发布 CONFIG，此时关闭标准输入可保证看门狗无法创建服务。
+		# 非守护线程须先回收看门狗，再发布完成状态。
 		reaped = False
 		resources_closed = False
 		while not (reaped and resources_closed):
@@ -3602,7 +3559,7 @@ class _PosixWatchdogSpawnOperation:
 
 
 class _PosixWatchdogDeferredCleanupOperation:
-	"""Bounded observer for external helper authority that survives this CLI."""
+	"""在有限时间内观察独立看门狗后续的清理，该看门狗可在本 CLI 退出后继续。"""
 
 	def __init__(self, transport: _PosixWatchdogTransport) -> None:
 		self._transport = transport
@@ -3654,14 +3611,13 @@ class _PosixWatchdogDeferredCleanupOperation:
 		return self._transport.cleanup_status()
 
 	def snapshot_before_deadline(self, deadline: float) -> SupervisedBinaryCleanupStatus:
-		# A zero-wait pump may consume QUIET and a readable pidfd that were already
-		# published before the deadline; observing that proof late does not invalidate it.
+		# 零等待也可消费截止前已就绪的 QUIET 帧与 pidfd。稍后才观察到它们仍可作为完成证据。
 		self._transport.poll()
 		return self._transport.cleanup_status()
 
 
 class _PosixWatchdogProcessLease:
-	"""Long-lived service lease whose process-tree authority is external."""
+	"""长期服务的租约，底层进程树由外部看门狗管理。"""
 
 	def __init__(
 		self,
@@ -3805,9 +3761,7 @@ class _PosixWatchdogProcessLease:
 			terminal_quiet_observed = self._transport.quiet_payload() is not None
 			if terminal_quiet_observed or deadline_expired:
 				try:
-					# Consume an already-authenticated QUIET frame plus the helper pidfd
-					# without publishing a redundant CANCEL into a closed control pipe.
-					# A completed proof remains valid when observed just after the timestamp.
+					# 使用已验证的 QUIET 帧与看门狗 pidfd 即可确认完成，避免向关闭的控制管道重复发送 CANCEL。
 					quiet = self._transport.wait_quiet_and_reaped(deadline)
 				except BaseException as error:
 					record(error, "existing POSIX watchdog terminal observation")
@@ -3874,7 +3828,7 @@ _SUPERVISED_PROCESS_LEASE_FACADE_TOKEN = object()
 
 
 class SupervisedProcessLease:
-	"""Uniform public lease façade over one platform-specific process authority."""
+	"""为调用方提供一致的长期进程租约，封装各平台的进程树管理方式。"""
 
 	def __init__(self, backend: Any, *, _token: object) -> None:
 		if _token is not _SUPERVISED_PROCESS_LEASE_FACADE_TOKEN:
@@ -3913,6 +3867,7 @@ class SupervisedProcessLease:
 
 	@property
 	def operation_deadline(self) -> float:
+		"""返回扣除预留清理时间后的操作截止值，以单调时钟秒数表示。"""
 		return float(self.__backend.operation_deadline)
 
 	@property
@@ -3920,12 +3875,15 @@ class SupervisedProcessLease:
 		return int(self.__backend.pid)
 
 	def poll_health(self) -> None:
+		"""检查服务进程及租约的绝对期限。进程异常退出或租约已关闭时报告失败。"""
 		self.__backend.poll_health()
 
 	def poll_operation_health(self) -> None:
+		"""检查是否仍可执行业务操作。进入清理预留时间后抛出 TimeoutError。"""
 		self.__backend.poll_operation_health()
 
 	def cancel_and_close(self, *, deadline: float) -> SupervisedProcessResult:
+		"""请求取消并关闭进程树，重复调用与正在执行的关闭操作共享终态。"""
 		if (
 			isinstance(deadline, bool)
 			or not isinstance(deadline, (int, float))
@@ -4321,20 +4279,17 @@ def _start_posix_watchdog_process_lease(
 
 
 def _prepare_binary_pipe_for_polling(pipe: Any) -> None:
-	"""Prepare one captured pipe without requiring Windows 3.12 APIs.
+	"""将捕获管道准备为可轮询状态，兼容较早的 Windows Python。
 
-	``os.set_blocking`` did not support Windows pipes until Python 3.12.  On
-	Windows the drain path uses ``PeekNamedPipe`` before every read instead, so
-	the descriptor remains in its native blocking mode while each read is proven
-	to have at least one available byte.  POSIX keeps the native non-blocking
-	descriptor path.
+	Python 3.12 之前的 os.set_blocking 不支持 Windows 管道。Windows 保留原阻塞描述符，
+	每次读取前使用 PeekNamedPipe 确认至少有一个可用字节。POSIX 使用原生非阻塞描述符。
 	"""
 	if os.name != "nt":
 		os.set_blocking(pipe.fileno(), False)
 
 
 def _windows_binary_pipe_available(pipe: Any) -> tuple[int, bool]:
-	"""Return available Windows pipe bytes and whether the writer is gone."""
+	"""返回 Windows 管道当前可读字节数，以及写端是否已消失。"""
 	if os.name != "nt":
 		raise RuntimeError("Windows pipe availability was requested on a non-Windows host.")
 	available = wintypes.DWORD(0)
@@ -4433,7 +4388,7 @@ class _BinarySpawnHandoff:
 
 
 class _BinarySpawnOperation:
-	"""Persistent owner for a spawn that may finish after the caller deadline."""
+	"""启动操作可能在调用方的截止时间后完成，此对象继续持有清理责任。"""
 
 	def __init__(
 		self,
@@ -4580,9 +4535,8 @@ class _BinarySpawnOperation:
 			self._state_lock.release()
 		if error is not None:
 			status = self.snapshot_before_deadline(deadline)
-			# Quiet cleanup alone does not prove that no child was ever created.
-			# Preserve the text supervisor's typed start contract only with the
-			# terminal spawn owner's explicit no-child history and no cleanup debt.
+			# 进程树现已静止并不表示从未创建子进程。只有启动所有者明确记录无子进程且清理无欠项时，
+			# 才恢复对应的启动异常。
 			if (
 				isinstance(error, (FileNotFoundError, PermissionError))
 				and owner is not None
@@ -4621,7 +4575,7 @@ class _BinarySpawnOperation:
 		publication_slot: SupervisedProcessLeasePublicationSlot,
 		deadline: float,
 	) -> bool:
-		"""Publish the lease, then atomically commit worker authority transfer."""
+		"""先公布租约，再以原子状态完成工作线程的清理责任交接。"""
 		if not self._deferred_claim_ack:
 			return True
 		remaining = max(0.0, deadline - time.perf_counter())
@@ -4649,8 +4603,7 @@ class _BinarySpawnOperation:
 					raise
 				publication_error = error
 				publication_traceback = safe_exception_traceback(error)
-			# This event is the sole ownership-transfer commit. Both caller and
-			# worker inspect the same atomic state, eliminating a bool/event gap.
+			# 该事件是唯一的所有权交接点，调用方和工作线程观察同一个原子状态。
 			self._claim_acknowledged_event.set()
 			try:
 				_process_supervision_checkpoint("process_lease_claim_ack_committed")
@@ -4965,9 +4918,7 @@ class _BinarySpawnOperation:
 				f"Deferred binary process-tree owner close failed: {type(error).__name__}."
 			)
 		while not owner.is_closed():
-			# The caller deadline has already been honored. Keep this non-daemon
-			# operation alive until an already-started kernel-handle close reports
-			# its final state, rather than losing ownership in a daemon-only thread.
+			# 同步等待已满足调用方的截止时间，后续由非守护线程持有清理责任，直到内核句柄关闭报告终态。
 			if owner.wait_for_close_completion(None):
 				break
 			retry_deadline = (
@@ -5061,7 +5012,7 @@ class _BinarySpawnOperation:
 
 
 class _LeaseDeferredCleanupOperation:
-	"""Retain and finish lease cleanup after the caller's deadline has elapsed."""
+	"""在调用方等待时限结束后继续完成租约清理。"""
 
 	def __init__(
 		self,
@@ -5085,10 +5036,7 @@ class _LeaseDeferredCleanupOperation:
 		self._worker_launch_failed = False
 		self._finished = threading.Event()
 		self._cleanup_complete = False
-		# The synchronous caller already captured this proof behind a hostile-safe
-		# boundary. Calling an owner accessor while this object is still being
-		# constructed could discard the only cleanup authority before a handle can
-		# retain it.
+		# 同步调用方已在受保护的边界内取得证明。构造期间再次访问所有者，可能在句柄接管前丢失唯一清理权。
 		self._owner_closed = bool(owner_closed)
 		self._process_tree_empty = process_tree_empty
 		self._direct_reaped = direct_reaped
@@ -5133,9 +5081,8 @@ class _LeaseDeferredCleanupOperation:
 				launch_errors.append(error)
 				self._record_pending_error("worker launch", error)
 		if not worker_launched:
-			# Thread.start() may raise after the native worker became runnable. Keep
-			# the claim gate authoritative and let handle.wait() synchronously claim
-			# cleanup only if no worker actually did.
+			# 系统线程开始运行后 Thread.start() 仍可能抛出异常。以领取锁为准，
+			# 仅当无工作线程领取时才由 handle.wait() 同步接管。
 			with self._state_lock:
 				self._worker_launch_failed = True
 				self._notes = (
@@ -5409,9 +5356,8 @@ class _LeaseDeferredCleanupOperation:
 					return self._run_synchronous_cleanup(None)
 				return self._run_synchronous_cleanup(timeout_seconds)
 			except BaseException as error:
-				# Claim publication transfers the only cleanup authority to this
-				# caller.  An asynchronous interruption in the CALL/entry gap must
-				# therefore be retained while this same caller continues cleanup.
+				# 领取成功即将唯一清理权交给当前调用方。若在进入清理函数前被中断，
+				# 须保留异常并由同一调用方继续完成清理。
 				if self._finished.is_set():
 					raise
 				self._record_pending_error("synchronous cleanup entry", error)
@@ -5550,12 +5496,13 @@ class _LeaseDeferredCleanupOperation:
 
 
 class SupervisedBinaryCleanupHandle:
-	"""Observable final state for a spawn cleaned after the caller deadline."""
+	"""持有延期清理的责任，可在截止时间内等待或查看已公布的状态。"""
 
 	def __init__(self, operation: Any) -> None:
 		self._operation = operation
 
 	def wait(self, timeout_seconds: float | None = None) -> bool:
+		"""最多等待给定秒数，传入 None 时持续等待。返回 False 表示等待期满，清理仍可能在进行。"""
 		if timeout_seconds is not None and (
 			isinstance(timeout_seconds, bool)
 			or not isinstance(timeout_seconds, (int, float))
@@ -5568,9 +5515,11 @@ class SupervisedBinaryCleanupHandle:
 		)
 
 	def snapshot(self) -> SupervisedBinaryCleanupStatus:
+		"""读取当前公布的清理状态，调用方可分别检查操作是否结束、进程树是否已经清空。"""
 		return self._operation.snapshot()
 
 	def snapshot_before_deadline(self, deadline: float) -> SupervisedBinaryCleanupStatus:
+		"""只在调用方给出的期限内查询清理状态，避免诊断观察拖长原预算。"""
 		bounded_snapshot = getattr(self._operation, "snapshot_before_deadline", None)
 		if not callable(bounded_snapshot):
 			raise TypeError(
@@ -5630,7 +5579,7 @@ def require_supervised_binary_quiet_boundary(
 	*,
 	deadline: float,
 ) -> SupervisedBinaryProcessResult:
-	"""Accept a binary result only within the caller's original monotonic deadline."""
+	"""在调用方原有单调截止时间的约束下，确认二进制进程结果是否具备完整的清理证据。"""
 	if (
 		isinstance(deadline, bool)
 		or not isinstance(deadline, (int, float))
@@ -5757,7 +5706,7 @@ def run_supervised_process_bytes(
 	environment: dict[str, str],
 	on_quiet_failure: Callable[[], None] | None = None,
 ) -> SupervisedBinaryProcessResult:
-	"""Run one owned process tree with raw, byte-bounded output capture."""
+	"""运行本次拥有的进程树，直接捕获原始字节，并分别限制两条输出流的字节数。"""
 	if environment is None:
 		raise TypeError("Supervised process bytes requires an explicit environment.")
 	started = time.perf_counter()
@@ -5869,7 +5818,7 @@ def run_supervised_process_bytes(
 		)
 
 	try:
-		# Spawn admission validated owner binding and both pipes before handoff.
+		# 启动准入已经在移交前检验了所有者绑定及两条管道。
 		stdout_pipe = process.stdout
 		stderr_pipe = process.stderr
 		if stdout_pipe is None or stderr_pipe is None:
@@ -6104,6 +6053,11 @@ def run_supervised_process(
 	binary_output_encoding: str = "utf-8",
 	on_quiet_failure: Callable[[], None] | None = None,
 ) -> SupervisedProcessResult:
+	"""运行命令并按指定上限捕获文本输出，同时监督子进程和后代的生命周期。
+
+	timeout_seconds 以秒计，调用方提供 cwd 与完整 environment。输出截断、超时及取消在结果中分别记录。
+	判定能否删除工作目录时，须查看 process_boundary_quiescent。仅查看退出码不足以确认后代均已结束。
+	"""
 	if environment is None:
 		raise TypeError("Supervised process requires an explicit environment.")
 	started = time.perf_counter()
@@ -6173,9 +6127,7 @@ def run_supervised_process(
 		if stream is not None:
 			stream.close()
 			_process_supervision_checkpoint("stdin_stream_closed")
-			# Clear the shared reference only after close returns. If an asynchronous
-			# exception lands inside close, the preserving cleanup path can retry the
-			# still-owned stream instead of losing its only handle.
+			# 关闭成功返回后才移除共享引用。若中途受到异步异常，清理流程仍可取得唯一的流句柄并重试。
 			if stdin_stream is stream:
 				stdin_stream = None
 
@@ -6308,8 +6260,7 @@ def run_supervised_process(
 		return None
 
 	def owned_process() -> subprocess.Popen[str] | None:
-		# owner.start() retains the child before it returns. This fallback closes the
-		# bytecode-sized gap between that return and assignment to the local variable.
+		# owner.start() 返回前就保存了子进程，此备用路径覆盖返回后、赋值本地变量前的中断。
 		nonlocal process
 		if process is None and owner is not None:
 			process = owner._started_process
@@ -6351,8 +6302,7 @@ def run_supervised_process(
 		action_name: str,
 		action: Callable[[], None],
 	) -> None:
-		# The real action lives in finally so a deterministic or asynchronous
-		# checkpoint exception cannot skip that stage.
+		# 实际操作放在 finally 中，确保同步或异步检查点异常都无法跳过本阶段。
 		try:
 			try:
 				_process_supervision_checkpoint(checkpoint_name)
@@ -6387,8 +6337,7 @@ def run_supervised_process(
 		tree_termination_completed = attempt_tree_termination()
 
 	def initial_termination() -> None:
-		# Preserve the independent final attempt on exceptional paths. A successful
-		# initial stop does not suppress the final pre-reap verification/attempt.
+		# 异常路径保留最后一次独立尝试；即使初次停止成功，回收前仍须核实或重试。
 		attempt_tree_termination()
 
 	def output_drain() -> None:
@@ -6411,8 +6360,7 @@ def run_supervised_process(
 		try:
 			if direct_reap_completed:
 				return
-			# If interruption skipped the preceding call boundary, terminate here
-			# before releasing the POSIX leader PID/PGID.
+			# 若中断跳过了前一次调用，在释放 POSIX 首进程的 PID 或 PGID 前从这里完成终止。
 			ensure_tree_termination()
 			if not tree_termination_completed:
 				return
@@ -6424,9 +6372,8 @@ def run_supervised_process(
 			else:
 				direct_reap_completed = True
 		finally:
-			# Pumps close their own streams, but startup and partial-pump failures can
-			# leave one or both pipes unowned. Never contend with a live pump's
-			# TextIOWrapper lock unless the owned tree has definitely terminated.
+			# 读取线程自行关闭流，启动失败或部分启动时管道可能无人接管。
+			# 确认进程树终止前避免争用仍在读取的 TextIOWrapper 锁。
 			if (
 				target_process is not None
 				and tree_termination_completed
@@ -6438,8 +6385,7 @@ def run_supervised_process(
 		nonlocal cleanup_confirmation_completed
 		if cleanup_confirmation_completed:
 			return
-		# The same staged fallback covers interruption immediately before the direct
-		# reap call while preserving the no-signal-after-reap invariant.
+		# 相同的分阶段回退覆盖直接回收前的中断，同时保证回收后不再发送信号。
 		direct_reap()
 		if not direct_reap_completed:
 			return
@@ -6454,17 +6400,15 @@ def run_supervised_process(
 		if owner is None:
 			return
 		target_process = owned_process()
-		# Always release the kernel owner, even if a retried earlier cleanup step
-		# fails. On Windows, kill-on-close remains the last-resort tree boundary.
+		# 即使早期清理步骤重试失败也须释放内核所有者。Windows 仍可借助 Job 的关闭即终止处理最后的进程树。
 		try:
 			cleanup_confirmation()
 		finally:
 			try:
 				notes.extend(owner.close())
 			finally:
-				# A successful Windows Job close terminates every member even when
-				# TerminateJobObject could not be confirmed. Reap only after that
-				# atomic owner state is published, then pipes are safe to close.
+				# Windows Job 成功关闭会终止所有成员，即使先前的 TerminateJobObject 结果无法确认。先发布关闭结果，
+				# 再回收进程并关闭管道。
 				if (
 					target_process is not None
 					and owner.close_terminates_tree()
@@ -6483,15 +6427,11 @@ def run_supervised_process(
 					and owner.is_closed()
 					and owner._started_process is target_process
 				):
-					# The direct PID has been reaped and the kernel owner has reached a
-					# terminal close state.  Retaining the Popen no longer carries tree
-					# authority and makes later diagnostics falsely report an owned child.
+					# 直接子进程已回收且内核所有者已结束关闭，此时保留 Popen 会让后续诊断误报仍有子进程待清理。
 					owner._started_process = None
 
-	# Install the complete cleanup chain before constructing the owner or starting a
-	# child. Nested finally blocks ensure any single BaseException at a stage boundary
-	# still runs every later stage. The first captured error is re-raised only after
-	# owner close.
+	# 先安装完整清理链，再构造所有者或启动子进程。嵌套 finally 确保任一阶段被打断后仍执行剩余阶段，
+	# 在所有者关闭后重新抛出首个异常。
 	try:
 		try:
 			try:
@@ -6624,8 +6564,7 @@ def run_supervised_process(
 							final_termination,
 						)
 				finally:
-					# No POSIX signal may be sent after this point: reaping releases
-					# the leader PID and permits its numeric PGID to be reused.
+					# 此后 POSIX 不得再发送信号。回收首进程会释放其 PID，原数字 PGID 可能被其他进程组复用。
 					run_cleanup_action(
 						"before_direct_reap",
 						"Direct-child reap",
@@ -6646,12 +6585,10 @@ def run_supervised_process(
 	except PrelaunchStopped as stopped:
 		prelaunch_result = stopped.result
 	except BaseException as error:
-		# A boundary exception not raised by a cleanup action still arrives only
-		# after all lexically outer cleanup stages have run.
+		# 来自清理操作外部的异常也要等所有外层清理阶段结束才会传播到这里。
 		record_cleanup_error("Process cleanup sequencing", error)
 	finally:
-		# One final idempotent attempt covers interruption immediately before or
-		# during the normal close call. It is dormant on the successful path.
+		# 最后一次幂等尝试覆盖正常关闭前或关闭中的中断，正常成功时无需重试。
 		if owner is not None and not owner.is_closed():
 			try:
 				owner_close()
@@ -6796,8 +6733,7 @@ def start_output_pump(
 					callback_chunk = output_chunk[:max(remaining, 0)]
 					if remaining > 0:
 						captured = output_chunk[:remaining]
-						# Preserve short-line progress callbacks without retaining one
-						# Python string object for every line of captured output.
+						# 保留短行进度回调，同时避免为捕获输出的每一行长期保留一个 Python 字符串。
 						pending_parts.append(captured)
 						pending_characters += len(captured)
 						if pending_characters >= 4096:
@@ -6817,8 +6753,7 @@ def start_output_pump(
 						with callback_error_lock:
 							callback_errors.append(f"{stream_name} callback failed: {exc}")
 		except BaseException as error:
-			# A terminated reader is not proof of EOF. Publish failure before the
-			# thread finishes so the supervisor still rejects a zero child exit.
+			# 读取线程结束不能单独证明读到了 EOF。退出前先发布失败，即使子进程返回零也不能接受不完整输出。
 			record_capture_failure(error)
 		finally:
 			if pending_parts:
@@ -6878,8 +6813,8 @@ def _signal_posix_group(group_id: int, sig: int, unreaped_leader: subprocess.Pop
 	except ProcessLookupError:
 		return False
 	except PermissionError as error:
-		# A Darwin helper can exit after the membership check or during the TERM grace period.
-		# Reconfirm the pinned zombie and its membership before accepting a denied signal.
+		# Darwin 的同组伙伴可能在枚举后或 TERM 宽限期内退出。接受权限拒绝之前，
+		# 须再次确认保留的僵尸首进程及其组成员。
 		if (
 			error.errno == errno.EPERM and sys.platform == "darwin"
 			and unreaped_leader is not None and unreaped_leader.pid == group_id
@@ -6921,7 +6856,7 @@ def run_supervised_completed_process(
 	timeout_seconds: float,
 	environment: dict[str, str],
 ) -> subprocess.CompletedProcess[str]:
-	"""Compatibility wrapper for call sites that consume CompletedProcess."""
+	"""为使用 CompletedProcess 的调用方保留同一套进程监督语义。"""
 	if environment is None:
 		raise TypeError(
 			"Supervised completed process requires an explicit environment."
@@ -6987,8 +6922,7 @@ def terminate_posix_process_tree(process: subprocess.Popen[str]) -> list[str]:
 		process_group_id = os.getpgid(process.pid)
 	except ProcessLookupError:
 		return []
-	# Complete every group signal while the leader PID/PGID is still retained.
-	# Reaping first would allow the numeric PGID to be reused by an unrelated group.
+	# 持有首进程 PID 和 PGID 时完成所有组信号，先回收会让编号被无关进程组复用。
 	notes = terminate_posix_process_group_id(process_group_id)
 	if not notes:
 		reap_direct_process(process, notes)
@@ -6996,7 +6930,7 @@ def terminate_posix_process_tree(process: subprocess.Popen[str]) -> list[str]:
 
 
 def reap_direct_process(process: subprocess.Popen[str], notes: list[str]) -> None:
-	"""Reap the direct child only after its owned tree has been force-cleared."""
+	"""在确认所属进程树已强制清理后，才回收直接子进程。"""
 	try:
 		process.wait(timeout=1.0)
 	except subprocess.TimeoutExpired:

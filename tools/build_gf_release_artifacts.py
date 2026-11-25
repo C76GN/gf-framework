@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and verify the complete, intentionally small GF release artifact set."""
+"""构建 GF 发布归档和清单，并从实际文件重新核验发布所需的产物集合。"""
 
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit", "framework_windows_x8
 
 
 def archive_names(version: str) -> dict[str, str]:
+	"""按发布角色给出指定版本的归档文件名，供构建和清单校验共用。"""
 	return {
 		"framework": f"gf-framework-{version}.zip",
 		"ai_developer_kit": f"gf-ai-developer-kit-{version}.zip",
@@ -54,6 +55,7 @@ def archive_names(version: str) -> dict[str, str]:
 
 
 def main() -> int:
+	"""按命令行选项构建发布集合或复核现有清单，使用实际产物决定退出状态。"""
 	configure_stdio()
 	parser = argparse.ArgumentParser(
 		description="Build the complete GF release artifact set once."
@@ -127,6 +129,7 @@ def build_release_artifacts(
 	*,
 	source_revision: str,
 ) -> dict[str, Any]:
+	"""为指定源码修订暂存并校验全部发布文件，通过后发布到输出目录。"""
 	if (
 		type(source_revision) is not str
 		or FULL_GIT_OBJECT_ID_RE.fullmatch(source_revision) is None
@@ -262,6 +265,7 @@ def audit_release_artifact_manifest(
 	expected_revision: str = "",
 	expected_manifest_sha256: str = "",
 ) -> dict[str, Any]:
+	"""从清单和同目录实际文件重新核对版本、修订及发布产物，将失败原因汇总到 issues。"""
 	issues: list[str] = []
 	try:
 		manifest_path = absolute_lexical_path(manifest_path)
@@ -376,6 +380,7 @@ def audit_artifact_entries(
 	artifacts: list[Any],
 	source_revision: str,
 ) -> list[str]:
+	"""按角色和实际归档核对清单条目，返回缺失、重复及内容不一致等问题。"""
 	issues: list[str] = []
 	expected_paths = archive_names(version)
 	seen_roles: set[str] = set()
@@ -516,6 +521,7 @@ def audit_zip_matches_source(
 	expected_files: list[Path],
 	label: str,
 ) -> list[str]:
+	"""逐项比较归档成员与给定源码文件集，返回差异说明。"""
 	issues: list[str] = []
 	expected_by_name = {
 		path.relative_to(ROOT).as_posix(): path
@@ -577,6 +583,7 @@ def resolve_manifest_path(value: str, output_dir: Path, version: str) -> Path:
 
 
 def validate_output_dir(output_dir: Path) -> None:
+	"""校验发布输出是 build 下的子目录。指向根目录、越界或经过文件系统链接时抛出 ValueError。"""
 	resolved_build_root = absolute_lexical_path(BUILD_ROOT)
 	if (
 		output_dir == resolved_build_root
@@ -588,6 +595,7 @@ def validate_output_dir(output_dir: Path) -> None:
 
 
 def publish_candidate(candidate: Path, output_dir: Path) -> None:
+	"""以已准备的候选目录替换发布目录，遇到已有备份或无法完成替换时保留失败信息。"""
 	backup = output_dir.parent / (
 		f".{output_dir.name}.gf-release-backup-{secrets.token_hex(8)}"
 	)
@@ -608,7 +616,7 @@ def publish_candidate(candidate: Path, output_dir: Path) -> None:
 
 
 def replace_path_with_retry(source: Path, target: Path, attempts: int = 8) -> None:
-	"""Retry transient Windows sharing violations without weakening publication."""
+	"""只重试 Windows 暂时性的共享冲突，沿用原有的发布边界。"""
 	for attempt in range(attempts):
 		try:
 			os.replace(source, target)
@@ -641,6 +649,7 @@ def sha256_file(path: Path) -> str:
 
 
 def git_head(git_process: FrozenGitProcess) -> str:
+	"""从冻结的 Git 进程配置获取当前完整提交身份，进程执行或回收未确认时抛出 RuntimeError。"""
 	identity = git_process.command(("rev-parse", "--verify", "HEAD"))
 	deadline = time.perf_counter() + 30.0
 	completed = run_supervised_process_bytes(

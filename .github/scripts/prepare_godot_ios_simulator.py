@@ -9,6 +9,7 @@ import zipfile
 
 
 def prepare(template: Path, libraries: Path, output: Path) -> None:
+    """将 arm64 模拟器库合入模板副本，验证两个架构均存在后才发布到指定输出文件。"""
     if output.resolve() == template.resolve():
         raise ValueError("Choose a new template path for the simulator.")
     members = {

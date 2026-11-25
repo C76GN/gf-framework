@@ -24,6 +24,7 @@ ABIS = {'arm64-v8a': native.ANDROID_ARM, 'x86_64': native.ANDROID_X64}
 
 
 def report(output: str, token: str, platform: str, architecture: str, profile: str) -> dict:
+    """针对本次令牌、平台、架构和配置解析验收结果，拒绝来自其他运行的报告。"""
     lines = [line for line in output.splitlines() if line.startswith(MARKER) and token in line]
     data = acceptance.parse_acceptance('\n'.join(lines))
     if (data.get('run_token'), data.get('platform'), data.get('architecture')) != (token, platform, architecture):
@@ -77,7 +78,7 @@ def linux(godot: str, project: Path, logs: Path, token: str, wsl: str | None, pr
 
 
 def android_report(output: str, token: str, architecture: str, profile: str) -> dict | None:
-    """Read one launch's ordered logcat chunks after its scene confirms the complete payload."""
+    """按本次启动的顺序重组 logcat 分块，在场景确认完整报告后才交付解析结果。"""
     identity = f'{token}:{architecture}:'
     part = 'GF_NATIVE_DATA_PART=' + identity
     finish = 'GF_NATIVE_FINISHED=' + identity
@@ -102,7 +103,7 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
     invoke([str(keytool), '-genkeypair', '-alias', 'fixture', '-keyalg', 'RSA', '-keysize', '2048',
             '-validity', '10', '-storepass', 'android', '-keypass', 'android', '-keystore', str(keystore),
             '-dname', 'CN=GF Native Fixture'])
-    # These are disposable fixture credentials and apply only to this runner's subprocesses.
+    # 这些是可丢弃的测试凭据，仅传给本次运行器启动的子进程。
     for kind in ('DEBUG', 'RELEASE'):
         for key, value in [('PATH', str(keystore)), ('USER', 'fixture'), ('PASSWORD', 'android')]:
             os.environ[f'GODOT_ANDROID_KEYSTORE_{kind}_{key}'] = value
@@ -131,7 +132,7 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
             uid = re.fullmatch(r'package:' + re.escape(package) + r' uid:(\d+)', details.strip())
             if not uid:
                 raise RuntimeError(f'Could not resolve fixture application UID: {details}')
-            # Only collect logs from the time of this launch. A previous ABI run has the same token.
+            # 只采集本次启动后的日志，上一次 ABI 验收可能使用相同令牌。
             start = invoke([*adb, 'shell', 'date', "'+%m-%d %H:%M:%S.000'"]).strip()
             invoke([*adb, 'shell', 'am', 'start', '-a', 'android.intent.action.MAIN',
                     '-c', 'android.intent.category.LAUNCHER', '-p', package])
@@ -165,14 +166,15 @@ def android(godot: str, project: Path, logs: Path, token: str, serial: str, adb_
 
 
 def check_simulator_diagnostics(engine_log: Path, logs: Path, token: str) -> None:
+    """从模拟器日志中定位本轮开始标记，区分已知启动诊断及验收运行期间的诊断。"""
     shutil.copyfile(engine_log, logs / 'simulator.log')
     output = engine_log.read_text(encoding='utf-8')
     start = 'GF_NATIVE_STARTED=' + token
     lines = output.splitlines()
     if lines.count(start) != 1:
         raise ValueError('Missing or duplicate iOS acceptance start marker.')
-    # Godot ed1daf0bf queries the mouse unconditionally when its root window enters the tree.
-    # Keep the captured log intact. Only this one diagnostic before the fixture starts is expected.
+    # Godot ed1daf0bf 的根窗口入树时会无条件查询鼠标。保留完整日志，
+    # 只有测试启动前这条已知诊断符合预期。
     if lines[0].startswith('Godot Engine v4.7.2.stable.') and '.ed1daf0bf ' in lines[0]:
         before, marker, after = output.partition(start + '\n')
         diagnostic = ('ERROR: Mouse is not supported by this display server.\n'
@@ -191,7 +193,7 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
         options += f'\ncustom_template/{profile}=' + json.dumps(str(Path(template).resolve()))
     export(godot, project, 'iOS', options, logs / 'Game.ipa', logs, profile)
     xcode = logs / 'Game.xcodeproj'
-    # Keep build products outside Godot's recursive Xcode framework search path.
+    # 将构建产物放在 Godot 递归搜索 Xcode framework 的目录之外。
     derived = project.parent / 'DerivedData'
     common = ['xcodebuild', '-project', str(xcode), '-scheme', 'Game', '-configuration', profile.capitalize(),
               '-derivedDataPath', str(derived)]
@@ -222,7 +224,7 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
                         output = engine_log.read_text(encoding='utf-8')
                         if 'GF_NATIVE_FINISHED=' + token not in output or MARKER + encoded not in output:
                             continue
-                        # iOS may keep the app alive after its scene exits. Stop it before reading the final log.
+                        # iOS 上场景退出后应用进程可能仍存活，先停止应用再读取最终日志。
                         try:
                             os.kill(pid, 0)
                         except ProcessLookupError:
@@ -245,7 +247,7 @@ def ios(godot: str, project: Path, logs: Path, token: str, simulator: str, profi
 
 
 def verify_delivery(directory: Path, version: str, revision: str) -> tuple[Path, str]:
-    """Release only the exact overlay for which all required exported games reported success."""
+    """按预期平台的实际导出运行结果核对归档，只接受与验收时相同的补充包。"""
     archive = directory / 'overlay.zip'
     native.verify(archive, set(native.TARGETS), version, revision)
     digest = native.sha(archive.read_bytes())
@@ -280,6 +282,7 @@ def verify_delivery(directory: Path, version: str, revision: str) -> tuple[Path,
 
 
 def main() -> None:
+    """在所选目标平台启动导出的游戏，并将验收结果绑定到实际安装的原生载荷。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('platform', choices=('linux', 'android', 'ios'))
     parser.add_argument('--archive', required=True, type=Path)

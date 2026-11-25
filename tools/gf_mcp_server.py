@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dependency-free MCP stdio server for GF repository maintenance."""
+"""通过标准输入输出提供仓库维护 MCP 服务，复用维护 CLI 的检查和查询。"""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ MAX_MCP_URI_LENGTH = 4096
 
 
 class McpRequestError(ValueError):
+	"""携带 JSON-RPC 的错误码，并标识该错误是否要求结束当前输入流。"""
 	def __init__(self, code: int, message: str, *, fatal: bool = False) -> None:
 		super().__init__(message)
 		self.code = code
@@ -33,6 +34,7 @@ class McpRequestError(ValueError):
 
 
 def main() -> int:
+	"""逐行读取请求、向标准输出写入响应，遇到不可恢复的输入错误时结束服务。"""
 	gf_maintenance.configure_stdio()
 	stream = sys.stdin.buffer
 	while True:
@@ -56,6 +58,7 @@ def main() -> int:
 
 
 def read_request_bytes(stream: Any) -> bytes:
+	"""在单条消息的字节预算内读取标准输入的一行，超限时抛出致命的 McpRequestError。"""
 	line = stream.readline(MAX_MCP_REQUEST_BYTES + 1)
 	if len(line) > MAX_MCP_REQUEST_BYTES:
 		raise McpRequestError(
@@ -67,6 +70,7 @@ def read_request_bytes(stream: Any) -> bytes:
 
 
 def decode_request_bytes(request_bytes: bytes) -> dict[str, Any]:
+	"""按 UTF-8 解码一条 JSON-RPC 请求并要求其根为对象。"""
 	try:
 		text = request_bytes.decode("utf-8-sig", errors="strict").strip()
 	except UnicodeDecodeError as error:
@@ -86,6 +90,7 @@ def decode_request_bytes(request_bytes: bytes) -> dict[str, Any]:
 
 
 def handle_message(message: dict[str, Any]) -> dict[str, Any] | None:
+	"""按方法分派一条 JSON-RPC 消息，通知无需响应。"""
 	_validate_request_envelope(message)
 	gf_maintenance.invalidate_api_cache()
 	method = message.get("method", "")
@@ -263,6 +268,7 @@ def _validate_schema(value: Any, schema: dict[str, Any], *, path: str) -> None:
 
 
 def list_tools() -> list[dict[str, Any]]:
+	"""返回服务端实际公布的维护工具及输入结构，供客户端发现能力。"""
 	return [
 		{
 			"name": "gf_project_summary",
@@ -421,6 +427,7 @@ def list_tools() -> list[dict[str, Any]]:
 
 
 def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
+	"""核验工具名及其参数，将维护动作的结果包装成 MCP 工具响应。"""
 	try:
 		_validate_object_fields(
 			params,
@@ -496,6 +503,7 @@ def call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 
 
 def tool_result(data: dict[str, Any], is_error: bool = False) -> dict[str, Any]:
+	"""把同一份结果同时放入可读文本和 structuredContent，并传递工具失败标志。"""
 	text = encode_strict_json(data, indent=2)
 	return {
 		"content": [{"type": "text", "text": text}],
@@ -505,6 +513,7 @@ def tool_result(data: dict[str, Any], is_error: bool = False) -> dict[str, Any]:
 
 
 def list_resources() -> list[dict[str, str]]:
+	"""列出可直接读取的仓库维护资源，带参数的 URI 由资源模板描述。"""
 	return [
 		{
 			"uri": "gf://maintenance/project-summary",
@@ -534,6 +543,7 @@ def list_resources() -> list[dict[str, str]]:
 
 
 def list_resource_templates() -> list[dict[str, str]]:
+	"""列出需要指定类型或模块名等参数的 MCP 资源 URI 模板。"""
 	return [
 		{
 			"uriTemplate": "gf://api/classes/{class_name}",
@@ -551,6 +561,7 @@ def list_resource_templates() -> list[dict[str, str]]:
 
 
 def read_resource(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
+	"""按 URI 读取已公布的资源，未知 URI 按协议返回参数错误。"""
 	try:
 		_validate_object_fields(
 			params,

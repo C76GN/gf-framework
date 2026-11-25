@@ -1,4 +1,4 @@
-"""Canonical whitespace and necessary carriers for complete GDScript expressions."""
+"""按完整 GDScript 表达式的词法结构计算必要的换行载体和标准空白。"""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from typing import Any
 
 @dataclass(frozen=True)
 class LayoutEdit:
+	"""原始源码上一个左闭右开的替换区间，并保留产生此建议的规则。"""
 	start: int
 	end: int
 	replacement: str
@@ -16,12 +17,10 @@ class LayoutEdit:
 
 
 def effective_group_kinds(view: Any) -> tuple[str, ...]:
-	"""Restore proven member roles and independent physical statement starts.
+	"""还原已证实的成员角色及独立物理语句的起点。
 
-	The shared lexer intentionally keeps local delimiter roles simple. A complete
-	previous statement must not turn the next parenthesized expression into a call,
-	or a new array literal into an index. Returned roles never mutate the view and
-	this helper does not depend on either layout engine.
+	共享词法器只做局部分隔符分类。一条已经结束的语句不能将下一条括号表达式误认成调用，
+	或把新数组误认成索引。返回的角色与原视图独立，计算不依赖排版执行器。
 	"""
 	import gf_gdscript_readability as readability
 
@@ -45,18 +44,16 @@ def effective_group_kinds(view: Any) -> tuple[str, ...]:
 
 
 def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, ...]:
-	"""Return disjoint edits, retaining original tokens except required carriers.
+	"""返回互不重叠的排版修改，仅在语法需要时加入续行载体。
 
-	Calls, declarations and container item counts have independent owners. Their
-	physical child layout is consumed here; the shared bounded fixed point closes
-	those decisions without guessing types or using text width. Boolean and nested
-	conditional layers always take precedence over optional expression collapse.
+	调用、声明和容器元素数量各有自己的规则。消费这些子项的物理排版结果，在有限轮数内收敛。
+	布尔和嵌套条件表达式的分层优先于可选合行，判定无需推测类型或考虑行宽。
 	"""
 	if type(max_inline_items) is not int or max_inline_items < 1:
 		raise ValueError("The inline item policy must be a positive integer.")
 	if view.issues or not view.tokens:
 		return ()
-	# Read the calling checker's current Boolean policy, never a copied threshold.
+	# 在调用时读取检查器当前的布尔排版策略，避免保留过期阈值。
 	import gf_gdscript_readability as readability
 
 	tokens, groups = view.tokens, view.groups
@@ -95,9 +92,8 @@ def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, .
 	)
 	protected.update(groups[number].open_index for number in ternary_layers)
 	_identifier, _atom, barrier_free = readability._atomic_layout_matcher(view)
-	# The proven scope restores keyword-named call hosts and lambda body owners.
-	# Reading raw parameter roles here would mistake a body's assignment for a
-	# parameter default and merge its next independent %UniqueNode statement.
+	# 这里需要恢复以关键字命名的调用和 lambda 函数体的归属。
+	# 直接使用参数角色会把赋值当作默认值并合并下一条独立的 %UniqueNode 语句。
 	_by_open, _parents, _operators, candidates = readability._expression_layout_candidates(scope[1], _identifier)
 	_first, statement_starts = readability._independent_statement_starts(scope[1] if scope else view)
 	statement_values = _statement_values(view, parents, by_open, statement_starts)
@@ -116,15 +112,13 @@ def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, .
 		protected.update(wrappers)
 		if carrier is not None:
 			protected.add(carrier)
-	# A forced child cannot be hidden by joining a currently inline ancestor.
+	# 强制换行的子项必须传递到上层，合并当前单行父项时仍须保留。
 	for opening in tuple(protected):
 		parent = groups[group_numbers[opening]].parent_index
 		while parent is not None:
 			protected.add(groups[parent].open_index)
 			parent = groups[parent].parent_index
-	# Container/call carriers already allow a complete operand to continue. Once
-	# its children are inline, normalize the operand itself instead of leaving an
-	# old physical break to lock the surrounding list into expanded layout.
+	# 调用或容器已允许完整操作数跨行。子项全部可同行时也要重新排版操作数，以免旧换行强制外层列表展开。
 	for start, end in sorted(candidates):
 		if (start, end) in specialized:
 			continue
@@ -147,7 +141,7 @@ def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, .
 		if child_multiline or "func" in operators:
 			continue
 		if sum(value in {"and", "or", "&&", "||"} for value in operators) + 1 > readability.MAX_INLINE_CONDITION_TERMS:
-			# Optional domains follow the same dynamic threshold as required groups.
+			# 可选表达式区域与必需分组共用当前阈值。
 			continue
 		if any(left == start and right == end for left, right, _carrier, _wrappers in formats):
 			continue
@@ -185,13 +179,13 @@ def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, .
 		if kind not in {"group", "index"} or not group.items:
 			continue
 		if kind == "index" and tokens[group.open_index - 1].value in {"Array", "Dictionary"}:
-			# Builtin generic type brackets belong to declarations/casts, not indexing.
+			# 内建泛型的方括号属于声明或类型转换，不能按索引表达式处理。
 			continue
 		if len(group.items) != 1 or tokens[group.close_index - 1].value == ",":
 			continue
 		start, end = group.open_index, group.close_index
 		if any(token.value == "\\" for token in tokens[start + 1:end]):
-			# This carrier retains its physical continuation; children are still visited.
+			# 此处保留跨物理行的续行，仍须继续检查内部子项。
 			continue
 		contains_lambda = bisect_right(all_lambda_colons, start) < bisect_left(all_lambda_colons, end)
 		inline_children = all(
@@ -219,7 +213,7 @@ def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, .
 			if index <= first or index >= end or parents[index] != number:
 				continue
 			if any(colon < index for colon in body_colons):
-				# The lexical parent remains open during a lambda's independent body.
+				# lambda 函数体内是独立语句，其词法父层在此期间仍未闭合。
 				continue
 			plan.move_line(index, base + 1, end, body_colons, rule)
 		plan.newline(end, base, rule)
@@ -240,9 +234,7 @@ def layout_edits(view: Any, *, max_inline_items: int = 2) -> tuple[LayoutEdit, .
 		else:
 			level = plan.indentation(carrier) + 1
 		plan.newline(percent, level, "format_layout")
-	# A suffix belongs to its receiver's last physical line, including a multiline
-	# call/index result. A comment or explicit continuation between them is a real
-	# local barrier, not an exemption for every descendant in the carrier.
+	# 后缀属于接收者的最后一个物理行，包括跨行调用和索引。其间的注释或显式续行只约束这一处。
 	for index in range(1, len(tokens) - 1):
 		if tokens[index].value != "." or tokens[index].kind != "symbol" or tokens[index + 1].kind != "identifier":
 			continue
@@ -324,7 +316,7 @@ def _direct_percent(view: Any, start: int, end: int, by_open: dict[int, Any], ro
 
 
 def _ternary_slots(view: Any, candidates: set[tuple[int, int]], by_open: dict[int, Any], parents: list[int | None], statements: set[tuple[int, int]], roles: dict[int, str], max_depth: int, names: set[int]) -> dict[tuple[int, int], int | None]:
-	"""Expose complete branch/condition domains without borrowing lambda carriers."""
+	"""定位条件表达式完整的分支与条件范围，将 lambda 的表达式边界留给其自身。"""
 	result: dict[tuple[int, int], int | None] = {}
 	queue = []
 	for start, end in sorted(candidates):
@@ -336,8 +328,7 @@ def _ternary_slots(view: Any, candidates: set[tuple[int, int]], by_open: dict[in
 	while queue:
 		start, end, carrier, depth = queue.pop()
 		if depth > max_depth:
-			# Such an ungrouped nested conditional already fails nested_ternary;
-			# do not let malformed optional-domain discovery exceed its budget.
+			# 未分组的嵌套条件已由 nested_ternary 报告，发现可选表达式时仍须遵守预算。
 			continue
 		if (start, end, carrier) in visited:
 			continue
@@ -409,7 +400,7 @@ def _format_domains(view: Any, candidates: set[tuple[int, int]], by_open: dict[i
 
 
 class _Plan:
-	"""Accumulate whitespace gaps, subtree translations and necessary insertions."""
+	"""汇集 token 间空白、子树位移及排版必需的插入项。"""
 
 	def __init__(self, view: Any, first_by_line: dict[int, int], indexes_by_line: dict[int, list[int]]) -> None:
 		self.view = view
@@ -458,8 +449,7 @@ class _Plan:
 		if gap.strip() and "\n" in gap:
 			cut = gap.rfind("\n") + 1
 			if not gap[cut:].strip():
-				# A comment keeps its exact physical row and binding. Only the
-				# following code line's indentation belongs to this owner.
+				# 保留注释所在的物理行及其归属，当前规则仅拥有下一行代码的缩进。
 				self.changed[index] = gap[:cut] + "\t" * level, rule
 			return
 		self.put_gap(index, "\n" + "\t" * level, rule)
@@ -510,7 +500,7 @@ class _Plan:
 				start = self.view.tokens[index - 1].end if index else 0
 				original = self.view.source[start:self.view.tokens[index].start]
 				if original.strip():
-					# Change only the indentation after comments, never comment bytes.
+					# 只调整注释之后代码的缩进，保留注释本身的字节。
 					cut = original.rfind("\n") + 1
 					if not original[cut:].strip():
 						self.changed[index] = original[:cut] + "\t" * self.levels[line], rule

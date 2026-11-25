@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""White-box contract tests for the live GF maintenance runtime.
+"""用实际维护模块的命名空间验证 CLI 白盒契约。
 
-The maintenance CLI loads this module only for ``maintenance-self-test``.  The
-large test body is intentionally rebound to the caller's live module namespace
-so its scoped global fixtures retain the exact semantics they had when the body
-lived inline in ``gf_maintenance.py``.  This is a migration seam, not a public
-extension API; focused tests should gradually replace white-box cases over time.
+CLI 只在执行 maintenance-self-test 时加载本模块。测试体绑定到调用方的模块命名空间，
+使临时替换的全局对象与受测代码使用同一份状态。此处供维护测试使用，
+独立行为用例可逐步接替白盒覆盖。
 """
 
 from __future__ import annotations
@@ -16,7 +14,7 @@ from typing import Any
 
 
 def _run_in_module_namespace(runtime_module: ModuleType, body: FunctionType) -> Any:
-	"""Run a zero-argument white-box body against one live module namespace."""
+	"""在指定实际模块的命名空间中执行不带参数的白盒测试体。"""
 	if body.__closure__ is not None:
 		raise ValueError("maintenance self-test bodies must not capture a closure")
 	bound_body = FunctionType(
@@ -31,7 +29,7 @@ def _run_in_module_namespace(runtime_module: ModuleType, body: FunctionType) -> 
 
 
 def run_maintenance_self_test(runtime_module: ModuleType) -> dict[str, Any]:
-	"""Execute the canonical self-test body against ``runtime_module``."""
+	"""将白盒用例绑定到传入的维护运行时，并返回逐项结果及失败汇总。"""
 	return _run_in_module_namespace(runtime_module, _maintenance_self_test_body)
 
 
@@ -3489,8 +3487,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				6.0,
 			)
 		finally:
-			# Always release a descendant that survived a failed or interrupted
-			# supervision attempt; its own deadline covers abrupt harness exit.
+			# 监督失败或被打断后也要释放存活的后代，其自身的截止时间覆盖测试进程突然退出的情况。
 			timeout_trigger_path.write_text("trigger", encoding="utf-8")
 			time.sleep(1.2)
 		record_result(
@@ -4331,9 +4328,8 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 		]
 		expected_cleanup_actions = ["terminate", "reap", "confirm", "close"]
 		if os.name == "nt":
-			# Successful Job close is also the last-resort tree boundary. The
-			# supervisor performs one post-close reap before closing the pipes even
-			# when the earlier direct reap already observed the short-lived parent.
+			# 关闭 Windows Job 是最终的进程树边界。即使先前已回收短命父进程，也要在关闭后、
+			# 关闭管道前再确认回收。
 			expected_cleanup_actions.append("reap")
 		record_result(
 			"run_command_cleanup_interrupt_runs_remaining_owner_steps",
@@ -4993,8 +4989,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 					and (process.stderr is None or process.stderr.closed)
 				)
 
-			# Snapshot the supervised outcome first, then release any real resource
-			# left behind by a failed fixture without masking the failed assertions.
+			# 先记录实际监督结果，再释放失败测试残留的资源，避免清理掩盖断言结果。
 			if owner is not None and not owner.is_closed():
 				try:
 					owner.close()
@@ -5354,9 +5349,7 @@ def _maintenance_self_test_body() -> dict[str, Any]:
 				state["owner_closed"] = owner.is_closed()
 				state["handle_zero"] = owner.handle == 0
 
-			# A failed implementation may leave the empty Job open. Clean it only
-			# after snapshotting the assertions, and never retry a handle whose real
-			# CloseHandle result was already successful.
+			# 失败的实现可能留下空 Job，记录断言状态后才清理。如果 CloseHandle 已返回成功，不能重试该句柄。
 			if owner is not None and not owner.is_closed():
 				try:
 					owner.close()

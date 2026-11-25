@@ -1,9 +1,8 @@
-//! Synchronous, allocation-bounded numeric gather. GF owns admission and publication.
+//! 同步选取数值列中的行。GF 适配层负责接受输入和发布结果，原生调用只构造本次输出。
 use godot::builtin::{Array, PackedInt32Array, PackedInt64Array, Variant, VariantType};
 use godot::prelude::*;
 
-// The public API is the GF adapter. The editor must not generate ClassDB docs
-// for this implementation during first import (godotengine/godot#111048).
+// 保持内部类可见性，首次导入时编辑器生成此类的 ClassDB 文档可能崩溃（godotengine/godot#111048）。
 #[derive(GodotClass)]
 #[class(init, internal, singleton)]
 struct GfPackedGatherBackend {}
@@ -15,6 +14,7 @@ impl GfPackedGatherBackend {
         1
     }
 
+    /// 按给定顺序选取有效行，允许重复索引。任一列无效时返回空数组，由 GF 适配层处理。
     #[func]
     fn gather(
         &self,
@@ -32,7 +32,7 @@ impl GfPackedGatherBackend {
         {
             return Array::new();
         }
-        // Validate the entire call before allocating any output column.
+        // 先检查所有列，避免为后续会被拒绝的一批输入分配结果。
         for column in columns.iter_shared() {
             let valid = match column.get_type() {
                 VariantType::PACKED_INT32_ARRAY => column
@@ -79,7 +79,7 @@ impl GfPackedGatherBackend {
     }
 }
 
-/// Validate all indices before touching the destination; no unchecked indexing or scratch vector.
+/// 按 `indices` 顺序复制前 `count` 行中的值，保留重复索引。返回 `false` 时 `output` 保持原值。
 fn gather_into<T: Copy>(input: &[T], indices: &[i32], output: &mut [T], count: usize) -> bool {
     if count > input.len()
         || output.len() != indices.len()

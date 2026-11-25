@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Load and validate GF's internal module ownership descriptors.
+"""加载并校验 GF 内部模块的源码归属描述。
 
-The filename is retained for internal imports. This module no longer builds archives,
-registries, package sources, presets, or offline bundles.
+仓库工具通过这个模块名导入描述符，归档、注册表、预设和离线包由各自的构建入口负责。
 """
 
 from __future__ import annotations
@@ -29,6 +28,7 @@ PACKAGE_MANIFEST_ALLOWED_FIELDS = descriptors.ALLOWED_FIELDS
 
 
 def main() -> int:
+	"""加载仓库内的模块描述并报告校验结果，供维护 CLI 及脚本调用。"""
 	configure_stdio()
 	parser = argparse.ArgumentParser(
 		description="Validate GF internal module ownership descriptors."
@@ -54,6 +54,7 @@ def configure_stdio() -> None:
 
 
 def load_package_manifests(root: Path | None = None) -> dict[str, Any]:
+	"""从模块描述目录加载记录并汇总问题，使归属检查可以同时看到有效记录与无效输入。"""
 	package_root = PACKAGE_ROOT if root is None else root / "packages"
 	root = ROOT if root is None else root
 	records: list[dict[str, Any]] = []
@@ -89,7 +90,7 @@ def audit_manifest_fields(data: dict[str, Any], relative_path: str) -> list[str]
 
 
 def collect_file_owners(records: list[dict[str, Any]], root: Path) -> dict[str, str]:
-	"""Expand the filesystem candidates once and apply the same ownership rules as maintenance."""
+	"""只展开一次文件系统候选清单，再按维护工具共用的规则判定源码归属。"""
 	index = descriptors.PackageOwnershipIndex(descriptors.collect_package_source_owner_entries(records))
 	owners: dict[str, str] = {}
 	portable_paths: dict[str, str] = {}
@@ -116,6 +117,16 @@ def collect_package_files(
 	issues: list[str] | None = None,
 	*, root: Path | None = None,
 ) -> list[Path]:
+	"""按清单的包含与排除规则收集可发布的文件。
+
+	Args:
+	    record: 包描述记录，包含包 ID 及相对于仓库根目录的路径规则。
+	    issues: 接收就地追加的诊断。调用方应在使用部分结果前检查此列表。
+	    root: 待解析的仓库根目录，省略时使用当前 GF 源码根目录。
+
+	Returns:
+	    按仓库相对路径排序的候选文件。清单路径字段无效时返回空列表。
+	"""
 	root = ROOT if root is None else root
 	resolved_root = root.resolve(strict=True)
 	result_issues = issues if issues is not None else []
@@ -176,6 +187,7 @@ def collect_package_files(
 
 
 def expand_manifest_path(pattern: str, root: Path) -> list[Path]:
+	"""在仓库的 addons/gf 内展开单条路径规则，精确路径按原拼写查找，无法匹配时返回空列表。"""
 	normalized = normalize_manifest_path(pattern)
 	if not normalized:
 		return []

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for bounded, read-only GF test inventory evidence."""
+"""用受限输入验证测试声明清单、数量上限和不完整证据的表示。"""
 
 from __future__ import annotations
 

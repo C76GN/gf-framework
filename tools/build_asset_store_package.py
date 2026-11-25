@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the GF Asset Store package with addons/gf at the zip root."""
+"""将面向 Asset Store 分发的文件写入 ZIP，安装时从归档根直接得到 addons/gf。"""
 
 from __future__ import annotations
 
@@ -41,6 +41,7 @@ ALLOWED_README_LINK_HOSTS = {
 
 
 def main() -> int:
+	"""构建或只审计指定的 Asset Store 包，以归档实际检查结果决定退出码。"""
 	configure_stdio()
 	parser = argparse.ArgumentParser(description="Build the GF Asset Store addon zip.")
 	parser.add_argument("--version", default="", help="Expected package version. Defaults to addons/gf/plugin.cfg.")
@@ -81,6 +82,7 @@ def configure_stdio() -> None:
 
 
 def read_plugin_version() -> str:
+	"""读取可唯一确定的插件版本，无法确认时返回空串。"""
 	try:
 		config_text = (ROOT / "addons/gf/plugin.cfg").read_text(encoding="utf-8")
 	except FileNotFoundError:
@@ -92,14 +94,12 @@ def _parse_plugin_version(config_text: str) -> str:
 	config = configparser.ConfigParser(interpolation=None, delimiters=("=",))
 	config.optionxform = str
 	config.read_string(config_text)
-	# Godot looks up exact section/key names and uses '=' assignments.
-	# ConfigFile has no DEFAULT inheritance; release metadata must be explicit.
+	# Godot 精确匹配段名和键名并用 = 赋值。ConfigFile 没有 DEFAULT 继承，发布元数据必须显式声明。
 	config.defaults().clear()
 	value = config.get("plugin", "version", fallback="").strip()
 	if not value:
 		return ""
-	# Release versions use one literal string; numeric Variants, escapes and
-	# extra declarations must not be certified as the original version text.
+	# 发布版本必须来自单个字符串字面量；数字 Variant、转义或多次声明无法证明原始版本文本。
 	match = re.fullmatch(r'"([^"\\\r\n]*)"', value)
 	if match is None:
 		raise ValueError("plugin.cfg version must be one quoted literal string")
@@ -107,6 +107,7 @@ def _parse_plugin_version(config_text: str) -> str:
 
 
 def resolve_output_path(output: str, version: str) -> Path:
+	"""解析指定的输出位置，未指定时使用带版本的默认归档名称。"""
 	path = Path(output) if output else Path("build") / f"gf-framework-{version}.zip"
 	if not path.is_absolute():
 		path = ROOT / path
@@ -114,6 +115,7 @@ def resolve_output_path(output: str, version: str) -> Path:
 
 
 def build_package(output: Path) -> None:
+	"""按包内路径写入 Asset Store ZIP，并在构建过程中读取受控的源文件。"""
 	output.parent.mkdir(parents=True, exist_ok=True)
 	if output.exists():
 		output.unlink()
@@ -130,6 +132,7 @@ def build_package(output: Path) -> None:
 
 
 def iter_package_files() -> list[Path]:
+	"""返回相对仓库路径排序的分发文件，遇到缺失、越界或链接形式的源码根时拒绝继续。"""
 	if (
 		not gf_path_security.path_is_inside_lexical(ROOT, ADDON_ROOT)
 		or gf_path_security.path_has_reparse_component(ADDON_ROOT)
@@ -169,6 +172,7 @@ def write_file(archive: zipfile.ZipFile, path: Path) -> None:
 
 
 def read_package_source_bytes(path: Path) -> bytes:
+	"""在单文件字节上限内读取仓库中的普通文件，并核对读取期间的文件身份。"""
 	try:
 		relative_path = path.relative_to(ROOT).as_posix()
 	except ValueError:
@@ -184,6 +188,7 @@ def read_package_source_bytes(path: Path) -> bytes:
 
 
 def audit_package(output: Path, *, expected_version: str = "") -> dict[str, Any]:
+	"""检查归档结构、受控文件及版本，返回含 ok 和问题列表的报告。"""
 	issues: list[str] = []
 	if not output.is_file():
 		return {
@@ -200,8 +205,7 @@ def audit_package(output: Path, *, expected_version: str = "") -> dict[str, Any]
 	with zipfile.ZipFile(output, "r") as archive:
 		names = sorted(name for name in archive.namelist() if name and not name.endswith("/"))
 		for entry in archive.infolist():
-			# ZipInfo.filename can normalize Windows separators or truncate NUL.
-			# Validate the original archive spelling before trusting that projection.
+			# ZipInfo.filename 可能规范化 Windows 分隔符或在 NUL 处截断，须先校验归档中的原始名称。
 			raw_name = entry.orig_filename
 			canonical = raw_name.removesuffix("/") if entry.is_dir() else raw_name
 			if not portable_literal_path_identity(canonical):

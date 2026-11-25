@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for supervised Git workspace materialization."""
+"""验证并行检查如何从受控 Git 输入创建隔离工作区，以及中途失败后的处理。"""
 
 from __future__ import annotations
 

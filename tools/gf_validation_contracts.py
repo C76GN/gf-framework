@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Versioned, fail-closed validation policy contracts for GF maintenance."""
+"""定义版本化的验证输入和检查策略，拒绝不完整或相互矛盾的策略记录。"""
 
 from __future__ import annotations
 
@@ -90,20 +90,20 @@ _WINDOWS_RESERVED_NAMES = frozenset({
 
 
 class ValidationContractError(ValueError):
-	"""Raised when validation policy metadata is malformed or unsafe."""
+	"""检查策略元数据格式错误或不满足安全约束。"""
 
 
 class ValidationInputError(RuntimeError):
-	"""Base error for strict validation-input contracts."""
+	"""严格验证输入契约的错误基类。"""
 
 
 class ValidationInputContractError(ValidationInputError):
-	"""Raised when validation input schemas, paths, or declarations are invalid."""
+	"""验证输入的结构、路径或声明不满足契约。"""
 
 
 @dataclass(frozen=True)
 class PathRule:
-	"""One exact-file or recursive-tree source selector."""
+	"""用精确文件或递归目录树选取源码输入的一条规则。"""
 
 	kind: str
 	path: str
@@ -166,6 +166,7 @@ class PathRule:
 
 	@classmethod
 	def from_dict(cls, payload: Mapping[str, Any]) -> PathRule:
+		"""按规定字段与版本读取精确文件或递归目录规则，拒绝未识别的结构。"""
 		data = _validated_input_exact_object("path rule", payload, _PATH_RULE_FIELDS)
 		_validate_input_schema_version(data["schema_version"], "path rule")
 		return cls(
@@ -188,6 +189,7 @@ class PathRule:
 		}
 
 	def matches(self, logical_path: str) -> bool:
+		"""按规范逻辑路径匹配文件或目录；递归规则可进一步限制后缀。"""
 		validate_portable_relative_path(logical_path)
 		if self.kind == "exact":
 			return logical_path == self.path
@@ -207,7 +209,7 @@ class PathRule:
 
 @dataclass(frozen=True)
 class CheckInputSpec:
-	"""Explicit candidate input declaration for one maintenance check."""
+	"""显式声明一个维护检查可能用到的输入。"""
 
 	check_name: str
 	source_rules: tuple[PathRule, ...]
@@ -295,19 +297,23 @@ class CheckInputSpec:
 
 	@property
 	def digest(self) -> str:
+		"""将规范化的输入声明按专用摘要域计算 SHA-256，以区分其他种类的指纹。"""
 		return _stable_input_digest(
 			b"gf-validation-input-spec-v1\0",
 			self.to_dict(),
 		)
 
 	def matches_source_path(self, logical_path: str) -> bool:
+		"""匹配任一源码选择规则即返回 True。"""
 		return any(rule.matches(logical_path) for rule in self.source_rules)
 
 	def matches_implementation_path(self, logical_path: str) -> bool:
+		"""检查逻辑路径是否显式列于该检查的实现文件集合。"""
 		validate_portable_relative_path(logical_path)
 		return logical_path in self.implementation_files
 
 	def git_pathspecs(self) -> tuple[str, ...]:
+		"""生成用于发现候选输入的有序 Git 路径集合，后续仍需按规则核实。"""
 		paths = {
 			*(rule.path for rule in self.source_rules),
 			*self.implementation_files,
@@ -317,10 +323,9 @@ class CheckInputSpec:
 
 @dataclass(frozen=True)
 class CheckValidationPolicy:
-	"""Policy metadata for one maintenance check.
+	"""记录单个维护检查的策略元数据。
 
-	This class records policy facts only. It deliberately has no API that skips a
-	check, reads cached evidence, or persists results.
+	此对象只表达策略事实，验证调度、历史证据读取和结果持久化均由其他入口负责。
 	"""
 
 	check_name: str
@@ -360,7 +365,7 @@ class CheckValidationPolicy:
 
 	@classmethod
 	def fail_closed(cls, check_name: str) -> CheckValidationPolicy:
-		"""Return the only valid policy for an undeclared check."""
+		"""返回未声明检查所允许的保守默认策略。"""
 		return cls(
 			check_name=check_name,
 			determinism="unknown",
@@ -373,7 +378,7 @@ class CheckValidationPolicy:
 
 	@classmethod
 	def from_dict(cls, payload: Mapping[str, Any]) -> CheckValidationPolicy:
-		"""Decode one exact schema-v1 JSON object or fail closed."""
+		"""按 schema-v1 的确切字段解码 JSON 对象，格式不符时拒绝。"""
 		data = _validated_exact_object("validation policy", payload, _POLICY_FIELDS)
 		_validate_schema_version(data["schema_version"], "validation policy")
 		return cls(
@@ -387,7 +392,7 @@ class CheckValidationPolicy:
 		)
 
 	def to_dict(self) -> dict[str, Any]:
-		"""Return an exact JSON-safe schema-v1 representation."""
+		"""返回符合 schema-v1 的可 JSON 序列化表示。"""
 		payload = {
 			"schema_version": VALIDATION_CONTRACT_SCHEMA_VERSION,
 			"check_name": self.check_name,
@@ -403,7 +408,7 @@ class CheckValidationPolicy:
 
 
 class ValidationPolicyCatalog:
-	"""Resolve explicit policy declarations over a closed set of known checks."""
+	"""在明确的已知检查集合中解析显式声明的检查策略。"""
 
 	def __init__(
 		self,
@@ -459,15 +464,14 @@ class ValidationPolicyCatalog:
 		return len(self._declared_policies)
 
 	def is_declared(self, check_name: str) -> bool:
+		"""判断检查是否有显式策略，区别于已知但沿用默认策略的检查。"""
 		_validate_check_name(check_name)
 		return check_name in self._declared_policies
 
 	def policy_for(self, check_name: str) -> CheckValidationPolicy:
-		"""Resolve a declaration or return a non-reusable fail-closed default.
+		"""解析一项声明，缺失时返回不允许复用的默认策略。
 
-		A syntactically valid name that is absent from the catalog is also treated as
-		undeclared. This keeps a newly added check from acquiring reuse eligibility
-		before the catalog is updated.
+		语法有效但尚未加入目录的名称也按未声明处理，避免新检查在目录更新前意外获得复用资格。
 		"""
 		_validate_check_name(check_name)
 		declared_policy = self._declared_policies.get(check_name)
@@ -477,7 +481,7 @@ class ValidationPolicyCatalog:
 
 	@classmethod
 	def from_dict(cls, payload: Mapping[str, Any]) -> ValidationPolicyCatalog:
-		"""Decode and verify a complete catalog report."""
+		"""解码并核验完整的策略目录报告。"""
 		data = _validated_exact_object("validation policy catalog", payload, _CATALOG_FIELDS)
 		_validate_schema_version(data["schema_version"], "validation policy catalog")
 		for count_name in (
@@ -505,7 +509,7 @@ class ValidationPolicyCatalog:
 		return catalog
 
 	def to_dict(self) -> dict[str, Any]:
-		"""Return every known check, making undeclared defaults visible."""
+		"""列出所有已知检查，并显式包含未声明检查采用的默认值。"""
 		policies = [self.policy_for(check_name).to_dict() for check_name in self._check_names]
 		payload = {
 			"schema_version": VALIDATION_CONTRACT_SCHEMA_VERSION,
@@ -556,7 +560,7 @@ def _validate_artifact_name(name: Any) -> None:
 
 
 def validate_portable_relative_path(value: Any) -> None:
-	"""Require canonical portable syntax for a slash-separated logical path."""
+	"""要求以斜杠分隔的逻辑路径使用规范的跨平台相对形式。"""
 	if (
 		type(value) is not str
 		or not value
@@ -574,7 +578,7 @@ def validate_portable_relative_path(value: Any) -> None:
 
 
 def validate_path_segment(segment: str) -> None:
-	"""Reject nonportable names before matching rules or reading directory entries."""
+	"""在匹配路径模式或读取目录条目前拒绝无法跨平台表示的名称。"""
 	if not segment or segment in {".", ".."}:
 		raise ValidationInputContractError(
 			"validation_inputs.path_segment_invalid"

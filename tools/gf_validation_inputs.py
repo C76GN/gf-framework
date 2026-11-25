@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-"""Strict, read-only input identity and affected-check diagnostics for GF.
+"""只读采集变更路径和内容身份，分析工作区变更可能影响的检查。
 
-This module is deliberately advisory.  It can describe changed inputs and freeze
-content identities for a candidate Action Key, but it has no API for filtering a
-check plan, reading evidence, caching results, or skipping execution.
+输出供诊断，可冻结候选动作的输入指纹。执行计划、历史证据与缓存复用由其他入口管理。
 """
 
 from __future__ import annotations
@@ -119,32 +117,32 @@ _GIT_OBJECT_RE = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 
 
 class ValidationInputCaptureError(ValidationInputError):
-	"""Raised when a declared filesystem input cannot be captured safely."""
+	"""无法安全采集某个已声明的文件系统输入。"""
 
 
 class ValidationInputDriftError(ValidationInputCaptureError):
-	"""Raised when an input changes during capture."""
+	"""输入在本次采集期间发生变化。"""
 
 
 class ValidationInputGitError(ValidationInputError):
-	"""Raised when Git cannot provide a complete change set."""
+	"""Git 未能给出完整的变更集合。"""
 
 
 class ValidationInputBaseError(ValidationInputGitError):
-	"""Raised when the requested comparison base is invalid or unavailable."""
+	"""请求的比较基线不存在或无效。"""
 
 
 class ValidationInputDeadlineError(ValidationInputError):
-	"""Raised when advisory analysis exhausts its monotonic deadline."""
+	"""诊断性输入分析耗尽单调时钟预算。"""
 
 
 class ValidationInputLimitError(ValidationInputCaptureError):
-	"""Raised when an input exceeds a hard capture budget."""
+	"""验证输入超出了明确规定的采集硬上限。"""
 
 
 @dataclass(frozen=True)
 class InputCaptureLimits:
-	"""Hard upper bounds for one affected-input analysis."""
+	"""单次受影响输入分析可使用的采集预算上限。"""
 
 	max_entries: int = 20_000
 	max_file_bytes: int = 16 * 1024 * 1024
@@ -237,7 +235,7 @@ class _CaptureState:
 
 @dataclass(frozen=True)
 class FrozenActionInputs:
-	"""Content identities captured once for a candidate Action Key."""
+	"""为候选动作一次采集的输入内容身份。"""
 
 	check_name: str
 	input_spec_digest: str
@@ -291,6 +289,7 @@ class FrozenActionInputs:
 
 	@classmethod
 	def from_dict(cls, payload: Mapping[str, Any]) -> FrozenActionInputs:
+		"""从约定结构恢复冻结的输入身份，拒绝缺失字段或不合法的摘要。"""
 		data = _validated_exact_object(
 			"frozen action inputs",
 			payload,
@@ -337,7 +336,7 @@ class FrozenActionInputs:
 		}
 
 	def action_key_input_digests(self) -> dict[str, str]:
-		"""Return only input identities; this is not a complete Action Key."""
+		"""仅返回输入身份摘要，完整动作身份还需要其他材料。"""
 		return {
 			"input_spec": self.input_spec_digest,
 			"source_manifest": self.source_manifest_digest,
@@ -349,7 +348,7 @@ class FrozenActionInputs:
 
 @dataclass(frozen=True)
 class ChangedPathSet:
-	"""Stable Git base identity and repository-relative changed paths."""
+	"""记录已确认的 Git 基线身份及相对仓库根的变更路径。"""
 
 	base_revision: str
 	base_resolved: str
@@ -381,7 +380,7 @@ def freeze_action_inputs(
 	deadline_seconds: float | None = None,
 	monotonic: Callable[[], float] = time.monotonic,
 ) -> FrozenActionInputs:
-	"""Capture one bounded and stable current-workspace input manifest."""
+	"""在预算内为当前工作区采集一份稳定的动作输入清单。"""
 	if type(input_spec) is not CheckInputSpec:
 		raise ValidationInputContractError(
 			"validation_inputs.input_spec_type_invalid"
@@ -507,7 +506,7 @@ def changed_paths_since(
 	deadline_seconds: float | None = None,
 	monotonic: Callable[[], float] = time.monotonic,
 ) -> ChangedPathSet:
-	"""Read changed paths through the caller's already-frozen Git capability."""
+	"""使用调用方预先冻结的 Git 程序与环境读取变更路径。"""
 	_validate_limits(limits)
 	_validate_base_revision(base_revision)
 	validated_pathspecs = _validated_pathspecs(pathspecs)
@@ -582,14 +581,11 @@ def analyze_affected_checks(
 	limits: InputCaptureLimits = DEFAULT_INPUT_CAPTURE_LIMITS,
 	monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
-	"""Return advisory affectedness while fixing every decision to ``execute``.
+	"""诊断变更可能影响哪些检查，所有检查仍标记为 execute。
 
-	Git resolution and environment capture belong to the invocation owner; this
-	analysis only consumes the explicit immutable capability it receives.
-
-	Ordinary analysis failures are mapped to one exact-schema failure envelope.
-	Unproven process cleanup is ownership debt and must escape unchanged so the
-	invocation owner can stop execution and preserve retained resources.
+	Git 解析与环境冻结由调用方负责，只使用显式传入的不可变配置。
+	普通分析错误转换成固定结构的失败报告。若进程清理尚未确认则原样抛出，
+	以便拥有者停止调度并保留必要资源。
 	"""
 	names = _safe_check_names(check_names)
 	safe_base = _safe_base_revision(base_revision)
@@ -731,7 +727,7 @@ def make_affected_analysis_failure(
 	error_code: str,
 	explain: bool = False,
 ) -> dict[str, Any]:
-	"""Build the exact fail-closed report without exposing exception text."""
+	"""构造规定字段的失败报告，避免发布异常对象的原始文本。"""
 	names = _safe_check_names(check_names)
 	safe_base = _safe_base_revision(base_revision)
 	if error_code not in AFFECTED_ANALYSIS_ERROR_CODES:
@@ -766,7 +762,7 @@ def make_affected_analysis_failure(
 
 
 def affected_analysis_error_code(error: BaseException) -> str:
-	"""Map an internal exception to one bounded public error code."""
+	"""将内部异常映射为约定范围内的对外错误码。"""
 	if isinstance(error, ValidationInputDeadlineError):
 		return "affected_deadline_exceeded"
 	if isinstance(error, ValidationInputBaseError):
@@ -781,7 +777,7 @@ def affected_analysis_error_code(error: BaseException) -> str:
 
 
 def validate_affected_analysis_report(payload: Mapping[str, Any]) -> dict[str, Any]:
-	"""Validate and return an exact schema-v1 JSON-safe report."""
+	"""校验并返回符合 schema-v1 的可 JSON 序列化报告。"""
 	data = _validated_exact_object(
 		"affected analysis report",
 		payload,
@@ -1496,7 +1492,7 @@ def _snapshot_from_stat(value: os.stat_result) -> _FileSnapshot:
 
 
 def _same_open_file_identity(left: _FileSnapshot, right: _FileSnapshot) -> bool:
-	"""Compare path and handle identity without Windows' open-time ctime update."""
+	"""核对路径及打开句柄的身份，排除 Windows 在打开时更新 ctime 产生的差异。"""
 	return (
 		left.device == right.device
 		and left.inode == right.inode

@@ -61,7 +61,7 @@ def _write_config(root: Path, rules: dict[str, str]) -> None:
 
 
 def run_acceptance() -> dict[str, Any]:
-	"""Use fresh host bytes without importing its executable sentinel scripts."""
+	"""将当前项目的输入复制到隔离工程，实际验证代码质量工具，同时用哨兵检查被分析脚本没有意外执行。"""
 	cleanup_errors: list[str] = []
 	cleanup = {"permitted": True}
 	base = FrozenProcessEnvironment.capture(os.environ)
@@ -75,7 +75,7 @@ def run_acceptance() -> dict[str, Any]:
 		host = owned / "p"
 		host.mkdir()
 		for source in (ROOT / TOOL).rglob("*.gd"):
-			# The CLI needs no editor UI or global class import cache.
+			# CLI 应能在没有编辑器界面和全局类导入缓存时工作。
 			if "editor" in source.relative_to(ROOT / TOOL).parts:
 				continue
 			target = host / source.relative_to(ROOT)
@@ -212,14 +212,14 @@ def run_acceptance() -> dict[str, Any]:
 		)
 		check("incomplete-source", 2, "incomplete")
 
-		# Prove both sentinels are effective with an intentionally executable control.
+		# 用可实际执行的对照样本证明两个哨兵均能发现执行。
 		(host / "positive_control.gd").write_bytes((FIXTURES / "positive_control.gd.txt").read_bytes())
 		control = invoke("positive-control", [], runner="res://positive_control.gd")
 		_require(control.return_code == 0, f"positive-control: exit {control.return_code}")
 		_require((host / "autoload_executed.flag").is_file(), "AutoLoad sentinel control did not execute")
 		_require((host / "target_executed.flag").is_file(), "target sentinel control did not execute")
 
-		# A separate real editor proves the two UI sources and publication revocation.
+		# 另起真实编辑器验证两处 UI 输入，以及撤销发布后的行为。
 		editor_host = owned / "e"
 		editor_host.mkdir()
 		for source in (ROOT / TOOL).rglob("*.gd"):
@@ -290,6 +290,7 @@ def run_acceptance() -> dict[str, Any]:
 
 
 def main() -> int:
+	"""运行原生代码质量验收并发布结构化结果，失败时返回非零退出码。"""
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--json", action="store_true", help="Print the machine acceptance result.")
 	args = parser.parse_args()

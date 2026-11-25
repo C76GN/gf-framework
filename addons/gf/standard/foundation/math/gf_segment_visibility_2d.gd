@@ -57,6 +57,16 @@ const _SEGMENT_STRIDE: int = 6
 ## @api private
 const _NATIVE_MIN_SEGMENT_TESTS: int = 8
 
+## GF Native 的内部静态批处理入口，版本属于二进制协议。
+## [br]
+## @api private
+const _NATIVE_CLASS: StringName = &"GfSegmentVisibilityBackend"
+
+## 此版本在一次同步调用内借用拓扑并返回独立结果。
+## [br]
+## @api private
+const _NATIVE_METHOD: StringName = &"compute_pair_masks_v2"
+
 
 # --- 私有变量 ---
 
@@ -200,7 +210,7 @@ func get_pair_index(first_id: int, second_id: int) -> int:
 ## [br]
 ## @return: 独立的批量结果。零或一个点合法，成功时数组为空。
 ## [br]
-## @schema return: Dictionary，含 ok（bool）、error（StringName）、masks（调用方持有的 PackedInt64Array）。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。
+## @schema return: Dictionary，含 ok（bool）、error（StringName）、backend（StringName）和 masks（调用方持有的 PackedInt64Array）。backend 为实际执行的 gdscript 或 native，准入失败时为空。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。
 func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX_SEGMENT_TESTS) -> Dictionary:
 	if _valid_mask < 0:
 		return _failure(&"unprepared")
@@ -219,24 +229,30 @@ func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX
 	if segment_tests > max_segment_tests:
 		return _failure(&"segment_budget_exceeded")
 	var masks: PackedInt64Array = PackedInt64Array()
-	var native: Object = _native_service() if segment_tests >= _NATIVE_MIN_SEGMENT_TESTS and _valid_mask != 0 else null
-	if native != null:
-		var value: Variant = native.call(
-			&"compute_pair_masks",
+	var backend: StringName = &"gdscript"
+	if (
+		segment_tests >= _NATIVE_MIN_SEGMENT_TESTS
+		and _valid_mask != 0
+		and _has_native_batch()
+	):
+		backend = &"native"
+		var value: Variant = ClassDB.class_call_static(
+			_NATIVE_CLASS,
+			_NATIVE_METHOD,
 			_xy,
 			_segments,
 			_blocked,
 			_valid_mask
 		)
 		if value is int and value == ERR_OUT_OF_MEMORY:
-			return _failure(&"allocation_failed")
+			return _failure(&"allocation_failed", backend)
 		if not value is PackedInt64Array:
-			return _failure(&"native_failed")
+			return _failure(&"native_failed", backend)
 		masks = value
 		if masks.size() != pairs:
-			return _failure(&"native_failed")
+			return _failure(&"native_failed", backend)
 	elif masks.resize(pairs) != OK:
-		return _failure(&"allocation_failed")
+		return _failure(&"allocation_failed", backend)
 	elif _blocked.is_empty() or _valid_mask == 0:
 		masks.fill(_valid_mask)
 	else:
@@ -251,29 +267,25 @@ func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX
 	return {
 		"ok": true,
 		"error": &"",
+		"backend": backend,
 		"masks": masks,
 	}
 
 
 # --- 私有/辅助方法 ---
 
-## 仅主线程接入已安装的批量协议，其他环境用同一份只读拓扑在脚本中计算。
+## 通过 ClassDB 查询静态协议。工作线程加速仅在已验收的 Windows x64 启用。
 ## [br]
 ## @api private
-static func _native_service() -> Object:
-	const SERVICE: StringName = &"GfSegmentVisibilityBackend"
-	if not Thread.is_main_thread() or not Engine.has_singleton(SERVICE):
-		return null
-	var native: Object = Engine.get_singleton(SERVICE)
-	if (
-		not is_instance_valid(native)
-		or not native.is_class(SERVICE)
-		or not native.has_method(&"protocol_version")
-		or not native.has_method(&"compute_pair_masks")
-	):
-		return null
-	var version: Variant = native.call(&"protocol_version")
-	return native if version is int and version == 1 else null
+static func _has_native_batch() -> bool:
+	if not Thread.is_main_thread():
+		if OS.get_name() != "Windows" or Engine.get_architecture_name() != "x86_64":
+			return false
+	return ClassDB.class_get_method_argument_count(
+		_NATIVE_CLASS,
+		_NATIVE_METHOD,
+		true
+	) == 4
 
 
 ## 先检查每个坐标，保证后续差向量与叉积全程精确。
@@ -466,9 +478,10 @@ func _visible_between(first: int, second: int) -> int:
 ## 所有失败采用同一结构，每次独立返回空的打包数组。
 ## [br]
 ## @api private
-static func _failure(reason: StringName) -> Dictionary:
+static func _failure(reason: StringName, backend: StringName = &"") -> Dictionary:
 	return {
 		"ok": false,
 		"error": reason,
+		"backend": backend,
 		"masks": PackedInt64Array(),
 	}

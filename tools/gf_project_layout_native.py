@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run trusted GDScript against a read-only external directory, never its project."""
+"""在受控的 Godot 工程中执行布局规则，只读分析调用者提供的外部项目目录。"""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ RUNNER_PATH = "res://addons/gf/tools/project_layout/cli/gf_project_layout_cli.gd
 
 
 class NativeExecutionError(RuntimeError):
-	"""Unavailable transport is not an invented native analysis report."""
+	"""原生传输无法完成，调用方应保留执行失败，不应据此构造分析结果。"""
 
 	def __init__(
 		self, reason: str, *, process_boundary_quiet: bool, cleanup_errors: tuple[str, ...] = (),
@@ -50,7 +50,7 @@ def run_native_analysis(
 	protected_root: Path | None = None,
 	on_quiet_failure: Callable[[], None] | None = None,
 ) -> dict[str, Any]:
-	"""Keep deadline, bytes and process ownership across import and evaluation."""
+	"""在导入和求值两阶段共用时限、输入字节和进程清理责任。"""
 	cleanup = {"permitted": True}
 
 	try:
@@ -91,13 +91,13 @@ def run_native_analysis(
 						on_quiet_failure=lambda: cleanup.__setitem__("permitted", True),
 					)
 				except SupervisedProcessStartError as error:
-					# Only the supervisor's no-child proof can reopen fixture cleanup.
+					# 只有监督器明确确认未创建子进程时，才恢复清理测试工程的许可。
 					cleanup["permitted"] = (
 						error.process_boundary_quiescent is True
 						and not exception_has_cleanup_debt(error)
 					)
 					raise
-				# A completed process tree also permits teardown of a late result.
+				# 确认整个进程树已结束后，即使结果较晚返回也允许拆除工程。
 				cleanup["permitted"] = result.cleanup_complete is True and result.deferred_cleanup is None
 				result = require_supervised_binary_quiet_boundary(result, deadline=deadline)
 				cleanup["permitted"] = True
@@ -119,7 +119,7 @@ def run_native_analysis(
 			))
 			return response["analysis"]
 	except (PinnedReadError, OSError, RuntimeError, ValueError) as error:
-		# Convert transport/setup failures; TypeError and control-flow exceptions remain visible.
+		# 将传输和准备错误投影为诊断，TypeError 与流程控制异常继续传播。
 		reason = error.rule_id if isinstance(error, PinnedReadError) else "project_layout.native_unavailable"
 		raise NativeExecutionError(reason, process_boundary_quiet=cleanup["permitted"]) from error
 	except BaseException:
@@ -129,7 +129,7 @@ def run_native_analysis(
 
 
 def _stage_trusted_source(root: Path, destination: Path, deadline: float) -> None:
-	"""Capture every trusted input twice before launching any code."""
+	"""启动任何代码前两次采集全部受信输入，核对其内容及身份。"""
 	paths = _source_paths(root, deadline)
 	files = []
 	byte_count = 0
@@ -147,7 +147,7 @@ def _stage_trusted_source(root: Path, destination: Path, deadline: float) -> Non
 		target = destination / path
 		target.parent.mkdir(parents=True, exist_ok=True)
 		target.write_bytes(data)
-	# Directory membership and captured source content must remain equal.
+	# 目录成员和采集到的源码内容都须与输入快照一致。
 	if paths != _source_paths(root, deadline):
 		raise PinnedReadError("project_layout.trusted_source_changed")
 	for path, digest in files:
@@ -158,7 +158,7 @@ def _stage_trusted_source(root: Path, destination: Path, deadline: float) -> Non
 
 
 def _source_paths(root: Path, deadline: float) -> list[str]:
-	"""Charge every encountered entry and prune caches before descending."""
+	"""为遇到的每个目录项扣减预算，进入子目录前先排除缓存。"""
 	paths: list[str] = []
 	pending = [root / "addons/gf"]
 	entry_count = 0

@@ -1,3 +1,4 @@
+"""验证模块描述中的 ID、种类、源码路径与依赖关系如何参与归属判定。"""
 from __future__ import annotations
 
 import json

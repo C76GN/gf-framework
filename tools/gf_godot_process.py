@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve a foreground Godot executable for deterministic maintenance runs."""
+"""为维护进程解析前台 Godot 可执行文件，确保调用方跟踪到实际运行的引擎。"""
 
 from __future__ import annotations
 
@@ -19,12 +19,12 @@ WINDOWS_STEAM_ENGINE_NAME = "godot.windows.opt.tools.64.exe"
 
 
 class GodotExecutableResolutionError(ExecutableResolutionError):
-	"""Raised when a Godot selection has no match in the frozen search inputs."""
+	"""冻结的搜索输入中没有可供选择的 Godot 引擎。"""
 
 
 @dataclass(frozen=True)
 class CommandIdentity:
-	"""Bind a declared argv to the exact argv selected for execution."""
+	"""将声明的参数序列绑定到真正用于执行的参数序列。"""
 
 	declared: tuple[str, ...]
 	effective: tuple[str, ...]
@@ -37,7 +37,7 @@ def resolve_godot_executable(
 	cwd: Path,
 	platform_name: str | None = None,
 ) -> str:
-	"""Resolve Godot while bypassing the detached Steam launcher on Windows."""
+	"""在冻结环境中选择前台 Godot 引擎，Windows 的 Steam 安装优先选同目录的实际引擎。"""
 	effective_platform = platform_name if platform_name is not None else os.name
 	try:
 		configured_override = frozen_environment_value(
@@ -69,6 +69,7 @@ def resolve_godot_command(
 	environment: Mapping[str, str],
 	cwd: Path,
 ) -> list[str]:
+	"""按传入的环境和工作目录解析 Godot 命令的可执行文件，其他种类命令保留参数内容。"""
 	if not command or not looks_like_godot_executable(command[0]):
 		return list(command)
 	return [
@@ -87,7 +88,7 @@ def resolve_command_identity(
 	environment: Mapping[str, str],
 	cwd: Path,
 ) -> CommandIdentity:
-	"""Resolve one immutable declared/effective command pair exactly once."""
+	"""只解析一次并固定命令的声明参数与实际执行参数。"""
 	declared = tuple(command)
 	if not declared or any(type(part) is not str for part in declared):
 		raise ValueError("Command identity requires a non-empty string argv.")

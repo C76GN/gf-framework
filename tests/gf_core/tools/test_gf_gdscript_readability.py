@@ -1,4 +1,4 @@
-"""Observable contracts of the mandatory GDScript readability checker."""
+"""通过诊断结果验证 GDScript 排版规则，覆盖合法结构、违规输入和扫描预算。"""
 
 from __future__ import annotations
 

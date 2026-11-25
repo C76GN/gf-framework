@@ -1,4 +1,4 @@
-"""Resolve GF public API owners without treating AutoLoads as class_name types."""
+"""按声明身份归集公开 API，单独处理 AutoLoad 与具名 GDScript 类型。"""
 
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ OWNER_KINDS = frozenset({OWNER_KIND_CLASS, OWNER_KIND_AUTOLOAD})
 
 @dataclass(frozen=True)
 class ApiAutoloadContract:
+	"""记录受控 AutoLoad 的名称、源码及注册入口，用于核实脚本的身份。"""
 	name: str
 	source_path: str
 	resource_path: str
@@ -37,12 +38,14 @@ class ApiAutoloadContract:
 
 @dataclass(frozen=True)
 class ApiOwner:
+	"""将类型或 AutoLoad 的身份与脚本、所属包绑定，供查询和生成器共用。"""
 	kind: str
 	name: str
 	script: ApiScript
 	package_id: str = ""
 
 	def to_api_class(self) -> ApiClass | None:
+		"""仅把具名类型投影为 ApiClass，AutoLoad 返回 None。"""
 		return self.script.to_api_class() if self.kind == OWNER_KIND_CLASS else None
 
 
@@ -64,6 +67,7 @@ def collect_api_owners(
 	*,
 	file_owners: dict[str, str] | None = None,
 ) -> list[ApiOwner]:
+	"""从脚本收集类型及受控 AutoLoad，再依据模块描述符核对其归属。"""
 	autoload_contracts = _autoload_contracts_within_source_root(
 		source_root,
 		root,
@@ -98,6 +102,7 @@ def select_api_owners(
 	api_scripts: list[ApiScript],
 	autoload_contracts: tuple[ApiAutoloadContract, ...] = CONTROLLED_AUTOLOAD_CONTRACTS,
 ) -> list[ApiOwner]:
+	"""按显式所有者规则选取脚本，拒绝相互冲突的 AutoLoad 身份。"""
 	contracts_by_path = {contract.source_path: contract for contract in autoload_contracts}
 	if len(contracts_by_path) != len(autoload_contracts):
 		raise ValueError("controlled API autoload source paths must be unique")
@@ -157,7 +162,7 @@ def select_api_owners(
 
 
 def _index_inheritance_classes(scripts: list[ApiScript]) -> dict[str, list[ApiScript | ApiClass]]:
-	"""Index parsed types before public filtering; ambiguous names prove nothing."""
+	"""在公开可见性筛选前建立类型索引，名称多义时不能作为继承证据。"""
 	result: dict[str, list[ApiScript | ApiClass]] = {}
 
 	def add_inner_classes(classes: list[ApiClass], owner_name: str) -> None:
@@ -178,13 +183,10 @@ def _is_inherited_protected_method(
 	member: ApiMember,
 	classes: dict[str, list[ApiScript | ApiClass]],
 ) -> bool:
-	"""Allow documentation of existing hooks, never a new classless public owner.
+	"""允许为已有的受保护钩子补写说明。
 
-	Only parsed type names can prove inheritance here. Unsupported path/alias
-	forms remain rejected rather than guessing from filenames or source paths.
-	The proof ends at a parsed protected declaration; remaining indexed ancestors
-	are visited to reject cycles, not to invent a native-class allowlist. GUT
-	validates the complete contract; Godot checks base loading and signatures.
+	只以已解析的类型名和受保护声明证明继承。未识别的路径或别名直接拒绝，不能从文件名猜测。
+	找到目标声明后继续检查祖先是否成环。完整契约由 GUT 验证，基类加载和签名由 Godot 检查。
 	"""
 	def is_protected_method(candidate: ApiMember) -> bool:
 		return (
@@ -303,10 +305,12 @@ def resolve_api_owner_packages(
 
 
 def class_owners(owners: Iterable[ApiOwner]) -> list[ApiOwner]:
+	"""按输入顺序取出具名类型所有者。"""
 	return [owner for owner in owners if owner.kind == OWNER_KIND_CLASS]
 
 
 def autoload_owners(owners: Iterable[ApiOwner]) -> list[ApiOwner]:
+	"""按输入顺序取出显式登记的 AutoLoad 所有者。"""
 	return [owner for owner in owners if owner.kind == OWNER_KIND_AUTOLOAD]
 
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check maintainable documentation shape for hand-authored MkDocs pages."""
+"""检查手写 MkDocs 页面的标题、链接和文档结构，区分手册与生成的参考页。"""
 
 from __future__ import annotations
 
@@ -70,6 +70,7 @@ SECTION_API_REFERENCES = {
 
 @dataclass(frozen=True)
 class MarkdownFenceBlock:
+    """记录围栏的起止行、信息字符串和原始内容，便于按源码位置检查代码示例。"""
     marker: str
     opening_length: int
     info: str
@@ -80,13 +81,14 @@ class MarkdownFenceBlock:
 
 @dataclass(frozen=True)
 class MarkdownStructure:
+    """同时保存可见正文及围栏信息，使链接检查与代码示例检查使用同一份解析结果。"""
     visible_lines: tuple[tuple[int, str], ...]
     fences: tuple[MarkdownFenceBlock, ...]
     unclosed_fence_line: int | None
 
 
 def scan_markdown_structure(text: str) -> MarkdownStructure:
-    """Parse reader-visible lines with CommonMark-compatible fence boundaries."""
+    """按 CommonMark 围栏边界解析读者在页面上能看到的行。"""
     visible_lines: list[tuple[int, str]] = []
     fences: list[MarkdownFenceBlock] = []
     in_html_comment = False
@@ -215,7 +217,7 @@ def visible_markdown_text(text: str) -> str:
 
 
 def gdscript_fence_contents(text: str) -> list[str]:
-    """Return normalized GDScript fence bodies in reader order."""
+    """按阅读顺序返回经过规范化的 GDScript 围栏代码块。"""
     return [
         "\n".join(block.content).rstrip()
         for block in scan_markdown_structure(text).fences
@@ -227,7 +229,7 @@ def check_readme_quickstart_contracts(
     english_text: str,
     chinese_text: str,
 ) -> list[str]:
-    """Keep both root quickstarts executable, failure-aware, and identical."""
+    """核对两个根目录快速入门中的示例是否一致、可执行并处理失败。"""
     errors: list[str] = []
     english_blocks = gdscript_fence_contents(english_text)
     chinese_blocks = gdscript_fence_contents(chinese_text)
@@ -264,7 +266,7 @@ def check_readme_quickstart_contracts(
 
 
 def check_public_entry_contracts(repository_root: Path) -> list[str]:
-    """Validate public entry-point facts that are owned outside docs/zh."""
+    """核对入口页中由 docs/zh 以外来源维护的公开事实。"""
     required_paths = {
         "README.md": repository_root / "README.md",
         "README.zh.md": repository_root / "README.zh.md",
@@ -647,7 +649,7 @@ def find_fragment_candidates(
     root: Path,
     min_body_lines: int,
 ) -> list[str]:
-    """Return warnings for body pages that are too small to justify a page."""
+    """找出正文过短、可能适合合并的页面，作为维护提示。"""
     if path.name == "index.md":
         return []
 
@@ -672,7 +674,7 @@ def find_unstructured_body_page(
     root: Path,
     min_structured_body_lines: int,
 ) -> list[str]:
-    """Return warnings for longer body pages that lack scannable H2 sections."""
+    """为篇幅较长却缺少二级标题的正文页生成结构提示。"""
     if path.name == "index.md":
         return []
 
@@ -699,7 +701,7 @@ def find_unstructured_body_page(
 
 
 def split_link_target(raw_target: str) -> str:
-    """Return the actual Markdown link destination without an optional title."""
+    """取 Markdown 链接的实际目的地，去掉可选的链接标题。"""
     target = raw_target.strip()
     if target.startswith("<"):
         end = target.find(">")
@@ -714,7 +716,7 @@ def is_external_link(target: str) -> bool:
 
 
 def check_local_links(path: Path, root: Path) -> list[str]:
-    """Validate local Markdown link targets outside code fences."""
+    """检查代码围栏之外的 Markdown 本地链接目标。"""
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
@@ -746,7 +748,7 @@ def check_local_links(path: Path, root: Path) -> list[str]:
 
 
 def check_local_link_anchors(path: Path, root: Path) -> list[str]:
-    """Validate local Markdown link fragments against target page headings."""
+    """将本地链接的片段与目标页面的标题锚点核对。"""
     relative_path = path.relative_to(root.parent).as_posix()
     text = path.read_text(encoding="utf-8")
     errors: list[str] = []
@@ -786,6 +788,7 @@ def split_target_fragment(target: str) -> tuple[str, str]:
 
 
 def resolve_local_link_path(source_path: Path, root: Path, path_part: str) -> Path | None:
+    """以源文档目录或文档根解析本地链接，无法约束到受控范围的路径返回 None。"""
     normalized_path_part = path_part.replace("\\", "/")
     if WINDOWS_DRIVE_PATH_PATTERN.match(path_part) or normalized_path_part.lower().startswith("file:"):
         return None
@@ -848,7 +851,7 @@ def mermaid_first_content_line(lines: list[str]) -> str:
 
 
 def check_rendering_syntax(path: Path, root: Path) -> tuple[list[str], bool]:
-    """Validate syntax that can silently render incorrectly in MkDocs."""
+    """检查虽可构建却可能在 MkDocs 中呈现错误的语法。"""
     relative_path = path.relative_to(root.parent).as_posix()
     structure = scan_markdown_structure(path.read_text(encoding="utf-8"))
     errors: list[str] = []
@@ -884,7 +887,7 @@ def check_rendering_syntax(path: Path, root: Path) -> tuple[list[str], bool]:
 
 
 def check_public_maintenance_leaks(path: Path, root: Path) -> list[str]:
-    """Detect explicit maintainer-process wording in public reader docs."""
+    """定位面向使用者的文档中泄露维护流程的措辞。"""
     relative_path = path.relative_to(root.parent).as_posix()
     errors: list[str] = []
 
@@ -902,7 +905,7 @@ def check_public_maintenance_leaks(path: Path, root: Path) -> list[str]:
 
 
 def check_mkdocs_mermaid_config(root: Path) -> list[str]:
-    """Ensure MkDocs is configured to render Mermaid fenced diagrams."""
+    """核实 MkDocs 已配置 Mermaid 围栏图的渲染支持。"""
     config_candidates = [
         Path("mkdocs.yml"),
         root.parent.parent / "mkdocs.yml",
@@ -929,7 +932,7 @@ def check_mkdocs_mermaid_config(root: Path) -> list[str]:
 
 
 def check_section_entry_templates(root: Path) -> list[str]:
-    """Validate the minimum public shape of high-level section entries."""
+    """核验上层章节入口所需的最小公开结构。"""
     errors: list[str] = []
     for section in ENTRY_TEMPLATE_ROOTS:
         section_root = root / section
@@ -989,7 +992,7 @@ def check_section_entry_templates(root: Path) -> list[str]:
 
 
 def check_extension_entry_templates(root: Path) -> list[str]:
-    """Validate the minimum public shape of top-level extension entry pages."""
+    """核验顶层扩展入口页的最小公开结构。"""
     extensions_root = root / "extensions"
     if not extensions_root.exists():
         return []
@@ -1030,6 +1033,7 @@ def check_extension_entry_templates(root: Path) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """运行选定的文档质量检查，按命令行选项呈现结果并返回退出码。"""
     args = parse_args(argv)
     if args.strict:
         args.fail_fragments = True

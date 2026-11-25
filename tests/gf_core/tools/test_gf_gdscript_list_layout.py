@@ -1,4 +1,4 @@
-"""Structural list choices are independent of historical physical wrapping."""
+"""验证列表排版由直接子项决定，同一列表的原始换行方式不影响判定。"""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GF maintenance helpers shared by the CLI and the MCP server."""
+"""为仓库维护 CLI 和 MCP 共用同一套 API 查询、检查调度及报告判定。"""
 
 from __future__ import annotations
 
@@ -36,9 +36,8 @@ from types import MappingProxyType
 from typing import Any
 from typing import Callable
 
-# Workers import ``gf_maintenance`` lazily.  When this file is the CLI entry
-# point, keep those imports bound to this already-loaded module instead of
-# loading a second copy from source that may have changed after capture.
+# 分片会延迟导入 gf_maintenance。作为 CLI 启动时绑定到已加载的同一模块，
+# 避免重新读取采集后可能已改变的源码。
 if __name__ == "__main__":
 	sys.modules.setdefault("gf_maintenance", sys.modules[__name__])
 
@@ -330,8 +329,7 @@ MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR = "GF_MAINTENANCE_VALIDATION_TEMP_ROOT"
 PROJECT_VALIDATION_ARTIFACTS = Path("build/validation")
 PROJECT_PROFILE_ACCEPTANCE_GENERATED_FILES = 20_050
 WINDOWS_ARTIFACT_VALIDATION_ROOT_MAX_CHARACTERS = 64
-# The longest runner-owned materialization root adds 11 characters
-# (``bN/.sN.m/w``); keep it no longer than a normal 30-character checkout.
+# 运行器最长的物化路径后缀 bN/.sN.m/w 增加 11 个字符，整个根路径应控制在普通检出的 30 字符以内。
 WINDOWS_PARALLEL_VALIDATION_ROOT_MAX_CHARACTERS = 19
 WINDOWS_DRIVE_FIXED = 3
 WINDOWS_ERROR_INSUFFICIENT_BUFFER = 122
@@ -746,7 +744,7 @@ def resolve_path_from_root(value: str) -> Path:
 def freeze_maintenance_invocation_environment(
 	process_environment: FrozenProcessEnvironment | None = None,
 ) -> FrozenProcessEnvironment:
-	"""Use one explicit frozen environment, capturing ambient state at most once."""
+	"""给一次维护调用绑定显式的冻结环境，至多在入口读取一次进程环境。"""
 	if process_environment is not None and not isinstance(
 		process_environment,
 		FrozenProcessEnvironment,
@@ -776,7 +774,7 @@ def godot_log_path(check_name: str) -> str:
 def validation_catalog_for_root(
 	root: Path,
 ) -> gf_validation_catalog.ValidationCatalog:
-	"""Build one Catalog projection from explicit, already-resolved inputs."""
+	"""从明确、已解析的输入构造本次验证目录视图。"""
 	return gf_validation_catalog.build_validation_catalog(
 		gf_validation_catalog.ValidationCatalogContext(
 			python_executable=sys.executable,
@@ -792,7 +790,7 @@ def validation_catalog_for_root(
 def _default_validation_catalog_for_root(
 	root: Path,
 ) -> gf_validation_catalog.ValidationCatalog:
-	"""Build the non-authoritative static Catalog from constants only."""
+	"""仅从常量构造用于静态查询的默认验证目录。"""
 	return validation_catalog_for_root(
 		root,
 	)
@@ -811,6 +809,7 @@ def expand_check_dependencies(check_names: list[str]) -> list[str]:
 
 
 def maintenance_check_graph() -> CheckGraph:
+	"""取得当前维护检查的依赖图，供计划展开和调度共用。"""
 	return _VALIDATION_CATALOG.check_graph
 
 
@@ -923,6 +922,7 @@ PARALLEL_SHARD_RESULT_OPTIONAL_FIELDS = frozenset({
 
 @dataclass(frozen=True)
 class ParallelCheckShardPlan:
+	"""描述一个分片拥有的检查与其实际执行的检查，两者可因依赖展开而不同。"""
 	name: str
 	checks: tuple[str, ...]
 	execution_checks: tuple[str, ...]
@@ -936,7 +936,7 @@ class ParallelCheckShardPlan:
 
 @dataclass(frozen=True)
 class ParallelShardCommandContract:
-	"""Frozen declared/effective action identities captured before shard dispatch."""
+	"""保存调度前冻结的声明动作与实际命令身份。"""
 
 	identities: Mapping[str, CommandIdentity]
 	resolver_workspace: Path | None = None
@@ -944,7 +944,7 @@ class ParallelShardCommandContract:
 
 
 def with_maintenance_process_authority(function: Callable[..., Any]) -> Callable[..., Any]:
-	"""Give one direct action entry a single frozen authority for its full body."""
+	"""让一次直接调用的维护动作在整个执行期间共用同一份进程配置。"""
 	@functools.wraps(function)
 	def wrapped(*args: Any, **kwargs: Any) -> Any:
 		if gf_process_authority.active_process_authority() is not None:
@@ -958,7 +958,7 @@ def with_maintenance_process_authority(function: Callable[..., Any]) -> Callable
 
 @dataclass(frozen=True)
 class PreparedParallelFullBatch:
-	"""Own every materialized shard and frozen command contract before dispatch."""
+	"""调度前统一持有已物化的全部分片及其冻结的命令契约。"""
 
 	index: int
 	plan: tuple[ParallelCheckShardPlan, ...]
@@ -970,7 +970,7 @@ class PreparedParallelFullBatch:
 
 
 class ParallelFullBatchLease:
-	"""Release one preflighted batch independently before later dispatch."""
+	"""持有一个已完成预检的批次，使其能在后续调度前单独释放。"""
 
 	def __init__(
 		self,
@@ -1022,7 +1022,7 @@ def release_parallel_full_batch_leases(
 	*,
 	error: BaseException | None = None,
 ) -> None:
-	"""Release every still-active lease without abandoning later owner cleanup."""
+	"""依次释放所有仍有效的批次租约，即使前一个清理失败也处理余项。"""
 	cleanup_failures: list[BaseException] = []
 	for lease in reversed(leases):
 		try:
@@ -1090,7 +1090,7 @@ def parallel_full_shard_batches(
 	plan: list[ParallelCheckShardPlan],
 	jobs: int,
 ) -> list[list[ParallelCheckShardPlan]]:
-	"""Build stable resource-aware Full batches without changing shard ownership."""
+	"""在保持分片归属的前提下，按资源需求稳定地将 Full 检查编批。"""
 	if jobs < 1:
 		raise ValueError(f"Parallel Full batch size must be positive; got {jobs}.")
 	batches: list[list[ParallelCheckShardPlan]] = []
@@ -1117,7 +1117,7 @@ def parallel_shard_timeout_seconds(
 	*,
 	validation_catalog: gf_validation_catalog.ValidationCatalog,
 ) -> int:
-	"""Budget the whole sequential child closure without weakening per-check minima."""
+	"""为整个顺序执行的子检查集合估算预算，并保留每项检查的最低时限。"""
 	closure_budget = sum(
 		max(
 			validation_catalog.timeout_floor_seconds(check_name),
@@ -1172,12 +1172,12 @@ UNRESOLVED_GODOT_EXECUTABLE_SENTINEL = "<unresolved-godot-executable>"
 
 
 class DeferredCommandMaterializationError(ValueError):
-	"""Raised when a runner-owned deferred command cannot be materialized safely."""
+	"""运行器无法安全地生成原先延迟绑定的命令。"""
 
 
 @dataclass(frozen=True)
 class DeferredCommandContext:
-	"""Invocation-scoped live arguments available to deferred materializers."""
+	"""本次调用中可供延迟命令构造器读取的实际参数。"""
 
 	artifact_manifest: str
 	allow_breaking_api: bool
@@ -1282,6 +1282,7 @@ _ACTIVE_SUITE_DEADLINE: float | None = None
 
 @dataclass
 class CommandResult:
+	"""汇集单次维护动作的退出状态、超时、两条输出流及实际进程或测试证据。"""
 	name: str
 	command: list[str]
 	exit_code: int
@@ -1336,8 +1337,7 @@ class CommandResult:
 			"cancelled": self.cancelled,
 			"duration_seconds": round(self.duration_seconds, 3),
 			"execution": self.execution,
-			# Keep stdout/stderr as the existing compatible tail fields while
-			# binding each tail to evidence computed from the same captured text.
+			# stdout/stderr 保存输出尾部，两者的完整性证据均须从同一次捕获的文本计算。
 			"stdout": stdout_tail,
 			"stderr": stderr_tail,
 			"stdout_char_count": stdout_char_count,
@@ -1376,7 +1376,7 @@ def make_unresolved_godot_command_result(
 	*,
 	duration_seconds: float = 0.0,
 ) -> CommandResult:
-	"""Report a Godot selection failure without presenting an effective argv."""
+	"""记录调度前 Godot 解析失败，此时没有实际执行的参数序列。"""
 	return CommandResult(
 		name=name,
 		command=[
@@ -1402,7 +1402,7 @@ def make_unresolved_command_result(
 	*,
 	duration_seconds: float = 0.0,
 ) -> CommandResult:
-	"""Report a generic executable selection failure before process dispatch."""
+	"""记录在进程调度前发生的可执行文件选择失败。"""
 	return CommandResult(
 		name=name,
 		command=[
@@ -1422,7 +1422,7 @@ def make_unresolved_command_result(
 
 
 def parse_gut_shard_run_timeout_seconds(text: str) -> int:
-	"""Parse one CLI-only candidate timeout inside the worker phase ceiling."""
+	"""解析 CLI 指定的候选超时，要求其落在分片工作阶段的时限内。"""
 	maximum = gf_gut_shard_worker.MAX_PHASE_TIMEOUT_SECONDS
 	try:
 		value = int(text)
@@ -1855,6 +1855,7 @@ def main(
 	*,
 	parser: argparse.ArgumentParser | None = None,
 ) -> int:
+	"""解析维护子命令并调度其检查或查询，返回适用于 CI 与本地调用的状态码。"""
 	configure_stdio()
 	maintenance_rendering.set_json_output_path(None)
 	if parser is None:
@@ -2058,13 +2059,14 @@ def main(
 
 
 def configure_stdio() -> None:
+	"""将支持重新配置的标准流设为 UTF-8，保持命令行输出可被仓库工具读取。"""
 	for stream in (sys.stdin, sys.stdout, sys.stderr):
 		if hasattr(stream, "reconfigure"):
 			stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def maintenance_json_output_path(value: str) -> Path:
-	"""Validate the explicit machine-readable result path below build/."""
+	"""核验 build 下显式指定的机器可读结果路径。"""
 	requested_path = Path(value)
 	if not requested_path.is_absolute():
 		requested_path = ROOT / requested_path
@@ -2082,7 +2084,7 @@ def write_internal_complete_output_evidence_report(
 	*,
 	max_utf8_bytes: int = MAX_PARALLEL_SHARD_REPORT_BYTES,
 ) -> None:
-	"""Atomically write one bounded parent-verifiable private shard report."""
+	"""原子写入有大小上限的私有分片报告，供父进程复核。"""
 	if type(max_utf8_bytes) is not int or max_utf8_bytes <= 0:
 		raise ValueError("Internal complete-output report limit must be a positive integer.")
 	payload = maintenance_rendering.encode_strict_json(
@@ -2101,7 +2103,7 @@ def write_internal_complete_output_evidence_report(
 
 @with_maintenance_process_authority
 def review_hotspots(*, paths: list[str] | None = None, limit: int = 30) -> dict[str, Any]:
-	"""Observe current source through a bounded, frozen Git inventory and pinned reads."""
+	"""通过冻结的 Git 清单和固定身份的读取，在预算内观察当前源码。"""
 	import gf_review_hotspot_report
 
 	try:
@@ -2150,6 +2152,7 @@ def review_hotspots(*, paths: list[str] | None = None, limit: int = 30) -> dict[
 
 
 def project_summary(include_release: bool = False, artifact_manifest: str = "") -> dict[str, Any]:
+	"""汇总 Git 状态、框架版本和 API 目录。发布检查按调用方选项执行。"""
 	plugin_version = read_plugin_version()
 	release = release_status("", artifact_manifest=artifact_manifest) if include_release else {
 		"included": False,
@@ -2219,6 +2222,7 @@ def read_api_catalog_stats() -> dict[str, Any]:
 
 
 def api_index(scope: str = "public") -> dict[str, Any]:
+	"""在指定查询范围内统计脚本、类型、模块和方法的可见性。"""
 	owners = api_query_owners(scope)
 	public_owners = owners if scope == "public" else api_query_owners("public")
 	classes = [owner for owner in owners if api_query_identity(owner)["class_name"]]
@@ -2231,7 +2235,7 @@ def api_index(scope: str = "public") -> dict[str, Any]:
 		"inner_class_count": sum(isinstance(owner, ApiClass) for owner in owners),
 		"method_count": sum(len(owner.methods) for owner in owners),
 		"method_counts_by_visibility": api_query_method_counts(owners),
-		# Member tags alone cannot make an internal owner's method a public contract.
+		# 只有成员的公开标签不足以将内部所有者的方法纳入公开契约。
 		"public_method_count": sum(len(owner.methods) for owner in public_owners),
 		"modules": api_query_module_stats(owners),
 		"classes": [
@@ -2254,6 +2258,7 @@ def api_baseline_diff(
 	enforce_version: bool = False,
 	allow_breaking: bool = False,
 ) -> dict[str, Any]:
+	"""将当前公开 API 目录与所选 Git 基线比较，报告声明及结构契约的兼容性变化。"""
 	release_version = version.strip() or read_plugin_version()
 	explicit_base_tag = base_tag.strip()
 	issues: list[str] = []
@@ -2447,7 +2452,7 @@ def classify_api_schema_changes(
 
 
 def api_schema_change_is_compatible(change: dict[str, Any]) -> bool:
-	"""Treat free-text schema rewrites as breaking unless no prior contract existed."""
+	"""已有自由文本结构契约被改写时按破坏性变更处理，首次增加说明可兼容。"""
 
 	old_schema = [str(item) for item in change.get("old_schema", [])]
 	new_schema = [str(item) for item in change.get("new_schema", [])]
@@ -2707,7 +2712,7 @@ def read_api_catalog_snapshot_from_git(ref: str, *, label: str = "") -> dict[str
 
 
 def _read_api_catalog_blobs_from_git(ref: str, paths: Sequence[str]) -> dict[str, str]:
-	"""Read unique Catalog blobs from one captured commit within one bounded process."""
+	"""在一次有界 Git 进程中从固定提交读取不重复的 API 目录对象。"""
 	if GIT_OBJECT_ID_RE.fullmatch(ref) is None:
 		raise ValueError("Catalog reads require a captured commit object ID.")
 	requests: dict[str, bytes] = {}
@@ -2744,8 +2749,8 @@ def _read_api_catalog_blobs_from_git(ref: str, paths: Sequence[str]) -> dict[str
 		or result.stderr != ""
 	):
 		raise ValueError("Git did not return a complete successful Catalog batch.")
-	# Latin-1 maps each raw pipe byte to one captured character, so the supervisor
-	# enforces the byte budget before accumulation. Decode UTF-8 only after framing.
+	# Latin-1 将管道中的每个字节映射为一个字符，监督器便可在累积之前执行字节预算。
+	# 完成分帧后才按 UTF-8 解码。
 	output = result.stdout.encode("latin-1")
 	if len(output) > API_BASELINE_CATALOG_BATCH_OUTPUT_MAX_BYTES:
 		raise ValueError("Catalog batch response exceeds its byte budget.")
@@ -2779,7 +2784,7 @@ def _read_api_catalog_blobs_from_git(ref: str, paths: Sequence[str]) -> dict[str
 			or output[body_end:body_end + 1] != b"\n"
 		):
 			raise ValueError("Catalog batch response has an incomplete blob body.")
-		# Match git_show_text's UTF-8 replacement and universal-newline semantics.
+		# 沿用 git_show_text 的 UTF-8 替换与通用换行语义。
 		text = output[offset:body_end].decode("utf-8", errors="replace")
 		files[path] = text.replace("\r\n", "\n").replace("\r", "\n")
 		offset = body_end + 1
@@ -2937,7 +2942,7 @@ def resolve_api_catalog_class_root(
 	class_name: str,
 	class_root: ET.Element,
 ) -> ET.Element | None:
-	"""Resolve one index class reference to its exact outer or nested XML node."""
+	"""将索引中的类型引用定位到确切的外层或嵌套 XML 节点。"""
 	if class_name in {
 		class_root.get("name", ""),
 		class_root.get("fullName", ""),
@@ -3225,6 +3230,7 @@ def find_latest_semver_tag_before(version: str) -> str:
 
 @dataclass(frozen=True)
 class ApiBaselineRef:
+	"""绑定供公开 API 比对使用的标签名与已核实的 Git 提交身份。"""
 	tag: str
 	commit_oid: str
 
@@ -3233,7 +3239,7 @@ def resolve_api_baseline_ref(
 	release_version: str,
 	explicit_tag: str = "",
 ) -> tuple[ApiBaselineRef | None, str]:
-	"""Bind one eligible API baseline tag to the commit that was validated."""
+	"""把可用的 API 基线标签绑定到本次实际验证的提交。"""
 
 	release_target = api_diff_release_target_version(release_version)
 	release_parts = parse_semver(release_target)
@@ -3297,7 +3303,7 @@ def resolve_api_baseline_ref(
 
 
 def read_annotated_semver_tags(*, pinned_tag: str = "") -> tuple[ApiBaselineRef, ...] | None:
-	"""Read annotated SemVer tags reachable from HEAD, or one configured tag."""
+	"""读取 HEAD 可达的带注解 SemVer 标签，或只读取配置指定的标签。"""
 
 	result = run_frozen_maintenance_git([
 		"for-each-ref",
@@ -3370,7 +3376,7 @@ def read_annotated_semver_tags(*, pinned_tag: str = "") -> tuple[ApiBaselineRef,
 def peel_nested_annotated_tag_commit_oids(
 	object_ids: Sequence[str],
 ) -> tuple[str, ...] | None:
-	"""Recursively peel captured tag-object OIDs in one bounded Git process."""
+	"""在一个有界 Git 进程中逐层解析已捕获的注解标签对象，得到提交身份。"""
 
 	payload = "".join(
 		f"{object_id}^{{commit}} {object_id}\n"
@@ -3418,6 +3424,7 @@ def api_diff_release_target_version(version: str) -> str:
 
 
 def api_search(query: str, kind: str = "all", limit: int = 20, scope: str = "public") -> dict[str, Any]:
+	"""在选定可见范围内查找匹配的所有者和成员，返回受 limit 约束的结果。"""
 	owners = api_query_owners(scope)
 	needle = query.strip().lower()
 	if not needle:
@@ -3455,10 +3462,11 @@ def api_search(query: str, kind: str = "all", limit: int = 20, scope: str = "pub
 
 
 def api_class(class_name: str, include_members: bool = True, scope: str = "public") -> dict[str, Any]:
+	"""按所有者名称或脚本路径查询 API，可选返回成员。路径匹配脚本本身，内部类使用限定名。"""
 	query = class_name.strip().replace("\\", "/").removeprefix("res://").lower()
 	for script in api_query_owners(scope):
 		identity = api_query_identity(script)
-		# A path names its script container, not an arbitrary inner class in that file.
+		# 路径标识容纳声明的脚本，无法单凭文件路径选定任一内部类。
 		if identity["owner_name"].lower() != query and not (
 			isinstance(script, ApiScript) and script.path.lower() == query
 		):
@@ -3496,6 +3504,7 @@ def api_class(class_name: str, include_members: bool = True, scope: str = "publi
 
 
 def api_module(module: str, include_members: bool = False, limit: int = 80, scope: str = "public") -> dict[str, Any]:
+	"""按模块筛选 API 所有者，在结果中标明总数、实际返回数及是否截断。"""
 	owners = api_query_owners(scope)
 	query = module.strip().replace("\\", "/").strip("/").lower()
 	if not query:
@@ -3558,6 +3567,7 @@ def module_matches(module: str, query: str) -> bool:
 
 
 def workspace_status(paths: list[str] | None = None) -> dict[str, Any]:
+	"""按变更路径归类当前工作区并给出对应检查，可只统计显式传入的路径。"""
 	entries = (
 		workspace_status_entries_for_paths(paths)
 		if paths
@@ -3615,6 +3625,7 @@ def normalize_workspace_status_paths(paths: list[str]) -> list[str]:
 
 
 def project_settings_drift() -> dict[str, Any]:
+	"""分别核实暂存和未暂存的 project.godot 差异，帮助定位测试或编辑器留下的改写。"""
 	unstaged_diff = git_text(["diff", "--", "project.godot"])
 	staged_diff = git_text(["diff", "--cached", "--", "project.godot"])
 	issues: list[str] = []
@@ -3634,6 +3645,7 @@ def project_settings_drift() -> dict[str, Any]:
 
 
 def path_hygiene() -> dict[str, Any]:
+	"""检查仓库路径的跨平台命名、跟踪范围和文本格式，按问题及位置返回结果。"""
 	tracked_paths_result = read_git_paths(["ls-files", "-z", "--cached"])
 	untracked_paths_result = read_git_paths(["ls-files", "-z", "--others", "--exclude-standard"])
 	scan_errors: list[dict[str, Any]] = []
@@ -3679,6 +3691,7 @@ def path_hygiene() -> dict[str, Any]:
 
 
 def codeql_suppression_policy() -> dict[str, Any]:
+	"""核对仓库已跟踪的源码和配置是否符合 CodeQL 抑制策略。"""
 	tracked_paths_result = read_git_paths(
 		["ls-files", "-z", "--cached"],
 		strict_utf8=True,
@@ -3692,6 +3705,7 @@ def codeql_suppression_policy() -> dict[str, Any]:
 
 
 def diagnostic_policy() -> dict[str, Any]:
+	"""检查框架自有诊断模板与经过审阅的转发入口。"""
 	snapshot = _ACTIVE_WORKSPACE_SNAPSHOT or WorkspaceSnapshot(ROOT)
 	return gf_diagnostic_policy.audit_files(
 		ROOT,
@@ -3701,6 +3715,7 @@ def diagnostic_policy() -> dict[str, Any]:
 
 
 def gdscript_readability() -> dict[str, Any]:
+	"""对 GF 自有源码及模板执行 GDScript 排版规则，返回包含位置与建议的诊断。"""
 	snapshot = _ACTIVE_WORKSPACE_SNAPSHOT or WorkspaceSnapshot(ROOT)
 	return gf_gdscript_readability.audit_repository(
 		ROOT, read_text=snapshot.read_utf8_text_strict,
@@ -3708,6 +3723,7 @@ def gdscript_readability() -> dict[str, Any]:
 
 
 def api_since_touched() -> dict[str, Any]:
+	"""定位工作区本次触及的公开或受保护声明，检查对应文档块是否提供 @since。"""
 	entries = parse_git_status(git_lines(["status", "--short", "-uall", "--", "addons/gf"]))
 	paths = sorted({
 		entry["path"]
@@ -3827,7 +3843,7 @@ def find_missing_touched_api_since_issues(
 
 
 def find_gdscript_multiline_string_lines(source: str) -> set[int]:
-	"""Return zero-based lines that contain GDScript triple-quoted string content."""
+	"""返回包含 GDScript 三引号字符串内容的行，行号从 0 开始。"""
 	result: set[int] = set()
 	index = 0
 	line_index = 0
@@ -3931,6 +3947,7 @@ def api_doc_block_touched(
 
 
 def dependency_boundary() -> dict[str, Any]:
+	"""核实框架层次及内置扩展的依赖方向，报告违规的声明或引用。"""
 	manifest_records = collect_bundled_extension_manifest_records()
 	tool_contribution_records = collect_bundled_tool_contribution_records(manifest_records)
 	extension_ids = sorted({
@@ -3966,6 +3983,7 @@ def dependency_boundary() -> dict[str, Any]:
 
 
 def public_api_boundary() -> dict[str, Any]:
+	"""检查公开声明和生成的 API 参考中是否混入内部实现或规划名称。"""
 	files = collect_public_api_boundary_files()
 	issues: list[dict[str, Any]] = []
 	for path in files:
@@ -3986,6 +4004,7 @@ def public_api_boundary() -> dict[str, Any]:
 
 
 def public_docs_boundary() -> dict[str, Any]:
+	"""扫描公开手册中的维护用语及可选扩展边界表述，返回可定位的违规记录。"""
 	files = collect_public_doc_boundary_files()
 	issues: list[dict[str, Any]] = []
 	for path in files:
@@ -4007,6 +4026,7 @@ def resource_boundary(
 	fail_on_issues: bool = False,
 	include_observations: bool = False,
 ) -> dict[str, Any]:
+	"""检查资源引用及对应源码的模块归属，并区分观察性记录与违规。"""
 	paths_payload = collect_resource_boundary_paths()
 	scan_errors = paths_payload["errors"]
 	if scan_errors:
@@ -4101,6 +4121,7 @@ def annotate_resource_boundary_packages(
 
 
 def content_package_boundary(check_resource_exists: bool = False) -> dict[str, Any]:
+	"""读取内容包清单，核实其声明的资源及依赖关系。"""
 	paths_payload = collect_content_package_manifest_paths()
 	scan_errors = paths_payload["errors"]
 	if scan_errors:
@@ -4138,6 +4159,7 @@ def content_package_boundary(check_resource_exists: bool = False) -> dict[str, A
 
 
 def asset_lifecycle_boundary(fail_on_warnings: bool = False) -> dict[str, Any]:
+	"""从受管源码中提取可判断的资源生命周期调用，报告明确的作用域遗漏。"""
 	paths_payload = collect_asset_lifecycle_paths()
 	scan_errors = paths_payload["errors"]
 	if scan_errors:
@@ -4210,7 +4232,7 @@ def project_profile_boundary(
 
 @with_maintenance_process_authority
 def project_profile_native_acceptance() -> dict[str, Any]:
-	"""Exercise native scope capture without executing any target project code."""
+	"""在原生工具中验证布局检查的范围采集，目标工程中的脚本不会被执行。"""
 	cleanup_errors: list[str] = []
 	cleanup = {"permitted": True}
 	with managed_validation_directory(
@@ -4262,7 +4284,7 @@ def _run_project_profile_acceptance_fixture(target: Path, cleanup: dict[str, boo
 	frozen_report: dict[str, Any] = {}
 	snapshot_verified = False
 	if cleanup["permitted"] and report["ok"] and isinstance(scope, dict) and all(key in scope for key in binding_keys):
-		# Model the Editor's logical res:// binding while replaying in the trusted CLI fixture.
+		# 在受控 CLI 工程重放检查时，按编辑器的逻辑绑定解释 res://。
 		scope = dict(scope, root_path="res://", profile_source_path="res://gf_project_profile.json")
 		binding = {key: scope[key] for key in binding_keys}
 		scope["policy_digest"] = hashlib.sha256(json.dumps(
@@ -4365,11 +4387,10 @@ def prepare_package_manifest_analysis() -> tuple[
 	list[dict[str, Any]],
 	PackageOwnershipIndex | None,
 ]:
-	"""Read live manifests and validate their graph and ownership for one caller.
+	"""读取当前模块描述符，校验依赖图与源码归属。
 
-	No derived state is cached: every gate retains its own discovery, bounded
-	manifest reads, candidate-path scan, records, and issue-list ownership.
-	A missing index distinguishes discovery failure from a valid empty inventory.
+	每个调用独立拥有文件发现、有界读取、路径扫描、记录和问题列表。缺少索引表示发现失败，
+	与成功取得的空清单不同。
 	"""
 	paths_payload = collect_package_manifest_paths()
 	if paths_payload["errors"]:
@@ -4387,6 +4408,7 @@ def prepare_package_manifest_analysis() -> tuple[
 
 
 def package_boundary() -> dict[str, Any]:
+	"""校验内部模块描述符、源码归属及依赖图，并归集问题路径。"""
 	records, issues, ownership_index = prepare_package_manifest_analysis()
 	if ownership_index is None:
 		return {
@@ -4413,6 +4435,7 @@ def package_boundary() -> dict[str, Any]:
 
 
 def package_closure_audit() -> dict[str, Any]:
+	"""计算各模块的依赖闭包，按严重级别报告扇入和超量依赖风险。"""
 	records, issues, ownership_index = prepare_package_manifest_analysis()
 	if ownership_index is None:
 		return make_package_closure_audit_payload([], [], [], issues)
@@ -4780,6 +4803,7 @@ def package_issue_severity_count(issues: list[dict[str, Any]], severity: str) ->
 
 
 def package_focused_gut_mapping() -> dict[str, Any]:
+	"""校验模块映射到的定向 GUT 测试与仓库中的测试路径是否一致。"""
 	records, issues, ownership_index = prepare_package_manifest_analysis()
 	if ownership_index is None:
 		return make_package_focused_gut_mapping_payload([], {}, issues)
@@ -4799,7 +4823,7 @@ def gut_shard_plan(
 	run_gut: bool = False,
 	timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
-	"""Validate the G0 shard manifest and optionally observe one explicit GUT result."""
+	"""校验初始分片清单，可选读取一份显式提供的 GUT 结果作为观察记录。"""
 	mode = "run_gut" if run_gut else ("existing_junit" if junit_path else "manifest_only")
 	report: dict[str, Any] = {
 		"schema_version": 1,
@@ -5082,7 +5106,7 @@ GUT_SHARD_RUN_MAX_REPORT_BYTES = 64 * 1024 * 1024
 
 
 class GutShardRuntimeSourceError(WorkspaceSnapshotError):
-	"""Raised when same-process GUT code is not the captured source revision."""
+	"""同进程的 GUT 运行时代码与本次捕获的源码版本不一致。"""
 
 	code = "gut_shard_runtime_source_mismatch"
 
@@ -5100,7 +5124,7 @@ def _gut_shard_runtime_source_file_identity(
 
 
 def _gut_shard_runtime_source_parent_issue(path: Path) -> str:
-	"""Validate a real directory chain without relying on later module helpers."""
+	"""独立核验真实的父目录链，供模块完全初始化以前使用。"""
 	absolute = Path(os.path.abspath(path))
 	if not absolute.is_absolute() or not absolute.anchor:
 		return "path is not absolute"
@@ -5125,7 +5149,7 @@ def _read_gut_shard_runtime_source(
 	*,
 	deadline: float | None = None,
 ) -> bytes:
-	"""Read one real runtime source file through a stable bounded handle."""
+	"""通过身份稳定并有长度上限的句柄读取一个运行时源码文件。"""
 	if deadline is not None and time.perf_counter() >= deadline:
 		raise WorkspaceDeadlineError("GUT shard runtime source binding deadline expired.")
 	path = Path(os.path.abspath(path))
@@ -5210,7 +5234,7 @@ def _gut_shard_runtime_source_digest(
 
 
 def capture_loaded_gut_shard_runtime_source_binding() -> tuple[tuple[str, str], ...]:
-	"""Freeze source bytes corresponding to the modules loaded by this process."""
+	"""固定与本进程已加载模块对应的源码字节。"""
 	binding: list[tuple[str, str]] = []
 	total_bytes = 0
 	for relative_path, module_name in GUT_SHARD_RUNTIME_SOURCE_MODULES:
@@ -5247,7 +5271,7 @@ def validate_gut_shard_runtime_source_binding(
 	*,
 	deadline: float | None = None,
 ) -> str:
-	"""Require captured/live source to match the process's import-time source."""
+	"""要求采集的源码和现有源码均与进程导入时的字节一致。"""
 	if (
 		type(loaded_binding) is not tuple
 		or tuple(path for path, _digest in loaded_binding)
@@ -5298,7 +5322,7 @@ def make_gut_shard_run_report(
 	qualify: bool,
 	gut_timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
-	"""Create the closed top-level envelope for one G0.2A observation."""
+	"""为一次分片执行观察创建字段固定的顶层报告。"""
 	resolved_gut_timeout = resolve_gut_shard_run_gut_timeout_seconds(
 		gut_timeout_seconds
 	)
@@ -5367,7 +5391,7 @@ def make_gut_shard_run_report(
 
 
 def resolve_gut_shard_run_gut_timeout_seconds(override_seconds: int | None) -> int:
-	"""Keep each candidate GUT phase at or above its G0.2A policy floor."""
+	"""将各候选 GUT 阶段的时限保持在分片策略下限以上。"""
 	if override_seconds is not None and (
 		type(override_seconds) is not int
 	):
@@ -5389,7 +5413,7 @@ def gut_shard_run_total_timeout_seconds(
 	gut_timeout_seconds: int,
 	qualify: bool,
 ) -> int:
-	"""Derive one bounded parent deadline from candidate waves and optional control."""
+	"""从候选批次及可选对照运行推导父进程的总时限。"""
 	if type(shard_count) is not int or shard_count <= 0:
 		raise ValueError("GUT shard execution requires at least one shard.")
 	if type(jobs) is not int or jobs not in GUT_SHARD_RUN_ALLOWED_JOBS:
@@ -5417,7 +5441,7 @@ def gut_shard_worker_total_timeout_seconds(
 	import_timeout_seconds: int,
 	gut_timeout_seconds: int,
 ) -> int:
-	"""Reserve preflight, both process phases, and final proof publication."""
+	"""为预检、两个进程阶段和最后发布运行证据预留时间。"""
 
 	if type(import_timeout_seconds) is not int or import_timeout_seconds <= 0:
 		raise ValueError("GUT shard worker import timeout must be positive.")
@@ -5447,7 +5471,7 @@ def make_gut_shard_worker_request(
 	mode: str = gf_gut_shard_worker.CANDIDATE_MODE,
 	runtime_source_digest: str | None = None,
 ) -> dict[str, Any]:
-	"""Bind one worker request to an exact materialization and manifest selection."""
+	"""把分片请求绑定到指定工作区实例和选中的清单条目。"""
 	request = {
 		"schema_version": 1,
 		"nonce": secrets.token_hex(32),
@@ -5481,7 +5505,7 @@ def validate_direct_gut_shard_worker_report(
 	expected_workspace_identity: tuple[int, int, int] | None = None,
 	deadline: float,
 ) -> dict[str, Any]:
-	"""Bind one same-process worker result to its request and sealed source."""
+	"""核实同进程分片的运行结果与原请求、固定源码相符。"""
 	data = gf_gut_shard_worker.validate_report(report)
 	validate_gut_shard_worker_report_values(data)
 	if data["request"] != expected_request:
@@ -5491,9 +5515,7 @@ def validate_direct_gut_shard_worker_report(
 		or data["worker_cleanup_complete"] is not True
 		or data["workspace_cleanup_permitted"] is not True
 	):
-		# A closed negative proof is still valuable evidence, but it cannot
-		# authorize any further filesystem reads or Git processes in a workspace
-		# that may still be owned by a live descendant.
+		# 否定结果仍可写入报告。若后代可能仍拥有工作区，不能据此继续读取文件或启动 Git。
 		return data
 	if expected_workspace_identity is not None:
 		if gf_parallel_validation._owned_directory_identity(  # noqa: SLF001
@@ -5515,7 +5537,7 @@ def validate_direct_gut_shard_worker_report(
 
 
 def validate_gut_shard_worker_report_values(report: dict[str, Any]) -> None:
-	"""Validate exact worker value types beyond the shared closed field sets."""
+	"""在协议规定的字段之外，进一步核验每个分片报告值的实际类型。"""
 	request = report["request"]
 	if (
 		type(report["selection_count"]) is not int
@@ -5583,7 +5605,7 @@ def materialize_gut_shard_workspaces(
 	git_process: FrozenGitProcess,
 	deadline: float,
 ) -> tuple[dict[str, Path], dict[str, tuple[int, int, int]]]:
-	"""Materialize one candidate wave without sharing writable project state."""
+	"""为一个候选批次创建各自的工作区，隔离可写的项目状态。"""
 	remaining_deadline_seconds(deadline, "GUT shard workspace materialization")
 	with concurrent.futures.ThreadPoolExecutor(
 		max_workers=len(shards),
@@ -5630,7 +5652,7 @@ def execute_gut_shard_worker_wave(
 	cancellation_event: threading.Event,
 	cleanup_state: dict[str, bool] | None = None,
 ) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
-	"""Run one bounded wave in-process and retain manifest request order."""
+	"""在本进程内运行一批有界分片，返回顺序与清单请求一致。"""
 	if not requests:
 		raise ValueError("GUT shard worker waves may not be empty.")
 	if len(requests) > max(GUT_SHARD_RUN_ALLOWED_JOBS):
@@ -5870,7 +5892,7 @@ def execute_gut_shard_candidate_reports(
 	cleanup_state: dict[str, bool] | None = None,
 	runtime_source_digest: str = GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST,
 ) -> tuple[list[dict[str, Any]], int, list[dict[str, str]]]:
-	"""Execute every manifest shard exactly once in bounded disposable waves."""
+	"""在可回收的有界批次中将清单里的每个分片恰好执行一次。"""
 	worker_reports: list[dict[str, Any]] = []
 	executed_count = 0
 	issues: list[dict[str, str]] = []
@@ -5978,9 +6000,7 @@ def execute_gut_shard_candidate_reports(
 				"message": str(error),
 			})
 		except (OSError, RuntimeError, TypeError, ValueError) as error:
-			# Preserve reports from earlier waves and retain the validation root.
-			# Materialization/protocol failures are infrastructure failures, not
-			# ordinary test failures safe to continue past.
+			# 保留先前批次的报告及验证根。工作区创建或协议失败属于基础设施故障，应停止后续测试。
 			cancellation_event.set()
 			if cleanup_state is not None:
 				cleanup_state["permitted"] = False
@@ -6048,7 +6068,7 @@ def execute_gut_shard_control_report(
 	cleanup_state: dict[str, bool] | None = None,
 	runtime_source_digest: str = GUT_SHARD_LOADED_RUNTIME_SOURCE_DIGEST,
 ) -> tuple[dict[str, Any] | None, int, list[dict[str, str]]]:
-	"""Run exactly one original-selection control in a fresh same-snapshot workspace."""
+	"""从同一份快照创建干净的工作区，按原选择规则执行一次对照。"""
 	issues: list[dict[str, str]] = []
 	executed_count = 0
 	cleanup_errors: list[str] = []
@@ -6200,7 +6220,7 @@ def aggregate_gut_shard_candidate_reports(
 	inventory: tuple[str, ...],
 	worker_reports: list[dict[str, Any]],
 ) -> dict[str, Any]:
-	"""Aggregate exactly one valid report for every manifest shard."""
+	"""要求清单中的每个分片各有一份有效报告后再汇总。"""
 	result: dict[str, Any] = {
 		"schema_version": 1,
 		"eligible": False,
@@ -6371,7 +6391,7 @@ def validate_gut_shard_candidate_aggregate(
 	*,
 	worker_reports: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-	"""Validate a derived multi-JUnit aggregate without impersonating one XML input."""
+	"""校验多份 JUnit 的派生汇总，保留其多源身份。"""
 	if type(aggregate) is not dict or set(aggregate) != GUT_SHARD_AGGREGATE_FIELDS:
 		raise ValueError("GUT shard candidate aggregate fields do not match the closed schema.")
 	if type(inventory) is not tuple or any(type(path) is not str for path in inventory):
@@ -6609,7 +6629,7 @@ def compare_gut_shard_qualification(
 	inventory: tuple[str, ...],
 	candidate_reports: list[dict[str, Any]],
 ) -> dict[str, Any]:
-	"""Compare candidate and control test semantics while excluding durations."""
+	"""比较候选和对照运行的测试语义，排除机器耗时差异。"""
 	result: dict[str, Any] = {
 		"schema_version": 1,
 		"equivalent": False,
@@ -6681,7 +6701,7 @@ def compare_gut_shard_qualification(
 
 
 def validate_gut_shard_equivalence_report(report: dict[str, Any]) -> None:
-	"""Validate the closed qualification decision and all derived booleans."""
+	"""校验等价性结论及其派生布尔值是否符合协议。"""
 	if type(report) is not dict or set(report) != GUT_SHARD_EQUIVALENCE_FIELDS:
 		raise ValueError("GUT shard equivalence fields do not match the closed schema.")
 	if type(report["schema_version"]) is not int or report["schema_version"] != 1:
@@ -6715,7 +6735,7 @@ def validate_gut_shard_equivalence_report(report: dict[str, Any]) -> None:
 
 
 def gut_shard_worker_report_eligible(report: dict[str, Any]) -> bool:
-	"""Require one complete, clean, no-reuse import + GUT worker result."""
+	"""要求工作进程实际完成导入及 GUT，结果完整、无清理欠项且未复用历史记录。"""
 	policy = report.get("observation_policy")
 	return (
 		report.get("ok") is True
@@ -6754,7 +6774,7 @@ def gut_shard_worker_report_eligible(report: dict[str, Any]) -> bool:
 def combine_gut_shard_junit_reports(
 	worker_reports: list[dict[str, Any]],
 ) -> dict[str, Any]:
-	"""Derive multi-file evidence without impersonating one G0.1 parser result."""
+	"""合并多文件 JUnit 证据，并在结果中保留与单份解析记录的区别。"""
 	if type(worker_reports) is not list or not worker_reports:
 		raise ValueError("GUT shard aggregation requires non-empty worker reports.")
 	scripts: list[dict[str, Any]] = []
@@ -6822,7 +6842,7 @@ def combine_gut_shard_junit_reports(
 
 
 def gut_shard_semantic_result_from_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
-	"""Project validated script semantics while intentionally omitting durations."""
+	"""从已校验的证据提取脚本测试语义，省略与等价性无关的耗时。"""
 	return {
 		"script_count": evidence["script_count"],
 		"test_count": evidence["test_count"],
@@ -6855,7 +6875,7 @@ def gut_shard_semantic_result_from_evidence(evidence: dict[str, Any]) -> dict[st
 
 
 def gut_shard_junit_semantic_result(junit: dict[str, Any]) -> dict[str, Any]:
-	"""Project the exact qualification semantics and intentionally omit durations."""
+	"""提取验收需要逐项比较的 JUnit 结果，排除耗时字段。"""
 	gf_gut_sharding._validate_observation_junit_report(junit)  # noqa: SLF001
 	return gut_shard_semantic_result_from_evidence(junit)
 
@@ -6869,7 +6889,7 @@ def validate_gut_shard_run_report(
 	expected_validation_root: Path | None = None,
 	final: bool = True,
 ) -> dict[str, Any]:
-	"""Validate the closed G0.2A envelope and its derived state machine."""
+	"""按协议校验整份分片运行报告及其派生状态。"""
 	if type(report) is not dict or set(report) != GUT_SHARD_RUN_TOP_LEVEL_FIELDS:
 		raise ValueError("GUT shard run report fields do not match the closed schema.")
 	if type(report["schema_version"]) is not int or report["schema_version"] != 1:
@@ -7454,9 +7474,7 @@ def validate_gut_shard_run_report(
 			or control["worker_cleanup_complete"] is not True
 			or control["workspace_cleanup_permitted"] is not True
 		):
-			# execute_gut_shard_control_report retains the control root and clears
-			# control_report when this proof is missing.  A top-level report can
-			# therefore never retain this child payload as accepted control evidence.
+			# 对照运行缺少确认时会保留对照根并清除 control_report，顶层报告也就不能将该子报告当作有效对照。
 			raise ValueError(
 				"GUT shard control evidence retained unproven process or workspace ownership."
 			)
@@ -8685,10 +8703,8 @@ def gut_shard_run(
 	timeout_seconds: int | None = None,
 	qualify: bool = False,
 ) -> dict[str, Any]:
-	"""Run every GUT shard as one bounded, non-authoritative G0.2A observation."""
-	# Direct Python callers share the same closed argument contract as the CLI.
-	# Reject before constructing an envelope so an invalid bool-as-int/jobs value
-	# can never appear inside a schema-versioned report.
+	"""在有限预算内实际执行各 GUT 分片并生成观察报告。"""
+	# 直接 Python 调用与 CLI 使用同一参数契约。封装报告前先拒绝不合法的 jobs 值，包括混作整数的布尔值。
 	if type(jobs) is not int or jobs not in GUT_SHARD_RUN_ALLOWED_JOBS:
 		raise ValueError("gut-shard-run --jobs must be 1 or 2.")
 	if type(qualify) is not bool:
@@ -8926,8 +8942,7 @@ def gut_shard_run(
 							"qualified" if report["qualified"] else "not_equivalent"
 						)
 
-			# Keep the validation root owned while the final supervised Git and
-			# loaded-source checks publish their quiet, same-snapshot proof.
+			# 保留验证根的所有权，直到最后的受管 Git 进程和已加载源码检查确认进程已静止且仍对应同一快照。
 			if cleanup_state["permitted"] is True:
 				cleanup_state["permitted"] = False
 				gf_parallel_validation.assert_source_matches_snapshot(
@@ -9017,9 +9032,7 @@ def gut_shard_run(
 			report["qualified"] = False
 			if qualify:
 				report["qualification_status"] = "cleanup_failed"
-		# Derive the final execution partition in one place, including setup
-		# failures that happen after the manifest is known but before any worker
-		# can be scheduled.
+		# 统一计算运行结果的分类，也纳入清单已确定但尚未调度任何工作进程时发生的准备错误。
 		report["completed_shard_count"] = len(report["shards"])
 		report["successful_shard_count"] = sum(
 			worker_report.get("ok") is True for worker_report in report["shards"]
@@ -9051,7 +9064,7 @@ def gut_shard_run(
 
 @dataclass(frozen=True)
 class GutShardJunitOutput:
-	"""Identity-pinned, invocation-owned outputs prepared without overwriting data."""
+	"""记录属于本次调用的新 JUnit 输出，固定文件身份并保留已有数据。"""
 
 	path: Path
 	provenance_path: Path
@@ -9063,7 +9076,7 @@ class GutShardJunitOutput:
 
 
 def validate_gut_shard_junit_input_path(value: str) -> Path:
-	"""Resolve one existing JUnit XML input inside the ignored build tree."""
+	"""解析被 Git 忽略的 build 树下已有的 JUnit XML 输入。"""
 	requested_path = Path(value)
 	if not requested_path.is_absolute():
 		requested_path = ROOT / requested_path
@@ -9079,7 +9092,7 @@ def validate_gut_shard_junit_input_path(value: str) -> Path:
 
 
 def prepare_gut_shard_junit_output() -> GutShardJunitOutput:
-	"""Create a random invocation-owned directory without deleting or overwriting."""
+	"""创建具有随机名称的本次专用输出目录，避免删除或覆盖既有结果。"""
 	containment_root = GUT_SHARD_OBSERVATION_ROOT.parent
 	observation_root = validate_controlled_path(
 		GUT_SHARD_OBSERVATION_ROOT,
@@ -9149,7 +9162,7 @@ def prepare_gut_shard_junit_output() -> GutShardJunitOutput:
 
 
 def validate_published_gut_shard_junit_path(output: GutShardJunitOutput) -> Path:
-	"""Bind a published JUnit file to the invocation directory created for its run."""
+	"""将已发布的 JUnit 文件绑定到为此次运行创建的目录。"""
 	controlled_path = validate_controlled_path(output.path, output.root)
 	root_after = output.root.lstat()
 	invocation_after = output.invocation_directory.lstat()
@@ -9172,7 +9185,7 @@ def validate_published_gut_shard_junit_path(output: GutShardJunitOutput) -> Path
 
 
 def validate_published_gut_shard_provenance_path(output: GutShardJunitOutput) -> Path:
-	"""Bind a published provenance sidecar to the same invocation-owned directory."""
+	"""要求配套的来源证明文件与 JUnit 位于同一本次拥有的目录中。"""
 	controlled_path = validate_controlled_path(output.provenance_path, output.root)
 	root_after = output.root.lstat()
 	invocation_after = output.invocation_directory.lstat()
@@ -9202,7 +9215,7 @@ def parse_published_gut_shard_junit(
 	output: GutShardJunitOutput,
 	expected_scripts: tuple[str, ...],
 ) -> dict[str, Any]:
-	"""Parse invocation-owned JUnit and provenance while preserving identities."""
+	"""解析本次运行的 JUnit 和来源证明，在读取期间核对两者的身份。"""
 	path = validate_published_gut_shard_junit_path(output)
 	provenance_path = validate_published_gut_shard_provenance_path(output)
 	before = gf_gut_sharding.stable_file_identity(path.lstat())
@@ -9233,7 +9246,7 @@ def parse_existing_gut_shard_junit(
 	path: Path,
 	expected_scripts: tuple[str, ...],
 ) -> dict[str, Any]:
-	"""Parse an existing build input and reject parent-chain replacement."""
+	"""解析已有的 build 输入，如果父目录链在读取期间被替换则拒绝该结果。"""
 	build_root = ROOT / "build"
 	chain_before = snapshot_real_directory_chain(build_root, path.parent)
 	before = gf_gut_sharding.stable_file_identity(path.lstat())
@@ -9259,7 +9272,7 @@ def gut_shard_observation_command(
 	invocation_id: str,
 	phase: str,
 ) -> list[str]:
-	"""Give every explicit observation phase an invocation-unique managed log."""
+	"""为每个显式的观察阶段指定本次调用独有的受管日志。"""
 	result = list(command)
 	if result.count("--log-file") != 1:
 		raise ValueError("GUT shard observation commands require exactly one managed log path.")
@@ -9274,7 +9287,7 @@ def authoritative_gut_shard_observation_command(
 	junit_path: Path,
 	invocation_id: str,
 ) -> list[str]:
-	"""Build the exact unfiltered recursive GUT command for one owned observation."""
+	"""为一次隔离观察构造完整、递归、无筛选的 GUT 命令。"""
 	canonical_command = list(CHECK_DEFINITIONS["gut"])
 	if not canonical_command or any(type(argument) is not str for argument in canonical_command):
 		raise ValueError("The authoritative GUT command must be a non-empty string argv.")
@@ -9326,7 +9339,7 @@ def authoritative_gut_shard_observation_command(
 
 
 def gut_shard_observation_environment(output: GutShardJunitOutput) -> dict[str, str]:
-	"""Bind the current full GUT process to its invocation-owned provenance sidecar."""
+	"""将本次完整 GUT 运行绑定到它自己的来源证明文件。"""
 	if (
 		GUT_SHARD_OBSERVATION_NONCE_RE.fullmatch(output.nonce) is None
 		or output.invocation_directory.name != output.nonce
@@ -9360,7 +9373,7 @@ def gut_shard_observation_environment(output: GutShardJunitOutput) -> dict[str, 
 def resolve_gut_shard_observation_timeout_seconds(
 	override_seconds: int | None,
 ) -> int:
-	"""Keep the explicit observation at the authoritative full-inventory floor."""
+	"""显式观察也须使用覆盖全部测试清单的最低运行时限。"""
 	return max(
 		GUT_SHARD_OBSERVATION_TIMEOUT_SECONDS,
 		resolve_check_timeout_seconds("gut", override_seconds),
@@ -9368,7 +9381,7 @@ def resolve_gut_shard_observation_timeout_seconds(
 
 
 def gut_shard_observation_command_summary(result: CommandResult) -> dict[str, Any]:
-	"""Keep machine-local output out of the durable observation report."""
+	"""为持久化报告保留命令概要，避免带入机器本地输出。"""
 	summary: dict[str, Any] = {
 		"name": result.name,
 		"exit_code": result.exit_code,
@@ -9672,6 +9685,7 @@ def package_focused_gut_expected_test_prefixes(package_id: str, package_kind: st
 
 
 def core_only_smoke() -> dict[str, Any]:
+	"""检查仅安装内核时根插件入口是否仍能独立解析。"""
 	plugin_path = "addons/gf/plugin.gd"
 	source = read_text_file(ROOT / plugin_path)
 	standard_class_roots = collect_class_name_roots(GF_STANDARD_ROOT)
@@ -9688,7 +9702,7 @@ def core_only_smoke() -> dict[str, Any]:
 
 
 class CorePluginBootstrapDisplayDependencyError(FileNotFoundError):
-	"""Raised when a real editor smoke cannot obtain its display wrapper."""
+	"""真实编辑器验收无法取得所需的显示包装程序。"""
 
 
 def core_plugin_bootstrap_smoke() -> dict[str, Any]:
@@ -10054,6 +10068,7 @@ def make_core_plugin_bootstrap_smoke_environment(
 	*,
 	base_environment: Mapping[str, str],
 ) -> dict[str, str]:
+	"""为隔离的插件启动工程构造本次进程使用的环境。"""
 	environment = dict(base_environment)
 	if scenario_name != "resource_preview_translation":
 		return environment
@@ -10102,7 +10117,7 @@ def validate_core_plugin_refresh_smoke_output(
 	log_text: str,
 	issues: list[dict[str, Any]],
 ) -> None:
-	"""Require one strict report from the real, rebuilt editor context in its log."""
+	"""要求真实编辑器在重建上下文后向日志写入唯一且符合协议的报告。"""
 	marker_name = "GF_CORE_PLUGIN_REFRESH_RESULT"
 	marker = marker_name + " "
 	marker_lines = [line for line in log_text.splitlines() if marker_name in line]
@@ -10215,6 +10230,7 @@ def make_core_plugin_bootstrap_smoke_payload(
 
 
 def package_source_boundary() -> dict[str, Any]:
+	"""核实模块源码中的路径和类型引用是否由其声明的依赖覆盖。"""
 	records, issues, ownership_index = prepare_package_manifest_analysis()
 	if ownership_index is None:
 		return make_package_source_boundary_payload([], [], issues)
@@ -10428,7 +10444,7 @@ def make_package_external_command_audit_payload(
 
 
 def remaining_deadline_seconds(deadline: float | None, operation: str) -> float | None:
-	"""Return an absolute suite deadline's remaining budget or fail closed."""
+	"""返回套件绝对截止时间前剩余的秒数，预算耗尽时抛出错误。"""
 	if deadline is None:
 		return None
 	remaining = deadline - time.perf_counter()
@@ -10445,7 +10461,7 @@ def managed_temporary_directory(
 	directory: Path | None = None,
 	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
-	"""Own one temp tree and report bounded Windows cleanup failures structurally."""
+	"""持有一棵临时目录树，并以结构化方式报告 Windows 清理重试耗尽的情况。"""
 	path = Path(tempfile.mkdtemp(prefix=prefix, dir=directory))
 	identity = path.lstat()
 	try:
@@ -10469,7 +10485,7 @@ def strict_managed_temporary_directory(
 	directory: Path | None = None,
 	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
-	"""Own a temp tree and turn any bounded cleanup failure into a hard error."""
+	"""持有临时目录树，清理在有限重试后仍失败时向调用方抛出错误。"""
 	cleanup_errors: list[str] = []
 	body_error: BaseException | None = None
 	try:
@@ -10491,7 +10507,7 @@ def strict_managed_temporary_directory(
 				try:
 					gf_process_supervisor.add_exception_note(body_error, message)
 				except BaseException:
-					# Retention diagnostics must never replace the primary body failure.
+					# 记录保留目录的诊断时须保留最初的执行异常。
 					pass
 			else:
 				raise WorkspaceSnapshotError(message)
@@ -10503,7 +10519,7 @@ def strict_process_boundary_temporary_directory(
 	prefix: str,
 	directory: Path | None = None,
 ) -> Any:
-	"""Retain an owned temp root unless every body process boundary is quiet."""
+	"""只在上下文内启动的每个进程树都已确认静止后回收临时根目录。"""
 	cleanup_state = {"permitted": False}
 	with strict_managed_temporary_directory(
 		prefix=prefix,
@@ -10515,7 +10531,7 @@ def strict_process_boundary_temporary_directory(
 
 
 def windows_utf16_path_code_units(path: Path | str) -> int:
-	"""Count the UTF-16 code units consumed by one Win32 path string."""
+	"""计算 Win32 路径字符串实际占用的 UTF-16 码元数。"""
 
 	return len(os.fspath(path).encode("utf-16-le", errors="surrogatepass")) // 2
 
@@ -10530,7 +10546,7 @@ def managed_validation_directory(
 	protected_root: Path | None = None,
 	cleanup_permitted: Callable[[], bool] | None = None,
 ) -> Any:
-	"""Own a short temp root so Windows path limits cannot corrupt validation results."""
+	"""创建短路径的验证临时根，避免 Windows 的路径长度限制干扰检查结果。"""
 	environment = capture_maintenance_process_environment()
 	override = (
 		frozen_environment_value(environment, MAINTENANCE_VALIDATION_TEMP_ROOT_ENV_VAR)
@@ -10545,8 +10561,7 @@ def managed_validation_directory(
 		if project_artifacts:
 			project_parent = ROOT / PROJECT_VALIDATION_ARTIFACTS
 			candidate_roots.append(project_parent)
-		# tempfile.gettempdir() probes by creating a file before we can validate
-		# the directory, including when TEMP points inside the analysis target.
+		# tempfile.gettempdir() 会通过创建文件探查目录。TEMP 可能指向分析对象内部，因此需要先校验目录。
 		system_candidates = [
 			Path(value) for key in ("TMPDIR", "TEMP", "TMP")
 			if (value := frozen_environment_value(environment, key))
@@ -10691,7 +10706,7 @@ def managed_owned_directory(
 	cleanup_failed: Callable[[], None] | None = None,
 	body_failed: Callable[[], None] | None = None,
 ) -> Any:
-	"""Own one exact child directory under an already-owned real parent."""
+	"""在已拥有的真实父目录内持有一个身份确定的子目录。"""
 	owned_path = Path(os.path.abspath(path))
 	if not owned_path.is_absolute() or os.path.lexists(owned_path):
 		raise WorkspaceSnapshotError(f"Managed directory must be a new absolute path: {owned_path}")
@@ -10706,9 +10721,7 @@ def managed_owned_directory(
 		try:
 			yield owned_path
 		except BaseException:
-			# A nested owner may have refused its own cleanup because its identity
-			# changed. Publish the wider owner's refusal before this context decides
-			# whether it may recursively remove the containing directory.
+			# 嵌套目录的身份变化可能已导致其拒绝清理。在上层决定能否递归删除之前先公布这项拒绝。
 			if body_failed is not None:
 				body_failed()
 			raise
@@ -10743,7 +10756,7 @@ def remove_owned_gut_shard_workspace_batch(
 	batch_identity: os.stat_result,
 	workspace_ownership: dict[Path, tuple[int, int, int]],
 ) -> str:
-	"""Remove an exact workspace batch without widening past child ownership."""
+	"""仅移除逐个确认归属的这批工作区，保持每个子目录各自的清理范围。"""
 	batch = Path(os.path.abspath(batch_path))
 	try:
 		if real_directory_chain_issue(batch.parent):
@@ -10773,8 +10786,7 @@ def remove_owned_gut_shard_workspace_batch(
 		entries = tuple(batch.iterdir())
 		if len(entries) != len(expected_by_name) or {entry.name for entry in entries} != set(expected_by_name):
 			return "GUT shard batch membership differs from its published child ownership set."
-		# Complete the full preflight before deleting any child.  A replaced later
-		# child therefore cannot cause an earlier valid child to be removed first.
+		# 删除任何子目录前先完成整批预检，避免发现后面的目录被替换时前面的目录已经删除。
 		for entry in entries:
 			metadata = entry.lstat()
 			try:
@@ -10808,7 +10820,7 @@ def managed_gut_shard_workspace_batch(
 	cancellation_event: threading.Event,
 	cleanup_state: dict[str, bool] | None,
 ) -> Any:
-	"""Own one batch whose children must be removed by publication token."""
+	"""管理一批须凭创建时的发布令牌才能删除的工作区。"""
 	effective_cleanup_state = (
 		cleanup_state if cleanup_state is not None else {"permitted": True}
 	)
@@ -10832,9 +10844,7 @@ def managed_gut_shard_workspace_batch(
 				f"was not proven: {owned_path}"
 			)
 		else:
-			# Revoke every wider recursive owner before the narrow child cleanup
-			# begins.  Only a completed, exact-token cleanup republishes permission;
-			# BaseException therefore cannot create a wider-delete window.
+			# 开始清理子目录前先撤销所有上层的递归清理许可。只有用原始令牌完成清理才恢复，以免中断时误删上层。
 			effective_cleanup_state["permitted"] = False
 			try:
 				cleanup_error = remove_owned_gut_shard_workspace_batch(
@@ -10859,7 +10869,7 @@ def forbid_gut_shard_owned_cleanup(
 	cancellation_event: threading.Event,
 	cleanup_state: dict[str, bool] | None,
 ) -> None:
-	"""Stop scheduling and retain every wider root after ownership uncertainty."""
+	"""目录归属不确定时停止调度，并保留可能包含它的各层根目录。"""
 	cancellation_event.set()
 	if cleanup_state is not None:
 		cleanup_state["permitted"] = False
@@ -10922,7 +10932,7 @@ def windows_validation_drive_issue(
 	*,
 	drive_probe: Callable[[str], tuple[int, tuple[str, ...]]] | None = None,
 ) -> str:
-	"""Require one direct local fixed-volume mapping for a Windows drive root."""
+	"""要求给定的 Windows 盘符直接映射到本地固定卷。"""
 	if re.fullmatch(r"[A-Za-z]:\\", drive_root) is None:
 		return "candidate root must resolve to one normal Windows drive root"
 	probe = inspect_windows_validation_drive if drive_probe is None else drive_probe
@@ -10937,7 +10947,7 @@ def windows_validation_drive_identity_issue(
 	drive_type: int,
 	device_targets: tuple[str, ...],
 ) -> str:
-	"""Classify injected GetDriveTypeW and QueryDosDeviceW results fail-closed."""
+	"""从传入的 GetDriveTypeW 和 QueryDosDeviceW 结果判定磁盘身份，证据不足时拒绝。"""
 	if type(drive_type) is not int:
 		return "candidate drive type is invalid"
 	if drive_type != WINDOWS_DRIVE_FIXED:
@@ -10962,7 +10972,7 @@ def windows_validation_drive_identity_issue(
 
 
 def inspect_windows_validation_drive(drive_root: str) -> tuple[int, tuple[str, ...]]:
-	"""Read one Windows drive's type and DOS-device target through stable WinAPI calls."""
+	"""使用 WinAPI 读取 Windows 盘符的驱动器类型和 DOS 设备目标。"""
 	if os.name != "nt":
 		raise OSError("Windows drive inspection is unavailable on this platform")
 	from ctypes import wintypes
@@ -10998,7 +11008,7 @@ def inspect_windows_validation_drive(drive_root: str) -> tuple[int, tuple[str, .
 
 
 def real_directory_chain_issue(path: Path) -> str:
-	"""Reject missing, non-directory, symlink, or reparse components lexically."""
+	"""逐级检查目录路径，拒绝缺失、非目录、符号链接或重解析组件。"""
 	absolute = Path(os.path.abspath(path))
 	if not absolute.is_absolute():
 		return "path is not absolute"
@@ -11027,6 +11037,7 @@ def remove_managed_temporary_tree(
 	*,
 	expected_identity: os.stat_result | None = None,
 ) -> str:
+	"""在有限重试内移除临时目录。~~Args:~    path: 调用方拥有的目录。~    expected_identity: 创建时保存的目录身份。传入时，删除前要求当前身份与其一致。~~Returns:~    目录已不存在或成功移除时为空串，路径不安全、身份改变或重试耗尽时为原因。"""
 	last_error = ""
 	for attempt in range(8):
 		if not os.path.lexists(path):
@@ -11210,7 +11221,7 @@ def create_directory_link_fixture(target: Path, link: Path) -> None:
 
 @with_maintenance_process_authority
 def maintenance_self_test() -> dict[str, Any]:
-	"""Run the lazily loaded white-box maintenance contract suite."""
+	"""按需加载并运行维护模块的白盒契约测试。"""
 	import gf_maintenance_self_test
 
 	runtime_module = sys.modules[__name__]
@@ -11585,7 +11596,7 @@ def audit_bundled_tool_contributions(records: list[dict[str, Any]]) -> list[dict
 
 
 def audit_workspace_contribution_records(record: dict[str, Any]) -> list[dict[str, Any]]:
-	"""Validate the closed data-only workspace protocol without loading tool scripts."""
+	"""按限定的数据协议核验工作区贡献记录，过程中无需加载工具脚本。"""
 	issues: list[dict[str, Any]] = []
 	data = record["data"]
 	page_values = data.get("editor_dock_paths", [])
@@ -13580,10 +13591,10 @@ def should_scan_asset_lifecycle_path(path: str) -> bool:
 
 
 def audit_asset_lifecycle_text(source: str, path: str) -> list[dict[str, Any]]:
-	"""Observe explicit scope omissions, without inferring scope lifetime or types.
+	"""从源码观察显式省略资源作用域的情况。
 
-	The overloaded load_async name requires an unambiguous declared receiver
-	type. This is lexical evidence, not a substitute for runtime scope admission.
+	load_async 存在重载，接收者必须具有明确的声明类型。词法证据不能推导作用域寿命，
+	运行时仍执行实际准入检查。
 	"""
 	view = gf_gdscript_readability.lex_source(path, source)
 	if view.issues:
@@ -14290,6 +14301,7 @@ def read_git_paths(
 	*,
 	strict_utf8: bool = False,
 ) -> dict[str, Any]:
+	"""获取维护工具使用的 Git 路径清单，在本次调用的快照范围内复用。"""
 	if _ACTIVE_WORKSPACE_SNAPSHOT is not None:
 		return _ACTIVE_WORKSPACE_SNAPSHOT.memoize(
 			"git_paths",
@@ -14309,7 +14321,7 @@ def run_frozen_maintenance_git(
 	max_stdout_characters: int | None = None,
 	max_stderr_characters: int | None = None,
 ) -> Any:
-	"""Dispatch Git only through one frozen absolute invocation capability."""
+	"""只使用本次调用冻结的 Git 绝对路径和环境启动 Git。"""
 	git_process = active_or_freeze_maintenance_process_authority().git
 	command = list(git_process.command(arguments).effective)
 	try:
@@ -14670,17 +14682,17 @@ def load_api_scripts() -> list[ApiScript]:
 
 
 def invalidate_api_cache() -> None:
-	"""Discard request-scoped API source data before serving a new caller."""
+	"""服务下一个请求前丢弃本次请求持有的 API 源数据。"""
 	global _API_CACHE
 	_API_CACHE = None
 
 
 def api_query_owners(scope: str) -> list[ApiScript | ApiClass]:
-	"""Project query visibility before flattening inner classes or counting members."""
+	"""先按查询范围筛选可见所有者，再展开内部类和统计成员。"""
 	if scope not in API_QUERY_SCOPES:
 		raise ValueError(f"Unsupported API query scope: {scope!r}")
 	scripts = load_api_scripts()
-	# Maintenance expands the documentation view, never the accepted owner identities.
+	# 维护查询扩大文档可见范围，但仍按相同的声明所有者身份匹配。
 	public_owners = select_api_owners(scripts)
 	if scope == "public":
 		scripts = [owner.script for owner in public_owners]
@@ -14697,7 +14709,7 @@ def api_query_owners(scope: str) -> list[ApiScript | ApiClass]:
 
 
 def maintenance_query_owner(owner: ApiScript | ApiClass) -> ApiScript | ApiClass | None:
-	"""Keep documented declarations; unclassified containers confer no API status."""
+	"""保留已声明文档的成员，未分类的容器本身不能赋予成员 API 身份。"""
 	member_groups = {
 		group: [member for member in getattr(owner, group) if visibility_of(member.docs) in API_QUERY_VISIBILITIES]
 		for group in ("signals", "enums", "constants", "properties", "methods")
@@ -14832,7 +14844,7 @@ def maintenance_in_process_adapter_registry(
 	*,
 	allow_breaking_api: bool = False,
 ) -> dict[str, Callable[[], dict[str, Any]]]:
-	"""Bind Catalog-selected in-process actions to trusted runtime callables."""
+	"""将目录指定的进程内动作绑定到经过确认的本地执行函数。"""
 	return {
 		"api": functools.partial(_run_api_model_check, gf_maintenance_static_checks.api_reference_check),
 		"ai_api": functools.partial(_run_api_model_check, gf_maintenance_static_checks.ai_api_check),
@@ -14867,11 +14879,9 @@ def maintenance_in_process_adapter_registry(
 def ordinary_command_bindings() -> dict[
 	str, tuple[Callable[[], dict[str, Any]], Callable[[dict[str, Any]], str]],
 ]:
-	"""Pair reviewed CLI renderers with the existing trusted action registry.
+	"""将经过审阅的 CLI 渲染函数与既有动作注册表配对。
 
-	Descriptions cannot introduce execution bindings. Exact renderer membership and
-	callability are checked before selecting a command; Catalog admission remains
-	independently checked by the validation executor.
+	选择命令前核实渲染器集合及其可调用性。描述记录无法单独注册执行函数，验证执行器另行核对目录准入。
 	"""
 	renderers = freeze_exact_callable_registry(
 		"Ordinary command renderers",
@@ -14908,7 +14918,7 @@ def maintenance_deferred_command_materializer_registry() -> dict[
 	str,
 	Callable[[DeferredCommandContext], tuple[str, ...]],
 ]:
-	"""Bind Catalog-deferred actions to trusted live command materializers."""
+	"""将目录声明的延迟动作绑定到生成实际命令的指定函数。"""
 	return {
 		"release_metadata": materialize_release_metadata_command,
 	}
@@ -14916,7 +14926,7 @@ def maintenance_deferred_command_materializer_registry() -> dict[
 
 @dataclass(frozen=True)
 class ValidationExecutorBinding:
-	"""Bind one Catalog to its exact frozen runtime executor callables."""
+	"""把一个验证目录与本次调用冻结的执行函数集合绑定。"""
 
 	catalog: gf_validation_catalog.ValidationCatalog
 	in_process_adapters: Mapping[str, Callable[[], dict[str, Any]]]
@@ -14931,7 +14941,7 @@ def freeze_exact_callable_registry(
 	expected_names: tuple[str, ...],
 	registry: Mapping[str, Callable[..., Any]],
 ) -> Mapping[str, Callable[..., Any]]:
-	"""Read one exact callable registry once, validate it, and freeze the snapshot."""
+	"""只读取一次执行函数注册表，核对其确切条目后冻结快照。"""
 	if not isinstance(registry, Mapping):
 		raise gf_validation_catalog.ValidationCatalogError(
 			f"{label} must be a mapping."
@@ -14975,7 +14985,7 @@ def validate_validation_executor_registries(
 		Callable[[DeferredCommandContext], tuple[str, ...]],
 	],
 ) -> ValidationExecutorBinding:
-	"""Freeze both exact callable registries with their authority Catalog."""
+	"""验证两个执行函数注册表，并与提供动作定义的目录一同冻结。"""
 	frozen_adapters = freeze_exact_callable_registry(
 		"In-process adapter registry",
 		catalog.in_process_action_names,
@@ -15136,14 +15146,14 @@ VALIDATION_SHADOW_UNKNOWN_REASONS: tuple[str, ...] = (
 
 
 class ValidationShadowDeadlineError(RuntimeError):
-	"""Raised when advisory report construction exhausts its private budget."""
+	"""构造诊断性观察报告时已耗尽其专用预算。"""
 
 
 def advisory_collection_deadline(
 	private_timeout_seconds: float,
 	suite_deadline: float | None,
 ) -> float:
-	"""Translate the remaining perf-counter suite budget into monotonic time."""
+	"""将套件在性能计数器上的剩余预算换算为单调时钟截止值。"""
 	advisory_now = time.monotonic()
 	if suite_deadline is None:
 		return advisory_now + private_timeout_seconds
@@ -15188,7 +15198,7 @@ def attach_affected_analysis_report(
 	force_failure: bool = False,
 	suite_deadline: float | None = None,
 ) -> None:
-	"""Attach advisory diagnostics while leaving cleanup ownership debt terminal."""
+	"""附加受影响检查的诊断，保留清理未完成时的终止状态。"""
 	check_names = tuple(str(name) for name in data.get("checks", []))
 	try:
 		if not isinstance(
@@ -15247,7 +15257,7 @@ def affected_analysis_report_is_safe(
 	base_revision: str,
 	explain: bool,
 ) -> bool:
-	"""Validate the exact advisory envelope and immutable no-reuse invariants."""
+	"""核实诊断报告符合约定结构，且仍要求实际执行检查。"""
 	if not isinstance(report, dict):
 		return False
 	return (
@@ -15288,7 +15298,7 @@ def attach_validation_shadow_report(
 	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
 	suite_deadline: float | None = None,
 ) -> None:
-	"""Attach advisory evidence while leaving cleanup ownership debt terminal."""
+	"""附加观察证据，进程清理责任未确认时仍保持终止状态。"""
 	collection_started = time.perf_counter()
 	try:
 		shadow_deadline = advisory_collection_deadline(
@@ -15316,7 +15326,7 @@ def attach_validation_shadow_report(
 
 
 def validation_shadow_error_code(error: Exception) -> str:
-	"""Map advisory failures to bounded constants without stringifying exceptions."""
+	"""将观察阶段的异常归为有界错误码，避免将异常文本写入报告。"""
 	if isinstance(error, gf_validation_test_inventory.TestInventoryDeadlineError):
 		return "inventory_deadline_exceeded"
 	if isinstance(error, gf_validation_test_inventory.TestInventoryError):
@@ -15331,7 +15341,7 @@ def validation_shadow_error_code(error: Exception) -> str:
 
 
 def check_validation_shadow_deadline(deadline_seconds: float | None) -> None:
-	"""Fail closed when the advisory-only report budget is exhausted."""
+	"""诊断性观察报告的预算耗尽时终止本次采集。"""
 	if deadline_seconds is not None and time.monotonic() >= deadline_seconds:
 		raise ValidationShadowDeadlineError(
 			"Validation Shadow report deadline was exceeded."
@@ -15343,7 +15353,7 @@ def finalize_validation_shadow_report(
 	*,
 	deadline_seconds: float | None = None,
 ) -> dict[str, Any]:
-	"""Validate and fingerprint the exact schema-v1 Shadow envelope."""
+	"""核验观察报告与 schema-v1 的精确结构并计算其摘要。"""
 	if frozenset(report) != VALIDATION_SHADOW_REPORT_FIELDS_WITHOUT_FINGERPRINT:
 		raise gf_validation_evidence.ValidationEvidenceError(
 			"Validation Shadow report fields do not match schema v1."
@@ -15369,7 +15379,7 @@ def make_validation_shadow_failure_report(
 	*,
 	collection_duration_seconds: float = 0.0,
 ) -> dict[str, Any]:
-	"""Return the exact schema-v1 fail-closed Shadow envelope."""
+	"""按 schema-v1 生成明确要求实际执行的失败报告。"""
 	if error_code not in VALIDATION_SHADOW_ERROR_CODES:
 		error_code = "shadow_internal_error"
 	check_names = [str(name) for name in data.get("checks", [])]
@@ -15409,7 +15419,7 @@ def make_validation_shadow_report(
 	shadow_deadline_seconds: float | None = None,
 	parallel_occurrences: dict[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
-	"""Describe executed checks as non-authoritative, incomplete evidence."""
+	"""用有限的非权威证据描述本次已执行的检查。"""
 	if collection_started is None:
 		collection_started = time.perf_counter()
 	check_validation_shadow_deadline(shadow_deadline_seconds)
@@ -15597,7 +15607,7 @@ def retry_failed_checks(
 	progress_callback: Callable[[str, str, float | None], None] | None = None,
 	output_callback: Callable[[str, str, str], None] | None = None,
 ) -> dict[str, Any]:
-	"""Execute a focused selection, retaining historical results only as provenance."""
+	"""实际运行筛选出的复验动作，历史结果只标记其来源。"""
 	try:
 		selection = gf_maintenance_retry.read_retry_selection(ROOT, report_path, VALIDATION_ACTION_NAMES)
 	except (OSError, ValueError) as error:
@@ -15657,8 +15667,7 @@ def run_checks(
 	previous_suite_deadline = _ACTIVE_SUITE_DEADLINE
 	previous_api_cache = _API_CACHE
 	snapshot = WorkspaceSnapshot(ROOT)
-	# Registry construction and every other invocation-scoped preflight consumer
-	# observe the same frozen environment through the active context.
+	# 本次调用中的注册表构造和各项预检，通过当前上下文读取同一份冻结环境。
 	with gf_process_authority.activate_process_environment(
 		invocation_environment_snapshot
 	):
@@ -16187,7 +16196,7 @@ def append_check_orchestration_deadline(data: dict[str, Any], message: str) -> N
 
 def capture_maintenance_process_environment(
 ) -> dict[str, str]:
-	"""Capture owned process inputs without resolving executables or touching disk."""
+	"""采集本次调用拥有的进程输入，此阶段不解析可执行文件也不读磁盘。"""
 	active_environment = gf_process_authority.active_process_environment()
 	environment = (
 		active_environment.values()
@@ -16206,7 +16215,7 @@ def capture_maintenance_process_environment(
 
 
 def active_or_freeze_maintenance_process_authority() -> FrozenProcessAuthority:
-	"""Return the invocation authority or freeze one at a direct action entry."""
+	"""沿用当前调用绑定的进程配置，直接进入动作时在入口冻结一次。"""
 	authority = gf_process_authority.active_process_authority()
 	if authority is not None:
 		return authority
@@ -16221,16 +16230,14 @@ def pin_godot_executable_selection(
 	*,
 	cwd: Path,
 ) -> None:
-	"""Pin a found engine while preserving a missing selection for action failure."""
+	"""固定已找到的 Godot 引擎路径，找不到时交由实际需要它的动作报告失败。"""
 	try:
 		resolved_godot = resolve_godot_executable(
 			environment=environment,
 			cwd=cwd,
 		)
 	except GodotExecutableResolutionError:
-		# Non-Godot actions remain usable without an installed engine. A later
-		# Godot action resolves against this same frozen mapping and fails closed
-		# before dispatch instead of handing a bare command to the operating system.
+		# 没有引擎也能运行其他维护动作。首次需要 Godot 时仍从同一份冻结环境解析，失败应在调度前报告。
 		pass
 	else:
 		set_owned_environment_value(
@@ -16246,7 +16253,7 @@ def parallel_shard_environment(
 	*,
 	base_environment: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, str], Path]:
-	"""Create a platform-native private user/config/cache boundary for one shard."""
+	"""为一个分片创建符合平台约定的独立用户、配置与缓存目录。"""
 	if not isolation_root.is_absolute():
 		raise WorkspaceSnapshotError("Parallel private user roots must be absolute paths.")
 	if os.path.lexists(isolation_root):
@@ -16430,7 +16437,7 @@ def run_parallel_godot_isolation_probe(
 	cleanup_state: dict[str, bool] | None = None,
 	base_process_environment: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
-	"""Prove that the current Godot executable honors two independent OS user roots."""
+	"""验证当前 Godot 程序确实分别使用两个互相独立的系统用户目录。"""
 	probe_root = parallel_root / "p"
 	probe_root.mkdir(parents=True, exist_ok=False)
 	shards: list[ParallelShard] = []
@@ -16470,9 +16477,7 @@ def run_parallel_godot_isolation_probe(
 			raise WorkspaceSnapshotError(
 				"Godot isolation probe cannot start after cleanup ownership was lost."
 			)
-		# Process creation opens a proof-publication window.  Keep the owning root
-		# fail-closed until every supervisor result has positively proved its owned
-		# process boundary quiescent.
+		# 创建进程到确认其状态之间有时间差。在所有子进程树均确认静止之前，保留拥有它们的目录。
 		cleanup_state["permitted"] = False
 	results = gf_parallel_validation.run_parallel_shards(
 		shards,
@@ -16517,7 +16522,7 @@ def serialize_parallel_occurrences(
 	*,
 	include_execution: bool,
 ) -> list[dict[str, Any]]:
-	"""Serialize public or Shadow-only views of repeated shard executions."""
+	"""将分片的重复执行记录转换为公开视图或仅用于观察的视图。"""
 	reports: list[dict[str, Any]] = []
 	for shard_name, item in check_occurrences:
 		report: dict[str, Any] = {
@@ -16539,7 +16544,7 @@ def publish_parallel_validation_occurrences(
 	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None,
 	occurrences: dict[str, list[tuple[str, dict[str, Any]]]],
 ) -> None:
-	"""Publish every completed private execution observation seen so far."""
+	"""发布截至目前已完成的每次私有执行观察。"""
 	if validation_occurrences_out is None:
 		return
 	validation_occurrences_out.clear()
@@ -16567,7 +16572,7 @@ def prepare_parallel_full_batch(
 	cleanup_state: dict[str, bool],
 	cleanup_errors: list[str],
 ) -> PreparedParallelFullBatch:
-	"""Materialize and freeze one batch without making it eligible to dispatch."""
+	"""物化并冻结一个分片批次，此时仍须等待整体预检通过才能调度。"""
 	workspace_by_shard = materialize_parallel_full_workspaces(
 		captured_workspace,
 		batch_root,
@@ -16622,7 +16627,7 @@ def assert_parallel_full_preflight_complete(
 	*,
 	validation_catalog: gf_validation_catalog.ValidationCatalog,
 ) -> None:
-	"""Close the global admission barrier before any probe or shard can start."""
+	"""在启动任何探针或分片之前，要求全局准入预检已全部完成。"""
 	if len(prepared_batches) != len(batches):
 		raise WorkspaceSnapshotError(
 			"Parallel Full preflight did not prepare the complete batch plan."
@@ -16726,7 +16731,7 @@ def execute_prepared_parallel_full_batch(
 	shard_results: list[ParallelShardResult],
 	validation_occurrences_out: dict[str, list[dict[str, Any]]] | None,
 ) -> set[str]:
-	"""Dispatch one fully preflighted batch and bind every accepted observation."""
+	"""执行已通过完整预检的批次，将每个可接受的结果绑定到实际调用。"""
 	batch_shards = list(prepared.shards)
 	run_remaining = remaining_deadline_seconds(
 		suite_deadline,
@@ -16982,8 +16987,7 @@ def run_parallel_full_checks(
 			)
 			prepared_batches.append(prepared)
 	except (FrozenEnvironmentError, ExecutableResolutionError):
-		# Command resolution is a proven no-child preflight. Release every
-		# materialized batch normally before publishing the structured setup error.
+		# 命令解析发生在创建子进程前。先正常释放已物化的各批目录，再发布结构化的准备失败。
 		release_parallel_full_batch_leases(batch_leases)
 		raise_parallel_full_batch_cleanup_failure(
 			batch_leases,
@@ -17218,7 +17222,7 @@ def freeze_parallel_shard_command_contract(
 	environment: Mapping[str, str],
 	workspace: Path,
 ) -> ParallelShardCommandContract:
-	"""Freeze every assigned action identity before the child process can start."""
+	"""创建子进程前固定分片所分配的每项检查身份。"""
 	if len(expected_checks) != len(set(expected_checks)):
 		raise WorkspaceSnapshotError("Parallel shard command contract contains duplicate actions.")
 	authority_commands = authority_catalog.command_definitions()
@@ -17366,14 +17370,11 @@ def materialize_parallel_full_workspaces(
 			try:
 				workspaces[shard_name] = future.result()
 			except BaseException as error:
-				# Drain every sibling future before choosing a primary failure. A later
-				# materializer may carry process-boundary cleanup debt that must not be
-				# hidden by an earlier ordinary exception.
+				# 先等待同组所有任务结束再选定主异常，避免早期普通异常掩盖另一任务尚未清理的进程树。
 				failures.append((shard_name, error))
 	if failures:
 		if cleanup_state is not None and len(future_by_name) == len(plan):
-			# Shutdown has joined the workers. A materializer with unknown cleanup
-			# is still a reason to retain the batch, even when a sibling failed first.
+			# 此时工作线程均已汇合。任一物化任务的清理状态未知都应保留整批目录，即使另一个任务先失败。
 			worker_errors = [future.exception() for future in future_by_name.values() if not future.cancelled()]
 			cleanup_state["permitted"] = all(
 				error is None or (isinstance(error, Exception) and not exception_has_cleanup_debt(error))
@@ -17466,7 +17467,7 @@ def assert_parallel_shard_results_match_dispatch(
 	dispatched_shards: list[ParallelShard],
 	shard_results: list[ParallelShardResult],
 ) -> None:
-	"""Require supervisor metadata to echo the frozen parent dispatch exactly."""
+	"""要求监督器返回的元数据与父进程冻结的调度信息逐项相符。"""
 	if len(shard_results) != len(dispatched_shards):
 		raise WorkspaceSnapshotError(
 			"Parallel shard supervisor returned a result count that differs from dispatch."
@@ -17490,7 +17491,7 @@ def trusted_parallel_shard_command_option(
 	command: tuple[str, ...],
 	option: str,
 ) -> str | None:
-	"""Read one exact value from the frozen parent-dispatched shard command."""
+	"""从父进程冻结并下发的分片命令中取指定选项的确切值。"""
 	indices = [index for index, part in enumerate(command) if part == option]
 	if not indices:
 		return None
@@ -18017,7 +18018,7 @@ def bound_verified_parallel_report_output(
 	*,
 	max_output_chars: int = DEFAULT_COMMAND_RESULT_OUTPUT_CHARS,
 ) -> None:
-	"""Restore public diagnostic tails only after complete shard evidence is trusted."""
+	"""在完整分片证据核验通过后，才将有界的输出末尾放入公开诊断。"""
 	if type(max_output_chars) is not int or max_output_chars < 0:
 		raise ValueError("Verified output tail limit must be a non-negative integer.")
 	for result in report["results"]:
@@ -18094,7 +18095,7 @@ def snapshot_real_directory_chain(
 	containment_root: Path,
 	directory: Path,
 ) -> tuple[tuple[Path, os.stat_result], ...]:
-	"""Capture every real directory component through a contained directory."""
+	"""记录从真实根目录到受控目标目录的各个目录身份。"""
 	root = Path(os.path.abspath(containment_root))
 	target = Path(os.path.abspath(directory))
 	if not path_is_within_or_equal(target, root):
@@ -18140,7 +18141,7 @@ def same_directory_chain_identity(
 	before: tuple[tuple[Path, os.stat_result], ...],
 	after: tuple[tuple[Path, os.stat_result], ...],
 ) -> bool:
-	"""Compare directory ownership while allowing expected child-entry metadata changes."""
+	"""比较目录链的归属，容许正常增删子项造成元数据变化。"""
 	return (
 		len(before) == len(after)
 		and all(
@@ -18151,7 +18152,7 @@ def same_directory_chain_identity(
 
 
 def extended_length_syscall_path(path: Path) -> Path | str:
-	"""Use an extended Windows spelling only after lexical authorization."""
+	"""在路径已经通过词法授权后，转换为 Windows 的扩展长度系统调用形式。"""
 	absolute_path = str(Path(os.path.abspath(path)))
 	if os.name != "nt" or absolute_path.startswith("\\\\?\\"):
 		return Path(absolute_path)
@@ -18167,7 +18168,7 @@ def read_bounded_regular_file_under_root(
 	*,
 	label: str,
 ) -> bytes:
-	"""Read one contained regular file from a stable handle with a hard byte cap."""
+	"""从已核实身份的句柄读取根内普通文件并执行字节上限。"""
 	if type(max_bytes) is not int or max_bytes < 0:
 		raise ValueError(f"{label} byte limit must be a non-negative integer.")
 	root = Path(os.path.abspath(containment_root))
@@ -18516,7 +18517,7 @@ def same_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
 
 
 def same_open_file_identity(left: os.stat_result, right: os.stat_result) -> bool:
-	"""Match a path stat to its opened handle; post-read metadata checks detect writes."""
+	"""核对路径查询结果与打开句柄的身份，读取后的元数据检查另行发现写入。"""
 	left_device = int(getattr(left, "st_dev", 0))
 	left_inode = int(getattr(left, "st_ino", 0))
 	return (
@@ -18872,7 +18873,7 @@ def _finish_log_hygiene_without_masking(
 	primary_traceback: Any,
 	finalizer: Callable[[], Any],
 ) -> Any:
-	"""Run one finalizer while preserving terminal failures and cleanup debt."""
+	"""执行最后的日志处理步骤，保留主异常与未完成的清理责任。"""
 	try:
 		finalization = finalizer()
 	except BaseException as secondary_error:
@@ -18911,6 +18912,7 @@ def run_checks_with_log_hygiene(
 	output_callback: Callable[[str, str, str], None] | None = None,
 	process_environment: FrozenProcessEnvironment | None = None,
 ) -> dict[str, Any]:
+	"""在同一日志会话内运行选定的维护检查，再按本次执行结果处理会话日志。"""
 	invocation_process_environment = freeze_maintenance_invocation_environment(
 		process_environment
 	)
@@ -19005,18 +19007,13 @@ def _run_maintenance_subprocess_with_frozen_environment(
 			environment=environment,
 		)
 	except gf_process_supervisor.SupervisedProcessStartError as error:
-		# This legacy CompletedProcess-style helper has callers that deliberately
-		# classify FileNotFoundError and PermissionError. The structured exception
-		# proves that no child was created, so restoring the exact original error is
-		# both boundary-safe and backward compatible for those callers.
+		# 调用方会分别处理 FileNotFoundError 和 PermissionError。仅当结构化启动错误证明没有子进程时，
+		# 才恢复原异常供调用方分类。
 		raise error.original_error from error
 	except gf_parallel_validation.WorkspaceProcessBoundaryError:
 		raise
 	except Exception as error:
-		# A raw OS error from the supervisor is deliberately not a proven no-child
-		# startup failure. It may represent a partially created process or cleanup
-		# debt, so legacy FileNotFoundError handlers must not convert it into an
-		# ordinary missing-tool result and delete the owned temporary root.
+		# 监督器直接抛出的系统错误也可能来自部分启动或清理失败。缺少未创建子进程的证明时须保留临时目录。
 		raise gf_parallel_validation.WorkspaceProcessBoundaryError(
 			"Maintenance subprocess supervision raised an unclassified error "
 			"without a quiet-boundary proof."
@@ -19322,7 +19319,7 @@ def completed_command_result(
 
 
 def normalize_maintenance_cli_argv(argv: list[str]) -> list[str]:
-	"""Allow global switches before or after the subcommand."""
+	"""规范化维护命令参数，使全局选项可写在子命令之前或之后。"""
 	if not argv:
 		return []
 	global_arguments: list[str] = []
@@ -19369,6 +19366,7 @@ def maintenance_cli_command(argv: list[str]) -> str:
 def maintenance_logs_kept_from_environment(
 	process_environment: FrozenProcessEnvironment,
 ) -> bool:
+	"""从本次环境中读取维护日志保留开关。"""
 	if not isinstance(process_environment, FrozenProcessEnvironment):
 		raise TypeError("Maintenance log policy requires a frozen process environment.")
 	value = frozen_environment_value(
@@ -19969,11 +19967,13 @@ def append_command_log_output(stdout: str, log_output: str) -> str:
 
 
 def has_godot_script_error(stdout: str, stderr: str) -> bool:
+	"""检查引擎输出是否包含脚本错误标记，供进程退出码之外的失败判定使用。"""
 	output = f"{stdout}\n{stderr}"
 	return any(pattern in output for pattern in GODOT_SCRIPT_ERROR_PATTERNS)
 
 
 def has_gdscript_reload_warning(stdout: str, stderr: str) -> bool:
+	"""识别 GDScript 重载产生的警告，防止成功退出掩盖编译诊断。"""
 	output = f"{stdout}\n{stderr}"
 	return any(pattern in output for pattern in GDSCRIPT_RELOAD_WARNING_PATTERNS)
 
@@ -20009,6 +20009,7 @@ def godot_exit_leak_report(log_paths: list[str]) -> dict[str, Any]:
 
 
 def godot_exit_leak_report_from_output(name: str, stdout: str, stderr: str) -> dict[str, Any]:
+	"""从当前进程输出提取退出时的资源或对象泄漏证据，返回结构化报告。"""
 	report = make_empty_godot_exit_leak_report()
 	for stream_name, text in (
 		(f"{name}:stdout", stdout),
@@ -20222,6 +20223,7 @@ def append_note(notes: list[str] | None, note: str) -> list[str]:
 
 
 def parse_gut_lifecycle_gate_output(stdout: str, stderr: str) -> dict[str, Any]:
+	"""从 GUT 输出中提取生命周期报告，供调用方核实本次实际执行的测试。"""
 	output = strip_ansi_codes(f"{stdout}\n{stderr}")
 	marker_payloads: list[dict[str, Any]] = []
 	marker_errors: list[str] = []
@@ -20480,6 +20482,7 @@ def validate_gut_lifecycle_report(report: Any) -> str:
 
 
 def gut_report_all_tests_passed(stdout: str) -> bool:
+	"""依据 GUT 报告中的测试和失败信息判断是否全部通过。"""
 	output = strip_ansi_codes(stdout)
 	if re.search(r"(?m)^\s*\[Failed\]:", output) is not None:
 		return False
@@ -20724,6 +20727,7 @@ def release_status(
 	allow_breaking_api: bool = False,
 	artifact_manifest: str = "",
 ) -> dict[str, Any]:
+	"""汇总版本、标签与交付物审计结果，供维护者核实指定的发布状态。"""
 	plugin_audit = audit_plugin_cfg()
 	plugin_version = plugin_audit["version"]
 	version = expected_version.strip() or plugin_version
@@ -21225,6 +21229,7 @@ def read_changelog_versions() -> list[str]:
 
 
 def changelog_policy(*, allow_breaking_api: bool = False) -> dict[str, Any]:
+	"""按当前框架版本身份核验未发布或正式版本的更新日志。"""
 	framework_version = read_plugin_version()
 	release_target_version = changelog_release_target_version(framework_version)
 	extension_versions = read_extension_versions()
@@ -21281,7 +21286,7 @@ def changelog_policy(*, allow_breaking_api: bool = False) -> dict[str, Any]:
 def required_changelog_categories_for_api_report(
 	api_report: dict[str, Any],
 ) -> tuple[str, ...]:
-	"""Return migration categories required by one trusted API baseline report."""
+	"""根据已经核验的 API 基线差异确定更新日志所需的迁移分类。"""
 
 	breaking_change_count = api_report.get("summary", {}).get("breaking_change_count", 0)
 	if type(breaking_change_count) is not int or breaking_change_count <= 0:
