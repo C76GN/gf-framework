@@ -17,6 +17,18 @@ pub static GF_NATIVE_LICENSE_NOTICES: [u8; include_bytes!(concat!(
 
 struct GfNative;
 
-// SAFETY: Each module registers its engine API through godot-rust.
+// SAFETY: Godot runs scene registration and teardown on the main thread.
 #[gdextension(entry_symbol = gf_native_init)]
-unsafe impl ExtensionLibrary for GfNative {}
+unsafe impl ExtensionLibrary for GfNative {
+    fn on_stage_init(stage: InitStage) {
+        if stage == InitStage::Scene {
+            segment_visibility::binding::register();
+        }
+    }
+
+    fn on_stage_deinit(stage: InitStage) {
+        if stage == InitStage::Scene {
+            segment_visibility::binding::unregister();
+        }
+    }
+}

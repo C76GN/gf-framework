@@ -190,4 +190,4 @@ func compute_pair_masks(max_pairs: int = MAX_PAIRS, max_segment_tests: int = MAX
 
 结构：
 
-- `return`: Dictionary，含 ok（bool）、error（StringName）、masks（调用方持有的 PackedInt64Array）。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。
+- `return`: Dictionary，含 ok（bool）、error（StringName）、backend（StringName）和 masks（调用方持有的 PackedInt64Array）。backend 为实际执行的 gdscript 或 native，准入失败时为空。成功的 error 为空，失败原因为 unprepared、invalid_budget、pair_budget_exceeded、segment_budget_exceeded、allocation_failed 或 native_failed。

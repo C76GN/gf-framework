@@ -1,7 +1,7 @@
 //! Exact, bounded all-pairs visibility for the packed topology admitted by GFSegmentVisibility2D.
-use godot::builtin::{PackedInt32Array, PackedInt64Array, Variant};
-use godot::global::Error;
 use godot::prelude::*;
+
+pub(crate) mod binding;
 
 type Point = [i32; 2];
 const MAX_COORDINATE: i32 = (1 << 30) - 1;
@@ -11,42 +11,8 @@ const MAX_PAIRS: usize = 262_144;
 const MAX_SEGMENT_TESTS: usize = 1_048_576;
 
 #[derive(GodotClass)]
-#[class(init, internal, singleton)]
+#[class(no_init, internal, base=RefCounted)]
 struct GfSegmentVisibilityBackend {}
-
-#[godot_api]
-impl GfSegmentVisibilityBackend {
-    #[func]
-    fn protocol_version(&self) -> i64 {
-        1
-    }
-
-    // Protocol 1 borrows packed columns and publishes only a complete array.
-    #[func]
-    fn compute_pair_masks(
-        &self,
-        xy: PackedInt32Array,
-        segments: PackedInt32Array,
-        blocked: PackedInt64Array,
-        valid_mask: i64,
-    ) -> Variant {
-        let Some(input) = Topology::admit(
-            xy.as_slice(),
-            segments.as_slice(),
-            blocked.as_slice(),
-            valid_mask,
-        ) else {
-            return Error::ERR_INVALID_PARAMETER.to_variant();
-        };
-        let mut output = PackedInt64Array::new();
-        output.resize(input.pair_count);
-        if output.len() != input.pair_count {
-            return Error::ERR_OUT_OF_MEMORY.to_variant();
-        }
-        input.fill(output.as_mut_slice());
-        output.to_variant()
-    }
-}
 
 struct Topology<'a> {
     points: &'a [Point],

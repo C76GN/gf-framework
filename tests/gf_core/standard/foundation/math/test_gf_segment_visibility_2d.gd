@@ -371,6 +371,7 @@ func test_batch_bounds_are_checked_before_work_and_empty_is_success() -> void:
 		{
 			"ok": true,
 			"error": &"",
+			"backend": &"gdscript",
 			"masks": PackedInt64Array(),
 		}
 	)
@@ -529,12 +530,17 @@ func test_all_small_lattice_segments_against_parametric_reference() -> void:
 func _successful_masks(report: Dictionary) -> PackedInt64Array:
 	var masks: Variant = report.get("masks")
 	assert_true(masks is PackedInt64Array)
+	var backend: Variant = report.get("backend")
+	assert_true(backend is StringName)
+	if backend != &"gdscript" and backend != &"native":
+		fail_test("Successful visibility batch reported an unknown backend.")
 	assert_eq(
 		report,
 		{
 			"ok": true,
 			"error": &"",
 			"masks": masks,
+			"backend": backend,
 		}
 	)
 	if masks is PackedInt64Array:
@@ -548,6 +554,7 @@ func _assert_failure(report: Dictionary, reason: StringName) -> void:
 		{
 			"ok": false,
 			"error": reason,
+			"backend": &"",
 			"masks": PackedInt64Array(),
 		}
 	)

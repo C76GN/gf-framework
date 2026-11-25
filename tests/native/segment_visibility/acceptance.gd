@@ -1,10 +1,13 @@
 extends RefCounted
 
 
+const SERVICE: StringName = &"GfSegmentVisibilityBackend"
+const BATCH: StringName = &"compute_pair_masks_v2"
+
+
 static func check(expect_native: bool) -> Array[String]:
 	var failures: Array[String] = []
-	const SERVICE: StringName = &"GfSegmentVisibilityBackend"
-	if Engine.has_singleton(SERVICE) != expect_native:
+	if (ClassDB.class_get_method_argument_count(SERVICE, BATCH, true) == 4) != expect_native:
 		failures.append("Unexpected installed segment visibility capability.")
 		return failures
 	var ids: PackedInt64Array = PackedInt64Array([0, 1, 2, 3, 4])
@@ -22,32 +25,84 @@ static func check(expect_native: bool) -> Array[String]:
 	var small_points: Array[Vector2i] = [Vector2i.LEFT, Vector2i.RIGHT]
 	var small_walls: Array[Dictionary] = [{"from": Vector2i.ZERO, "to": Vector2i.ZERO, "blocked_mask": 1}]
 	var small: GFSegmentVisibility2D = GFSegmentVisibility2D.create(PackedInt64Array([-1, 9]), small_points, small_walls, 3)
-	if small == null or small.compute_pair_masks().get("masks") != PackedInt64Array([2]):
+	if small == null or small.compute_pair_masks() != {"ok": true, "error": &"", "backend": &"gdscript", "masks": PackedInt64Array([2])}:
 		failures.append("Incorrect single-pair batch with a point obstacle.")
 	var topology: GFSegmentVisibility2D = workload(14)
 	if topology == null:
 		failures.append("Could not prepare the bounded visibility workload.")
 		return failures
-	var scalar: Dictionary = scalar_report(topology)
-	if topology.compute_pair_masks() != scalar:
+	var main_backend: StringName = &"native" if expect_native else &"gdscript"
+	var worker_native: bool = expect_native and OS.get_name() == "Windows" and Engine.get_architecture_name() == "x86_64"
+	var worker_backend: StringName = &"native" if worker_native else &"gdscript"
+	var masks: PackedInt64Array = scalar_masks(topology)
+	if topology.compute_pair_masks() != _success(masks, main_backend):
 		failures.append("Packed masks disagree with stable-ID scalar queries.")
-	var worker: Thread = Thread.new()
-	if worker.start(topology.compute_pair_masks) != OK:
-		failures.append("Could not start the portable visibility worker.")
-	elif worker.wait_to_finish() != scalar:
-		failures.append("Worker visibility masks disagree with the scalar reference.")
+	failures.append_array(_check_workers(worker_backend, masks))
 	if expect_native:
-		var service: Object = Engine.get_singleton(SERVICE)
-		if service.call(&"protocol_version") != 1:
-			failures.append("Unexpected segment visibility protocol.")
-		var invalid: Variant = service.call(&"compute_pair_masks", PackedInt32Array([1]),
-				PackedInt32Array(), PackedInt64Array(), 7)
-		if invalid != ERR_INVALID_PARAMETER:
-			failures.append("Native visibility accepted a partial coordinate.")
+		for xy: Variant in [PackedInt32Array([1]), PackedInt64Array([0, 0]), null]:
+			var invalid: Variant = ClassDB.class_call_static(SERVICE, BATCH, xy, PackedInt32Array(), PackedInt64Array(), 7)
+			if invalid != ERR_INVALID_PARAMETER:
+				failures.append("Native visibility accepted malformed input.")
+		var empty: Variant = ClassDB.class_call_static(SERVICE, BATCH, PackedInt32Array(), PackedInt32Array(), PackedInt64Array(), 7)
+		if not empty is PackedInt64Array or not empty.is_empty():
+			failures.append("Native empty topology did not produce an independently owned empty result.")
 	return failures
 
 
-static func workload(barrier_count: int) -> GFSegmentVisibility2D:
+static func _success(masks: PackedInt64Array, backend: StringName) -> Dictionary:
+	return {"ok": true, "error": &"", "backend": backend, "masks": masks}
+
+
+static func _check_workers(backend: StringName, masks14: PackedInt64Array) -> Array[String]:
+	var failures: Array[String] = []
+	var entered := Semaphore.new()
+	var resume := Semaphore.new()
+	var threads: Array[Thread] = []
+	var expected: Array[PackedInt64Array] = [scalar_masks(workload(8)), masks14]
+	for walls: int in [8, 14]:
+		var thread := Thread.new()
+		if thread.start(_pending_batch.bind(walls, entered, resume)) != OK:
+			failures.append("Could not start both visibility workers.")
+			break
+		threads.append(thread)
+	for thread: Thread in threads:
+		entered.wait()
+	# The owner supersedes revision 0 while both jobs are outstanding. Join before disposal.
+	var current_revision: int = 1
+	for thread: Thread in threads:
+		resume.post()
+	var published: Array[PackedInt64Array] = []
+	for revision: int in range(threads.size()):
+		var result: Dictionary = threads[revision].wait_to_finish()
+		if result != _success(expected[revision], backend):
+			failures.append("Concurrent worker returned wrong masks, order or backend.")
+		if revision == current_revision:
+			published.append(result.get("masks", PackedInt64Array()))
+	if published != [masks14]:
+		failures.append("Superseded work was published or the current revision was lost.")
+	return failures
+
+
+static func _pending_batch(walls: int, entered: Semaphore, resume: Semaphore) -> Dictionary:
+	var topology: GFSegmentVisibility2D = workload(walls)
+	entered.post()
+	resume.wait()
+	var empty := PackedInt64Array()
+	if topology.compute_pair_masks(3485) != {"ok": false, "error": &"pair_budget_exceeded", "backend": &"", "masks": empty}:
+		return {}
+	if topology.compute_pair_masks(3486, 3486 * walls - 1) != {"ok": false, "error": &"segment_budget_exceeded", "backend": &"", "masks": empty}:
+		return {}
+	var first: Dictionary = topology.compute_pair_masks(3486, 3486 * walls)
+	var second: Dictionary = topology.compute_pair_masks(3486, 3486 * walls)
+	if not first.get("ok") or first != second or first.masks.size() != 3486:
+		return {}
+	second.masks[0] = -1
+	if second.masks[0] != -1 or first.masks[0] < 0:
+		return {}
+	return first
+
+
+static func workload(barrier_count: int, factory: Callable = Callable()) -> Variant:
 	# Four fixed solids plus associated and anonymous oblique barriers, across four layers.
 	var points: Array[Vector2i] = []
 	var ids: PackedInt64Array = PackedInt64Array()
@@ -75,19 +130,21 @@ static func workload(barrier_count: int) -> GFSegmentVisibility2D:
 				wall["from"] = points[a]
 				wall["from_id"] = ids[a]
 		walls.append(wall)
+	if factory.is_valid():
+		return factory.call(ids, points, walls, 15)
 	return GFSegmentVisibility2D.create(ids, points, walls, 15)
 
 
-static func scalar_report(topology: GFSegmentVisibility2D) -> Dictionary:
+static func scalar_masks(topology: GFSegmentVisibility2D) -> PackedInt64Array:
 	var masks: PackedInt64Array = PackedInt64Array()
 	if masks.resize(3486) != OK:
-		return {}
+		return masks
 	var index: int = 0
 	for i: int in range(84):
 		for j: int in range(i + 1, 84):
 			masks[index] = topology.get_visible_mask(_id_at(j), _id_at(i))
 			index += 1
-	return {"ok": true, "error": &"", "masks": masks}
+	return masks
 
 
 static func _id_at(row: int) -> int:

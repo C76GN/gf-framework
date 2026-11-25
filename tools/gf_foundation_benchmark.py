@@ -41,7 +41,8 @@ CASES = {
     "flow_open_32": ("public", "native_probe"), "flow_open_64": ("public", "native_probe"),
     "wfc_entropy_8": ("native", "portable", "mrv"), "wfc_entropy_16": ("native", "portable", "mrv"),
     "wfc_weighted_fixed_12": ("native", "portable"), "wfc_128_tiles_8": ("native", "portable"),
-    "visibility_84x8": ("native", "portable"), "visibility_84x14": ("native", "portable"),
+    **{f"visibility_84x{walls}": ("native", "portable", "native_handoff", "portable_handoff", "main_native", "main_portable")
+       for walls in (8, 14)},
 }
 MATH_DIR = Path("addons/gf/standard/foundation/math")
 BASELINES = {"height": ("heightfield_3d", "GFHeightfield3D"), "flow": ("grid_path_math_2d", "GFGridPathMath2D"),
@@ -81,6 +82,16 @@ def stage(project: Path, probe: Path, native: Path) -> None:
             f'[configuration]\nentry_symbol="{entry}"\ncompatibility_minimum="4.6"\n'
             f'[libraries]\nwindows.x86_64="./{dll.name}"\n', encoding="utf-8")
     profile_voronoi(project / MATH_DIR / 'gf_voronoi_2d.gd', project / 'profile_voronoi.gd')
+    # On the same worker in the same release binary, exercise the real portable facade
+    # with only capability lookup pointed at an absent class. The package test also
+    # exercises an unmodified facade in a genuinely script-only installation.
+    visibility = (project / MATH_DIR / 'gf_segment_visibility_2d.gd').read_text(encoding="utf-8")
+    service = '&"GfSegmentVisibilityBackend"'
+    if visibility.count(service) != 1:
+        raise ValueError("Expected one visibility capability lookup in the staged facade")
+    (project / "portable_visibility.gd").write_text(
+        visibility.replace("GFSegmentVisibility2D", "GFPortableVisibilityBenchmark")
+        .replace(service, '&"GfAbsentVisibilityBenchmarkBackend"'), encoding="utf-8")
     (project / "project.godot").write_text(
         'config_version=5\n[application]\nconfig/name="GF Foundation Benchmark"\nrun/main_scene="res://main.tscn"\n'
         '[rendering]\nrenderer/rendering_method="gl_compatibility"\n', encoding="utf-8")
@@ -182,7 +193,7 @@ def main() -> None:
     target = build / "gf_native_target"
     inputs = [*runtime_sources(), FIXTURE, Path(__file__).resolve(), CRATE / "Cargo.lock", CRATE / "Cargo.toml", CRATE / "build.rs",
               CRATE / ".cargo/config.toml", CRATE / "rust-toolchain.toml",
-              *sorted((CRATE / "examples/foundation_probe").glob("*.rs")), *sorted((CRATE / "src").glob("*.rs"))]
+              *sorted((CRATE / "examples/foundation_probe").glob("*.rs")), *sorted((CRATE / "src").rglob("*.rs"))]
     source_hashes = fingerprint(inputs)
     run(["cargo", f"+{channel}", "build", "--lib", "--example", "foundation_probe", "--release", "--locked",
          "--target", "x86_64-pc-windows-msvc", "--target-dir", str(target)], CRATE, "build", 600, logs, deadline)
