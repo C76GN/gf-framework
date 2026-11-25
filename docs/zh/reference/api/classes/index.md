@@ -7,7 +7,7 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 79 | 1157 | [Kernel](#module-kernel) |
-| Standard | 517 | 7921 | [Standard](#module-standard) |
+| Standard | 518 | 7926 | [Standard](#module-standard) |
 | Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
@@ -567,6 +567,7 @@
 | [`GFFixedVector2`](GFFixedVector2.md#gffixedvector2) | 值对象 (`value_object`) | `RefCounted` | 25 | `addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd` |
 | [`GFFixedVector3`](GFFixedVector3.md#gffixedvector3) | 值对象 (`value_object`) | `RefCounted` | 27 | `addons/gf/standard/foundation/numeric/gf_fixed_vector3.gd` |
 | [`GFFormulaParameter`](GFFormulaParameter.md#gfformulaparameter) | 值对象 (`value_object`) | `RefCounted` | 8 | `addons/gf/standard/foundation/formula/gf_formula_parameter.gd` |
+| [`GFFrameIntervalSeries`](GFFrameIntervalSeries.md#gfframeintervalseries) | 值对象 (`value_object`) | `RefCounted` | 5 | `addons/gf/standard/utilities/debug/gf_frame_interval_series.gd` |
 | [`GFInputDetectionResult`](GFInputDetectionResult.md#gfinputdetectionresult) | 值对象 (`value_object`) | `RefCounted` | 11 | `addons/gf/standard/input/rebinding/gf_input_detection_result.gd` |
 | [`GFInputEventIdentity`](GFInputEventIdentity.md#gfinputeventidentity) | 值对象 (`value_object`) | `RefCounted` | 23 | `addons/gf/standard/input/common/gf_input_event_identity.gd` |
 | [`GFMetricSeries`](GFMetricSeries.md#gfmetricseries) | 值对象 (`value_object`) | `RefCounted` | 20 | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |

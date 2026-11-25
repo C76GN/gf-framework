@@ -10,7 +10,7 @@
 | [协议与扩展点](#category-protocol) | 30 | 375 | 303 |
 | [资源定义](#category-resource_definition) | 123 | 1600 | 804 |
 | [运行时句柄](#category-runtime_handle) | 65 | 1026 | 678 |
-| [值对象](#category-value_object) | 72 | 1114 | 754 |
+| [值对象](#category-value_object) | 73 | 1119 | 758 |
 | [领域模型](#category-domain_model) | 4 | 61 | 42 |
 | [事件契约](#category-event_contract) | 6 | 61 | 23 |
 | [编辑器 API](#category-editor_api) | 11 | 70 | 48 |
@@ -496,6 +496,7 @@
 | [`GFFixedVector2`](classes/GFFixedVector2.md#gffixedvector2) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_fixed_vector2.gd` |
 | [`GFFixedVector3`](classes/GFFixedVector3.md#gffixedvector3) | `RefCounted` | `addons/gf/standard/foundation/numeric/gf_fixed_vector3.gd` |
 | [`GFFormulaParameter`](classes/GFFormulaParameter.md#gfformulaparameter) | `RefCounted` | `addons/gf/standard/foundation/formula/gf_formula_parameter.gd` |
+| [`GFFrameIntervalSeries`](classes/GFFrameIntervalSeries.md#gfframeintervalseries) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_frame_interval_series.gd` |
 | [`GFInputDetectionResult`](classes/GFInputDetectionResult.md#gfinputdetectionresult) | `RefCounted` | `addons/gf/standard/input/rebinding/gf_input_detection_result.gd` |
 | [`GFInputEventIdentity`](classes/GFInputEventIdentity.md#gfinputeventidentity) | `RefCounted` | `addons/gf/standard/input/common/gf_input_event_identity.gd` |
 | [`GFMetricSeries`](classes/GFMetricSeries.md#gfmetricseries) | `RefCounted` | `addons/gf/standard/utilities/debug/gf_metric_series.gd` |

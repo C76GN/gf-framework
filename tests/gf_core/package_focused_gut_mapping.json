@@ -221,6 +221,7 @@
       "res://tests/gf_core/standard/utilities/debug/test_gf_diagnostics_utility.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_async_tracker_utility.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_operation_diagnostics_utility.gd",
+      "res://tests/gf_core/standard/utilities/debug/test_gf_frame_interval_series.gd",
       "res://tests/gf_core/standard/utilities/debug/test_gf_session_trace_utility.gd"
     ],
     "gf.standard.deterministic": [

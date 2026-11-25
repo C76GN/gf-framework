@@ -181,9 +181,10 @@
       "id": "diagnostics",
       "title": "Diagnostics, logs, support, and operations",
       "summary": "Structured logs, bounded lazy diagnostic providers, headless health evidence, operation timelines, session traces, debug surfaces, support reports, and build metadata.",
-      "keywords": ["diagnostics", "lazy", "provider", "headless", "health probe", "liveness", "readiness", "session trace", "log", "debug", "support report", "operation", "metrics", "build info", "console", "environment query", "physics backend"],
+      "keywords": ["diagnostics", "lazy", "provider", "headless", "health probe", "liveness", "readiness", "session trace", "log", "debug", "support report", "operation", "metrics", "frame pacing", "frame interval", "percentile", "build info", "console", "environment query", "physics backend"],
       "packages": ["gf.standard.diagnostics", "gf.standard.debug"],
-      "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFSessionTraceUtility", "GFSessionTraceRecipe", "GFOperationDiagnosticsUtility", "GFSupportReportUtility"],
+      "primary_classes": ["GFDiagnosticsUtility", "GFDiagnosticSnapshotProvider", "GFDiagnosticProviderResult", "GFSessionTraceUtility", "GFSessionTraceRecipe", "GFOperationDiagnosticsUtility", "GFFrameIntervalSeries", "GFSupportReportUtility"],
+      "required_api_members": [{"class_name": "GFFrameIntervalSeries", "members": ["create", "record_interval_us", "break_continuity", "summarize"]}],
       "recipes": ["diagnostic-contribution", "headless-health-probe", "session-trace", "feedback-candidate", "physics-backend-adapter", "environment-query-composition"],
       "boundary": "Collect the minimum needed data, bound all histories, and require explicit consent for precise or private diagnostics."
     },

@@ -23,6 +23,8 @@
     "addons/gf/standard/utilities/debug/gf_diagnostic_snapshot_provider.gd.uid",
     "addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd",
     "addons/gf/standard/utilities/debug/gf_diagnostics_utility.gd.uid",
+    "addons/gf/standard/utilities/debug/gf_frame_interval_series.gd",
+    "addons/gf/standard/utilities/debug/gf_frame_interval_series.gd.uid",
     "addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd",
     "addons/gf/standard/utilities/debug/gf_operation_diagnostics_utility.gd.uid",
     "addons/gf/standard/utilities/debug/gf_session_trace_channel_definition.gd",

@@ -1,0 +1,128 @@
+# GFFrameIntervalSeries
+
+[API Reference](../index.md) / [Standard](../standard.md) / [类索引](index.md)
+
+- 路径：`addons/gf/standard/utilities/debug/gf_frame_interval_series.gd`
+- 模块：`Standard`
+- 继承：`RefCounted`
+- API：`public`
+- 类别：值对象 (`value_object`)
+- 首次版本：`unreleased`
+
+按采样顺序保存定长的正整数微秒帧间隔，按需统计分位数和连续慢帧窗口。 调用方选定时钟、采样边界和预算，并在同一线程串行记录与读取。
+
+## 成员概览
+
+| 类型 | 名称 | 签名 |
+|---|---|---|
+| 常量 | [`MAX_CAPACITY`](#member-gfframeintervalseries-constants-max_capacity) | `const MAX_CAPACITY: int = 65536` |
+| 方法 | [`create`](#member-gfframeintervalseries-methods-create) | `static func create(capacity: int) -> GFFrameIntervalSeries:` |
+| 方法 | [`record_interval_us`](#member-gfframeintervalseries-methods-record_interval_us) | `func record_interval_us(interval_us: int) -> bool:` |
+| 方法 | [`break_continuity`](#member-gfframeintervalseries-methods-break_continuity) | `func break_continuity(known_missing: int = 0) -> bool:` |
+| 方法 | [`summarize`](#member-gfframeintervalseries-methods-summarize) | `func summarize(window_frames: int, budget_us: int) -> Dictionary:` |
+
+## 常量
+
+<a id="member-gfframeintervalseries-constants-max_capacity"></a>
+
+### `MAX_CAPACITY`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+const MAX_CAPACITY: int = 65536
+```
+
+可配置的最大保留间隔数，限制环形缓冲和摘要临时数组的大小。
+
+## 方法
+
+<a id="member-gfframeintervalseries-methods-create"></a>
+
+### `create`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+static func create(capacity: int) -> GFFrameIntervalSeries:
+```
+
+创建固定容量序列并一次分配记录空间。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `capacity` | 保留的间隔数，取值 1 至 MAX_CAPACITY。 |
+
+返回：可记录的空序列。容量无效或分配失败时返回 null。
+
+<a id="member-gfframeintervalseries-methods-record_interval_us"></a>
+
+### `record_interval_us`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func record_interval_us(interval_us: int) -> bool:
+```
+
+记录一段相邻采样边界之间的耗时。写满后覆盖最旧项。非正间隔会计入拒绝数并切断连续性。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `interval_us` | 同一单调时钟测得的正整数微秒差值。 |
+
+返回：记录成功返回 true。未创建缓冲或间隔无效返回 false。
+
+<a id="member-gfframeintervalseries-methods-break_continuity"></a>
+
+### `break_continuity`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func break_continuity(known_missing: int = 0) -> bool:
+```
+
+在暂停、采样源切换或漏采时开始新的连续段。旧样本继续参与分位数统计。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `known_missing` | 已知漏采的间隔数。未知数量或主动暂停传 0，负数无效。 |
+
+返回：接受断点返回 true。未创建缓冲或参数无效返回 false 并保留原状态。
+
+<a id="member-gfframeintervalseries-methods-summarize"></a>
+
+### `summarize`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func summarize(window_frames: int, budget_us: int) -> Dictionary:
+```
+
+按最近秩统计保留样本的 P95 与 P99，并扫描各连续段中耗时最大的完整窗口。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `window_frames` | 一个完整窗口所需的相邻间隔数，必须为正数。 |
+| `budget_us` | 非负微秒预算，仅严格超过预算的间隔计入 over_budget_count。 |
+
+返回：以微秒为单位的独立摘要。空序列的分位数和均值、没有完整窗口时的窗口耗时均为 null。
+
+结构：
+
+- `return`: Dictionary。成功含 ok=true、capacity、sample_count、total_us、mean_us、p95_us、p99_us、over_budget_count、max_window_us，以及饱和于 int64 最大值的累计 evicted_count、missing_count、rejected_count。失败仅含 ok=false 和 error，值为 unprepared、invalid_query、allocation_failed 或 duration_overflow。

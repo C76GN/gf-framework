@@ -2,8 +2,8 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "d8d301d415efe4e2957133414dbabbff698fa0880f46e950a1b9aefc37b96334",
-  "class_count": 917,
+  "source_digest": "f2cedfe38b21d48ed00acc477fa4a7931931ae94f58dec8a8c04bbb5994bb921",
+  "class_count": 918,
   "autoload_count": 1,
   "package_count": 62,
   "packages": [
@@ -36703,6 +36703,54 @@
           "name": "calculate",
           "signature": "func calculate( formula_id: StringName, parameter: GFFormulaParameter = null, fallback: Variant = null ) -> Variant",
           "summary": "计算指定公式。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFFrameIntervalSeries": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "standard",
+      "package_id": "gf.standard.diagnostics",
+      "path": "addons/gf/standard/utilities/debug/gf_frame_interval_series.gd",
+      "summary": "GFFrameIntervalSeries: 按采样顺序保存定长的正整数微秒帧间隔，按需统计分位数和连续慢帧窗口。 调用方选定时钟、采样边界和预算，并在同一线程串行记录与读取。",
+      "visibility": "public",
+      "category": "value_object",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "const",
+          "name": "MAX_CAPACITY",
+          "signature": "const MAX_CAPACITY: int = 65536",
+          "summary": "可配置的最大保留间隔数，限制环形缓冲和摘要临时数组的大小。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "create",
+          "signature": "static func create(capacity: int) -> GFFrameIntervalSeries",
+          "summary": "创建固定容量序列并一次分配记录空间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "record_interval_us",
+          "signature": "func record_interval_us(interval_us: int) -> bool",
+          "summary": "记录一段相邻采样边界之间的耗时。写满后覆盖最旧项。非正间隔会计入拒绝数并切断连续性。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "break_continuity",
+          "signature": "func break_continuity(known_missing: int = 0) -> bool",
+          "summary": "在暂停、采样源切换或漏采时开始新的连续段。旧样本继续参与分位数统计。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "summarize",
+          "signature": "func summarize(window_frames: int, budget_us: int) -> Dictionary",
+          "summary": "按最近秩统计保留样本的 P95 与 P99，并扫描各连续段中耗时最大的完整窗口。",
           "visibility": "public"
         }
       ]
