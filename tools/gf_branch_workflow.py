@@ -1,4 +1,4 @@
-"""GF release and development branches, evaluated against exact Git commits."""
+"""基于明确的 Git 提交校验 GF 开发分支、发布分支及版本标签的关系。"""
 
 from __future__ import annotations
 
@@ -22,14 +22,17 @@ REPOSITORY_POLICY_CONFIG = ".github/repository-policy.json"
 
 
 class BranchWorkflowError(ValueError):
+	"""当前版本、分支历史或标签无法满足规定的发布路径。"""
 	pass
 
 
 class UnpublishedReleaseError(BranchWorkflowError):
+	"""对已发布版本的查询确认尚无相应发布，供候选版本判定使用。"""
 	pass
 
 
 class BranchHistory:
+	"""用本次调用固定的 Git 环境，从真实提交、分支与标签读取历史证据。"""
 	def __init__(self, root: Path) -> None:
 		self.root = root
 		self.git_process = freeze_git_process(FrozenProcessEnvironment.capture(os.environ), cwd=root)
@@ -76,6 +79,7 @@ class BranchHistory:
 
 
 def require_commit_sha(value: str) -> str:
+	"""要求输入是完整的提交 SHA，拒绝缩写或其他 Git 引用形式。"""
 	if COMMIT_SHA_RE.fullmatch(value) is None or value == NEW_BRANCH_BEFORE_SHA:
 		raise BranchWorkflowError(f"Expected a full Git commit SHA, got {value!r}.")
 	return value
@@ -100,6 +104,7 @@ def next_release_versions(stable_version: str) -> tuple[str, str]:
 
 
 def stable_main_version(policy: dict[str, Any], version: str) -> bool:
+	"""检查主分支版本所处阶段，无法归入策略允许的版本形式时抛出 BranchWorkflowError。"""
 	stable = STABLE_SEMVER_RE.fullmatch(version)
 	if stable is None:
 		if development_version_of(version, policy["cutover_release"]):
@@ -123,7 +128,7 @@ def validate_pull_route(
 	merged_version: str,
 	require_published: Callable[[str], None],
 ) -> str | None:
-	"""Return the stable release candidate version, if this PR prepares one."""
+	"""核对 PR 的源分支与目标分支，如果准备正式候选版本则返回版本号。"""
 	require_commit_sha(base_sha)
 	require_commit_sha(head_sha)
 	main_branch = policy["default_branch"]
@@ -214,7 +219,7 @@ def validate_development_update(
 			if baseline != previous_baseline:
 				raise BranchWorkflowError("The development API baseline is fixed for the current major cycle.")
 			return
-		# Adopt the initial baseline on an existing development branch created under the old policy.
+		# 为沿用旧分支策略创建的开发分支接入初始基线。
 		cutover = policy["cutover_release"]
 		if baseline["tag"] != cutover or not history.contains(main_sha, baseline["commit"]):
 			raise BranchWorkflowError(f"Pin the initial development API baseline to the {cutover} release.")
@@ -278,6 +283,7 @@ def validate_branch_push(
 	head_sha: str,
 	require_published: Callable[[str], None],
 ) -> None:
+	"""按推送前后的提交校验目标分支的历史和版本，违反分支策略时抛出 BranchWorkflowError。"""
 	main_branch = policy["default_branch"]
 	version = history.version(head_sha)
 	if branch == main_branch:
@@ -327,6 +333,7 @@ def validate_branch_push(
 
 
 def validate_release_tag(policy: dict[str, Any], history: BranchHistory, version: str) -> None:
+	"""要求稳定版本标签准确指向当前主分支的对应版本，拒绝不一致的标签。"""
 	main_branch = policy["default_branch"]
 	main_sha = history.branch_commit(main_branch)
 	if (

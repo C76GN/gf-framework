@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for fail-closed GF validation shadow evidence."""
+"""验证只观察模式中的动作摘要、执行记录与相互矛盾证据的处理。"""
 
 from __future__ import annotations
 

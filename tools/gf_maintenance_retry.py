@@ -1,8 +1,7 @@
-"""Select a bounded, source-bound focused retry without accepting cached PASSes.
+"""从现有报告选择需要复验的动作，再按当前源码与检查目录重新构造执行命令。
 
-An ordinary report is diagnostic input, not trusted execution authority. Only
-action names are selected here; the runner generates commands and dependencies
-from its current Catalog and checks source identity before dispatch.
+报告只提供诊断和候选动作名称。调度前重新校验源码身份并展开依赖，
+旧报告中的成功结果不会成为本次执行证据。
 """
 
 from __future__ import annotations
@@ -24,6 +23,7 @@ MAX_CHECKS = 1024
 
 @dataclass(frozen=True)
 class RetrySelection:
+	"""保存复验动作、原报告摘要与工作区指纹，先前通过的动作仅用于解释选择结果。"""
 	workspace_fingerprint: str
 	requested_checks: tuple[str, ...]
 	previous_passing_checks: tuple[str, ...]
@@ -46,6 +46,7 @@ class RetrySelection:
 
 
 def report_path(root: Path, value: str) -> Path:
+	"""解析 build 下的 JSON 报告路径，越界或扩展名不符时抛出 ValueError。"""
 	path = Path(value)
 	if not path.is_absolute():
 		path = root / path
@@ -77,6 +78,19 @@ def _finite_float(value: str) -> float:
 
 
 def read_retry_selection(root: Path, value: str, known_actions: tuple[str, ...]) -> RetrySelection:
+	"""从未通过的检查报告中选出须重新执行的动作。
+
+	Args:
+	    root: 用于定位 build 目录的仓库根。
+	    value: 待读取的 JSON 报告路径。
+	    known_actions: 当前目录接受的动作名称。
+
+	Returns:
+	    绑定到原报告和源指纹的复验选择。
+
+	Raises:
+	    ValueError: 报告内容矛盾、动作未知，或包含必须重新规划的发布上下文或清理失败。
+	"""
 	path = report_path(root, value)
 	payload = gf_path_security.read_pinned_regular_file(
 		root / "build", path.relative_to(root / "build").as_posix(), max_bytes=MAX_REPORT_BYTES,

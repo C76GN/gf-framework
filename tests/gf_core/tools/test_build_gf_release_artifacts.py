@@ -1,3 +1,4 @@
+"""在临时发布目录中验证归档、清单和子进程选择，覆盖构建后内容被替换的情况。"""
 from __future__ import annotations
 
 import configparser
@@ -296,8 +297,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					for name in builder.REQUIRED_PACKAGE_PATHS:
 						archive.writestr(name, f'[plugin]\nversion="{VERSION}"\n' if name.endswith("plugin.cfg") else "fixture")
 					entry_info = zipfile.ZipInfo(entry)
-					# ZipInfo's Windows constructor normalizes separators; preserve
-					# the literal central-directory spelling of an external archive.
+					# Windows 的 ZipInfo 构造器会改写分隔符，测试需要保留外部归档中央目录中的原始拼写。
 					entry_info.filename = entry
 					archive.writestr(entry_info, "fixture")
 				with mock.patch.object(zipfile.ZipFile, "open", side_effect=AssertionError("unsafe archive payload read")):
@@ -771,7 +771,7 @@ def _write_zip(path: Path, name: str, payload: bytes) -> None:
 
 
 def _windows_library() -> bytes:
-	# Executable behavior is covered by the real exported games.
+	# 归档内程序的执行行为由真实导出游戏的验收覆盖。
 	library = bytearray(128)
 	library[:2] = b"MZ"
 	struct.pack_into("<I", library, 60, 64)
@@ -856,6 +856,7 @@ def _test_delivery(directory: Path) -> None:
 
 
 def _write_valid_release_fixture(root: Path) -> Path:
+	"""在临时目录建立可通过基线校验的发布样本，各用例只改变需要检验的一项输入。"""
 	framework = root / f"gf-framework-{VERSION}.zip"
 	ai_kit = root / f"gf-ai-developer-kit-{VERSION}.zip"
 	_write_framework_archive(framework)

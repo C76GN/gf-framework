@@ -191,16 +191,19 @@ MANUAL_MAIN_EVENT = "github.ref == 'refs/heads/main'"
 
 
 class DuplicateJsonKeyError(ValueError):
+	"""策略文件中的同一 JSON 对象重复声明了键。"""
 	pass
 
 
 class GitHubApiError(RuntimeError):
+	"""保留 GitHub API 请求失败的状态码，便于区分不可用与确有其事的策略差异。"""
 	def __init__(self, status: int, message: str) -> None:
 		super().__init__(message)
 		self.status = status
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""根据子命令执行本地策略检查或远端审计，写远端设置须由调用方显式要求。"""
 	configure_stdio()
 	parser = argparse.ArgumentParser(description=__doc__)
 	subparsers = parser.add_subparsers(dest="command", required=True)
@@ -324,6 +327,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def audit_branch_event(policy: dict[str, Any], args: argparse.Namespace, source_version: str = "") -> list[str]:
+	"""按事件对应的准确提交身份检查分支策略，返回可供 CI 汇总的违规信息。"""
 	def require_published(version: str) -> None:
 		require_published_release(policy["repository"], version)
 
@@ -412,6 +416,7 @@ def configure_stdio() -> None:
 
 
 def load_repository_policy(path: Path = POLICY_PATH) -> tuple[dict[str, Any], list[str]]:
+	"""读取当前仓库的工作流策略并校验字段，供只读审计与显式应用共用。"""
 	try:
 		data = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=reject_duplicate_json_keys)
 	except (OSError, UnicodeDecodeError, json.JSONDecodeError, DuplicateJsonKeyError) as error:
@@ -536,6 +541,7 @@ def audit_regex(value: Any, label: str, issues: list[str]) -> None:
 
 
 def audit_repository_files(policy: dict[str, Any], root: Path = ROOT) -> list[str]:
+	"""按提供的策略读取仓库工作流及维护规则文件，将不一致项汇总到返回列表。"""
 	issues: list[str] = []
 	required_paths = (
 		root / "CONTRIBUTING.md",
@@ -1565,6 +1571,7 @@ def audit_ci_workflow(policy: dict[str, Any], source: str) -> list[str]:
 
 
 def extract_ci_job_blocks(source: str) -> tuple[dict[str, str], set[str]]:
+	"""返回工作流中按任务 ID 归集的文本块，以及重复出现的 ID。"""
 	jobs_source = extract_yaml_top_level_block(source, "jobs")
 	if not jobs_source:
 		return {}, set()
@@ -1584,9 +1591,7 @@ def extract_ci_job_blocks(source: str) -> tuple[dict[str, str], set[str]]:
 				blocks[current_job] = [line]
 			continue
 		if code and indent == 2:
-			# Governed workflow job ids intentionally use one canonical unquoted
-			# spelling. Treat quoted, explicit-key, flow, and otherwise unsupported
-			# direct mappings as real extra jobs instead of dropping their blocks.
+			# 受管任务 ID 使用统一的无引号写法。其他直接映射和不支持的形式仍计作额外任务，避免漏检其代码块。
 			current_job = f"<unparsed-job-{index}>"
 			blocks[current_job] = [line]
 			continue
@@ -1629,7 +1634,7 @@ def extract_ci_step_block(job_source: str, step_name: str) -> str:
 
 
 def extract_ci_step_names(job_source: str) -> list[str]:
-	"""Return the canonical ordered direct step names for one governed job."""
+	"""按工作流中的实际顺序返回受管任务的直接步骤名称。"""
 	lines = job_source.splitlines()
 	steps_indices = [
 		index for index, line in enumerate(lines)
@@ -1665,7 +1670,7 @@ def require_exact_step_names(
 
 
 def extract_yaml_direct_mapping_keys(source: str, indent: int) -> list[str]:
-	"""Return direct YAML mapping keys, failing closed on unsupported spellings."""
+	"""提取 YAML 映射的直接键，遇到不受支持的拼写时拒绝判定。"""
 	keys: list[str] = []
 	prefix = " " * indent
 	for line in source.splitlines():
@@ -1685,12 +1690,12 @@ def extract_yaml_direct_mapping_keys(source: str, indent: int) -> list[str]:
 
 
 def extract_ci_step_field_keys(step_source: str) -> list[str]:
-	"""Return exact top-level fields on one named CI step, excluding its name."""
+	"""返回具名 CI 步骤的确切顶层字段，排除步骤名本身。"""
 	return extract_yaml_direct_mapping_keys("\n".join(step_source.splitlines()[1:]), 8)
 
 
 def extract_ci_job_field_keys(job_source: str) -> list[str]:
-	"""Return direct mapping fields on one CI job, excluding its job id."""
+	"""返回一个 CI 任务的直接映射字段，排除其任务 ID。"""
 	return extract_yaml_direct_mapping_keys("\n".join(job_source.splitlines()[1:]), 4)
 
 
@@ -1783,9 +1788,7 @@ def extract_yaml_scalar(source: str, key: str, indent: int) -> str:
 		if value in {">", ">-", "|", "|-"}:
 			parts: list[str] = []
 			for continuation in lines[index + 1:]:
-				# A '#' inside a YAML block scalar is shell/script data, not a YAML
-				# comment. Preserve it so an exact command audit cannot be spoofed by
-				# commenting out the governed continuation lines at runtime.
+				# YAML 块标量中的 # 是脚本字节。保留原文，逐字校验受管命令时才能识别实际传给 shell 的内容。
 				continuation_code = continuation.rstrip()
 				if continuation_code and len(continuation_code) - len(continuation_code.lstrip(" ")) <= indent:
 					break
@@ -1828,7 +1831,7 @@ def extract_matrix_suites(job_source: str) -> list[str]:
 
 
 def extract_matrix_include_items(job_source: str) -> list[str]:
-	"""Extract one strategy.matrix.include sequence without trusting block scalars."""
+	"""提取一组 strategy.matrix.include 条目，块标量中的文本不作为结构证据。"""
 	lines = job_source.splitlines()
 	strategy_indices = [
 		index for index, line in enumerate(lines)
@@ -1918,9 +1921,7 @@ def strip_yaml_comment(line: str) -> str:
 			and not in_double_quote
 			and (index == 0 or line[index - 1] in {" ", "\t"})
 		):
-			# YAML begins a plain-scalar comment only after separation whitespace.
-			# A token such as ``--json#`` remains command text and must reach the
-			# exact-command audit instead of being normalized into a governed value.
+			# 普通 YAML 标量须在分隔空白后才开始注释。--json# 属于命令文本，必须保留到逐字校验。
 			return line[:index].rstrip(" \t")
 		escaped = False
 	return line.rstrip(" \t")
@@ -1954,7 +1955,7 @@ def reject_failure_tolerant_jobs_and_steps(
 	workflow_label: str,
 	issues: list[str],
 ) -> None:
-	"""Reject GitHub's success-masking switch at every governed job/step."""
+	"""逐个拒绝受管任务或步骤中会掩盖失败的 GitHub 工作流选项。"""
 	for job_id, job_source in jobs.items():
 		job_fields = extract_ci_job_field_keys(job_source)
 		step_fields = extract_yaml_direct_mapping_keys(job_source, 8)
@@ -1963,7 +1964,7 @@ def reject_failure_tolerant_jobs_and_steps(
 			index for index, line in enumerate(lines)
 			if re.fullmatch(r"    steps:\s*", strip_yaml_comment(line)) is not None
 		]
-		# A reusable workflow has its own steps and the caller pins the exact workflow path.
+		# 可复用工作流自行定义步骤，由调用方固定其精确路径。
 		reusable = "uses" in job_fields
 		unsupported_step_item = len(steps_indices) != (0 if reusable else 1)
 		if len(steps_indices) == 1:
@@ -4071,6 +4072,7 @@ def read_plugin_version(root: Path = ROOT) -> str:
 def check_or_apply_remote_policy(
 	policy: dict[str, Any], repository: str, apply: bool, *, include_develop: bool = False,
 ) -> dict[str, Any]:
+	"""核对远端设置与仓库策略，只有显式选择 apply 时才进入写入路径。"""
 	completed_mutations: list[str] = []
 	main = policy["default_branch"]
 	develop = policy["development_branch"]
@@ -4154,6 +4156,7 @@ def check_or_apply_remote_policy(
 
 
 def require_unchanged_branch_heads(repository: str, token: str, branch_shas: dict[str, str]) -> None:
+	"""在修改保护设置前重新核实受管分支引用，防止将旧结论应用于已前移的提交。"""
 	for branch, expected_sha in branch_shas.items():
 		branch_data = github_request("GET", f"/repos/{repository}/branches/{branch}", token)
 		if object_value(branch_data.get("commit")).get("sha") != expected_sha:

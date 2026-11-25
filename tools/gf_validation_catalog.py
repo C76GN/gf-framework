@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Canonical action, executor, timeout, dependency, group, and suite catalog."""
+"""集中描述维护动作的执行种类、超时、依赖、分组与套件。"""
 
 from __future__ import annotations
 
@@ -24,23 +24,23 @@ _CATALOG_NAME_RE = re.compile(r"^[a-z][a-z0-9_-]*$")
 
 
 class ValidationCatalogError(ValueError):
-	"""Raised when the canonical validation catalog is incomplete or ambiguous."""
+	"""验证目录不完整或动作身份存在歧义。"""
 
 
 class ValidationExecutorKind(str, Enum):
-	"""Closed executor choices declared independently from runtime result states."""
+	"""动作允许的执行器种类，与执行后的结果状态独立声明。"""
 
 	IN_PROCESS = "in_process"
 	SUBPROCESS = "subprocess"
 
 	def __str__(self) -> str:
-		"""Keep the Python 3.11 StrEnum string contract on Python 3.10."""
+		"""在 Python 3.10 上保持与 Python 3.11 StrEnum 相同的字符串语义。"""
 		return self.value
 
 
 @dataclass(frozen=True)
 class ValidationCatalogContext:
-	"""Runner-provided values needed to materialize canonical action commands."""
+	"""由运行器提供、用来生成验证目录中实际命令的上下文。"""
 
 	python_executable: str
 	root: Path
@@ -52,7 +52,7 @@ class ValidationCatalogContext:
 
 @dataclass(frozen=True)
 class ValidationLane:
-	"""One isolated runner lane with distinct ownership and execution closures."""
+	"""一个隔离的执行分组，分别记录归属与实际运行所需的依赖闭包。"""
 
 	name: str
 	owned_actions: tuple[str, ...]
@@ -61,7 +61,7 @@ class ValidationLane:
 
 @dataclass(frozen=True)
 class ValidationPlan:
-	"""One immutable effective action graph and ordered invocation plan."""
+	"""记录本次调用实际采用的不可变动作图及有序执行计划。"""
 
 	suite: str
 	requested_actions: tuple[str, ...]
@@ -70,12 +70,12 @@ class ValidationPlan:
 	lanes: tuple[ValidationLane, ...]
 
 	def describe_graph(self) -> dict[str, Any]:
-		"""Describe the exact effective graph used to build this plan."""
+		"""描述生成当前计划实际使用的依赖图。"""
 		return self.check_graph.describe(self.actions)
 
 
 class ValidationCatalog:
-	"""Validated immutable catalog with copy-out accessors for the legacy runner."""
+	"""已校验的不可变检查目录，需要可变数据的运行器通过访问器获取副本。"""
 
 	def __init__(
 		self,
@@ -172,16 +172,16 @@ class ValidationCatalog:
 
 	@property
 	def action_names(self) -> tuple[str, ...]:
-		"""Return every action, including actions without a static command."""
+		"""按声明返回全部动作，包括需要执行时才能生成命令的动作。"""
 		return self._action_names
 
 	@property
 	def input_specs(self) -> tuple[CheckInputSpec, ...]:
-		"""Return advisory input declarations in action declaration order."""
+		"""按动作声明顺序返回供诊断的输入声明。"""
 		return self._input_specs
 
 	def input_spec(self, action_name: str) -> CheckInputSpec | None:
-		"""Return one advisory declaration, or None for a known undeclared action."""
+		"""返回指定动作的输入声明，已知动作尚未声明时返回 None。"""
 		_validate_action_name(action_name)
 		if action_name not in self._actions:
 			raise ValidationCatalogError(
@@ -190,7 +190,7 @@ class ValidationCatalog:
 		return self._input_specs_by_name.get(action_name)
 
 	def command_definitions(self) -> dict[str, list[str]]:
-		"""Return statically materialized commands in canonical declaration order."""
+		"""按目录声明顺序返回已能确定实际参数的静态命令。"""
 		return {
 			name: list(command)
 			for name, command in self._actions.items()
@@ -203,7 +203,7 @@ class ValidationCatalog:
 		root: Path,
 		godot_log_directory: Path,
 	) -> dict[str, list[str]]:
-		"""Project only root-bound argv from this captured Catalog to one workspace."""
+		"""将已捕获目录中依赖根路径的命令参数投影到指定工作区。"""
 		context = self._command_projection_context
 		if context is None:
 			raise ValidationCatalogError(
@@ -233,7 +233,7 @@ class ValidationCatalog:
 		}
 
 	def static_command(self, action_name: str) -> list[str] | None:
-		"""Return one detached static command, or None for a known deferred action."""
+		"""返回静态命令的独立副本，已知的延迟动作返回 None。"""
 		_validate_action_name(action_name)
 		try:
 			command = self._actions[action_name]
@@ -245,16 +245,16 @@ class ValidationCatalog:
 
 	@property
 	def in_process_action_names(self) -> tuple[str, ...]:
-		"""Return in-process actions in canonical declaration order."""
+		"""按目录声明顺序返回在当前进程内执行的动作。"""
 		return self._in_process_action_names
 
 	@property
 	def deferred_action_names(self) -> tuple[str, ...]:
-		"""Return actions whose commands must be materialized by the runner."""
+		"""返回实际命令须由运行器在调度前生成的动作。"""
 		return self._deferred_action_names
 
 	def executor_kind(self, action_name: str) -> ValidationExecutorKind:
-		"""Return the explicitly declared executor for one known action."""
+		"""返回已知动作显式指定的执行器种类。"""
 		_validate_action_name(action_name)
 		try:
 			return self._executors[action_name]
@@ -265,15 +265,15 @@ class ValidationCatalog:
 
 	@property
 	def default_timeout_seconds(self) -> int:
-		"""Return the default action timeout floor in seconds."""
+		"""返回默认动作时限的下限，以秒计。"""
 		return self._default_timeout_seconds
 
 	def timeout_overrides(self) -> dict[str, int]:
-		"""Return explicit per-action timeout floors as a detached mapping."""
+		"""返回各动作显式设置的超时下限映射副本。"""
 		return dict(self._timeout_overrides)
 
 	def timeout_floor_seconds(self, action_name: str) -> int:
-		"""Return the declared timeout floor for one known validation action."""
+		"""返回指定已知动作的超时下限，以秒计。"""
 		_validate_action_name(action_name)
 		if action_name not in self._actions:
 			raise ValidationCatalogError(
@@ -285,7 +285,7 @@ class ValidationCatalog:
 		)
 
 	def dependencies(self) -> dict[str, list[str]]:
-		"""Return direct action dependencies in canonical declaration order."""
+		"""按目录中的声明顺序返回动作的直接依赖。"""
 		return {
 			name: list(action_dependencies)
 			for name, action_dependencies in self._dependencies.items()
@@ -293,18 +293,18 @@ class ValidationCatalog:
 
 	@property
 	def check_graph(self) -> CheckGraph:
-		"""Return the dependency graph validated with this catalog."""
+		"""返回构建本目录时已经校验的依赖图。"""
 		return self._check_graph
 
 	def check_groups(self) -> dict[str, list[str]]:
-		"""Return every named check group in canonical declaration order."""
+		"""按目录声明顺序返回所有具名检查分组。"""
 		return {
 			name: list(actions)
 			for name, actions in self._check_groups.items()
 		}
 
 	def check_group(self, name: str) -> list[str]:
-		"""Return one named check group as a mutable compatibility copy."""
+		"""返回指定分组的可变副本，调用方更改不影响目录。"""
 		try:
 			return list(self._check_groups[name])
 		except KeyError as error:
@@ -313,7 +313,7 @@ class ValidationCatalog:
 			) from error
 
 	def suites(self) -> dict[str, list[str]]:
-		"""Return every suite in canonical declaration order."""
+		"""按目录声明顺序返回全部验证套件。"""
 		return {
 			name: list(actions)
 			for name, actions in self._suites.items()
@@ -324,7 +324,7 @@ class ValidationCatalog:
 		suite: str,
 		actions: Sequence[str] | None = None,
 	) -> ValidationPlan:
-		"""Build one effective graph and closure for the complete runner invocation."""
+		"""为整个运行器调用建立同一份实际依赖图和执行闭包。"""
 		try:
 			suite_actions = self._suites[suite]
 		except (KeyError, TypeError) as error:
@@ -391,17 +391,17 @@ class ValidationCatalog:
 
 	@property
 	def parallel_full_shard_suites(self) -> tuple[str, ...]:
-		"""Return the ordered Full-shard suite topology."""
+		"""返回 Full 套件各分片按执行顺序排列的套件拓扑。"""
 		return self._parallel_full_shard_suites
 
 	@property
 	def command_projection_context(self) -> ValidationCatalogContext | None:
-		"""Return the immutable context that owns all projected command arguments."""
+		"""返回产生全部投影命令参数的不可变上下文。"""
 		return self._command_projection_context
 
 
 def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCatalog:
-	"""Build the canonical GF validation catalog from runner-provided context."""
+	"""从运行器提供的上下文建立 GF 的统一验证目录。"""
 	python = context.python_executable
 
 	def godot_log_path(check_name: str) -> str:
@@ -494,9 +494,8 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 				"--json",
 			),
 		),
-		# Owns an isolated import and native headless editor, each capped at 180
-		# seconds. The default 600-second action floor retains setup/cleanup margin.
-		# Outer maintenance owns successful log cleanup and its --keep-logs policy.
+		# 隔离导入与无界面原生编辑器各限 180 秒。动作预算至少 600 秒以容纳准备和清理，
+		# 成功日志由外层按 --keep-logs 策略处理。
 		subprocess_action(
 			"scene_placement_editor_smoke",
 			python_script("tests/gf_core/tools/scene_placement/run_editor_smoke.py", "--keep-logs"),
@@ -787,23 +786,19 @@ def build_validation_catalog(context: ValidationCatalogContext) -> ValidationCat
 	)
 	default_timeout_seconds = 600
 	timeout_overrides = (
-		# Cold-cache CLI scenarios share a bounded 70-second inner deadline.
+		# 冷缓存 CLI 场景共用 70 秒的内部截止时间。
 		("code_quality_native_acceptance", 90),
-		# The optimized authoritative suite still takes about 25 minutes on
-		# Windows. Share a bounded 30-minute floor with explicit full-suite
-		# observation and qualification control, within the existing CI envelope.
+		# Windows 上的完整权威套件实测约 25 分钟。全套观察和验收对照共用 30 分钟的预算下限，
+		# 落在既有 CI 时限内。
 		("gut", 1800),
-		# The owned LSP server has a 600-second inner lifetime. Preserve a bounded
-		# cleanup and report-publication margin outside that process-tree boundary.
+		# LSP 服务自身最多运行 600 秒，外层需要为进程树清理和报告发布留出时间。
 		("gdscript_lsp_diagnostics", 660),
-		# Runs six focused process-level lifecycle scenarios after a shared import.
+		# 共用一次项目导入，再执行六个进程级生命周期场景。
 		("gut_lifecycle_smoke", 360),
-		# The executable Adapter contract performs one isolated import and one GUT
-		# run. A measured Windows run takes about 5.5 minutes, so retain a bounded
-		# 15-minute outer budget while each supervised Godot phase stays capped.
+		# 可执行适配器契约分别执行一次隔离导入和一次 GUT。Windows 实测约 5.5 分钟，外层留 15 分钟，
+		# 各 Godot 阶段仍单独限时。
 		("ai_developer_adapter_acceptance", 900),
-		# Five owned editor/runtime phases, each capped at 180 seconds, plus
-		# bounded source capture, process cleanup and report publication.
+		# 五个编辑器或运行时阶段各限 180 秒，另需为采集源码、清理进程与发布报告留出时间。
 		("project_bootstrap_editor_smoke", 1200),
 	)
 
@@ -1005,8 +1000,7 @@ def _validate_actions(
 			)
 		validated_executors[name] = executor_kind
 		if command is None:
-			# A deferred command is orthogonal to executor choice.  The runner still
-			# materializes live arguments before dispatch.
+			# 延迟生成命令与选用哪类执行器相互独立，实际参数在调度前才确定。
 			validated[name] = None
 			continue
 		validated[name] = _validated_nonempty_strings(

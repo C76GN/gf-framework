@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Execute one observational GUT shard inside a parent-owned private workspace.
+"""在父进程拥有的隔离工作区中执行一个供观察的 GUT 分片。
 
-The worker is deliberately not a maintenance check.  It accepts one closed,
-parent-authored in-memory request, executes import then exactly one selected GUT
-process, and returns one closed report.  It never reads or writes reusable test
-evidence.
+接受父进程构造的一份内存请求，先导入，再运行一个指定的 GUT 进程并返回一份报告。
+此过程独立于正式维护检查及可复用测试证据的读写。
 """
 
 from __future__ import annotations
@@ -68,9 +66,8 @@ PRIVATE_ENVIRONMENT_FALLBACK_NONCE_CHARACTERS = 16
 WINDOWS_LEGACY_MAX_PATH_CHARACTERS = 259
 WINDOWS_GUT_KNOWN_DEEPEST_RELATIVE_PATH_CHARACTERS = 202
 WINDOWS_GUT_PATH_GROWTH_MARGIN_CHARACTERS = 10
-# The compact production layout keeps the deepest currently-owned GF path plus
-# an explicit growth margin within the legacy Windows API budget even when the
-# validation root reaches its 19-character owner limit.
+# 缩短物化目录名，使验证根达到 19 字符上限时，
+# 最深的现有 GF 路径仍符合旧版 Windows API 限制并留有余量。
 WINDOWS_GUT_USER_PATH_RESERVE_CHARACTERS = (
 	WINDOWS_GUT_KNOWN_DEEPEST_RELATIVE_PATH_CHARACTERS
 	+ WINDOWS_GUT_PATH_GROWTH_MARGIN_CHARACTERS
@@ -162,7 +159,7 @@ CONTINUATION_SAFE_ERROR_CODES = frozenset({
 
 
 class GutShardWorkerError(ValueError):
-	"""Closed, stable worker failure safe to include in a report."""
+	"""可写入报告的分片失败，包含协议限定的稳定代码。"""
 
 	def __init__(self, code: str, message: str, phase: str = "preflight") -> None:
 		super().__init__(f"{code}: {message}")
@@ -172,6 +169,7 @@ class GutShardWorkerError(ValueError):
 
 
 def canonical_json_bytes(value: Any) -> bytes:
+	"""按键排序并生成 UTF-8 协议字节，拒绝无法稳定编码的数据。"""
 	try:
 		return json.dumps(
 			value,
@@ -188,6 +186,7 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 
 def canonical_digest(value: Any) -> str:
+	"""计算规范 JSON 字节的 SHA-256，用于将分片请求与报告对应。"""
 	return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
 
@@ -200,7 +199,7 @@ def build_gut_shard_argv(
 	scripts: Iterable[str],
 	junit_xml_path: str | None = None,
 ) -> tuple[str, ...]:
-	"""Build one bounded, exact-script-selected GUT command."""
+	"""构建一条有界的 GUT 命令，逐项指定选中的脚本。"""
 
 	base = _validate_argv(base_command, "base command")
 	if any(
@@ -251,8 +250,7 @@ def build_gut_shard_argv(
 		f"-gpost_run_script={post_run}",
 	]
 	for script in normalized_scripts:
-		# The vendored GUT optparse consumes this as two argv tokens.  Repeating the
-		# option preserves exact script identity without comma-separated ambiguity.
+		# 随仓库分发的 GUT optparse 将选项和值作为两个 argv 项。重复选项保留精确脚本名，避免逗号造成歧义。
 		result.extend(("-gtest", script))
 	if junit_xml_path is not None:
 		result.append(f"-gjunit_xml_file={_validate_junit_path(junit_xml_path)}")
@@ -261,6 +259,7 @@ def build_gut_shard_argv(
 
 
 def validate_request(value: Any) -> dict[str, Any]:
+	"""校验父进程提交的完整分片请求，协议字段或输入身份不符合要求时抛出 GutShardWorkerError。"""
 	if type(value) is not dict or set(value) != REQUEST_KEYS:
 		raise GutShardWorkerError("worker_request_schema_invalid", "Request fields do not match the closed schema.")
 	request = dict(value)
@@ -416,7 +415,7 @@ def run_worker(
 	cancellation_event: threading.Event | None = None,
 	expected_workspace_identity: tuple[int, int, int] | None = None,
 ) -> dict[str, Any]:
-	"""Execute import then one selected GUT command and return a closed report."""
+	"""先导入工程再执行一次指定 GUT 命令，按协议返回完整报告。"""
 	if not isinstance(process_authority, FrozenProcessAuthority):
 		raise TypeError("GUT shard worker requires one frozen process authority.")
 	duration_started = time.perf_counter()
@@ -476,9 +475,7 @@ def run_worker(
 			process_environment=process_authority.environment,
 			observation_nonce=normalized["nonce"],
 		)
-		# _private_environment owns rollback until it returns.  Track the root here
-		# only after construction succeeded, avoiding a second unowned cleanup on a
-		# partially-created-root failure.
+		# _private_environment 返回前自行负责回滚。只有构造成功后才在此登记目录，避免两方同时清理半成品。
 		private_environment_identity = private_environment_root.lstat()
 		managed_log_root = _create_real_directory_chain(
 			workspace,
@@ -603,11 +600,8 @@ def run_worker(
 			or report["process_boundary_quiescent"] is not True
 			or report["lifecycle_ok"] is not True
 		)
-		# A non-zero GUT exit may still have published complete, useful failure
-		# evidence.  Consume it only after positive process-boundary proof and
-		# never let a missing/invalid diagnostic pair replace worker_gut_failed as
-		# the primary result.  Ownership, cancellation, and deadline failures are
-		# deliberately outside that diagnostic-only suppression.
+		# GUT 非零退出也可能产生完整失败证据。确认进程树静止后才读诊断，
+		# 诊断缺失或无效须保留 worker_gut_failed 为主因。所有权、取消和超时错误仍须传播。
 		if report["process_boundary_quiescent"] is True:
 			_check_worker_cancelled(cancellation_event, "junit")
 			_assert_workspace_identity(workspace, workspace_identity)
@@ -735,11 +729,10 @@ def run_worker(
 
 
 def validate_report(value: Any) -> dict[str, Any]:
-	"""Validate one closed report and return a deeply detached mapping."""
+	"""验证报告的完整结构并返回独立的深层副本。"""
 
 	validate_report_shape(value)
-	# Canonical JSON is already required by the schema.  A round trip guarantees
-	# no mutable request/JUnit/issue object remains shared with an untrusted caller.
+	# 协议要求可序列化的规范 JSON。往返转换切断请求、JUnit 及问题列表与调用方的可变引用。
 	detached = json.loads(canonical_json_bytes(value).decode("utf-8"))
 	if type(detached) is not dict:  # pragma: no cover - guarded by validation
 		raise GutShardWorkerError(
@@ -751,6 +744,7 @@ def validate_report(value: Any) -> dict[str, Any]:
 
 
 def validate_report_shape(report: Mapping[str, Any]) -> None:
+	"""检查报告字段和结构；执行结果与调用方输入的对应关系由外层校验。"""
 	if type(report) is not dict or set(report) != REPORT_KEYS:
 		raise GutShardWorkerError("worker_report_schema_invalid", "Report fields do not match the closed schema.", "report")
 	if (
@@ -1014,7 +1008,7 @@ def _validate_report_junit(report: Mapping[str, Any]) -> None:
 
 
 def _derive_continuation_safe(report: Mapping[str, Any]) -> bool:
-	"""Derive whether another shard may start from closed worker evidence only."""
+	"""仅从完整工作进程报告推导是否可以安全启动下一分片。"""
 
 	if report.get("ok") is True:
 		return True
@@ -1115,7 +1109,7 @@ def _run_authoritative_phase(
 	expected_log_root_identity: tuple[int, int, int],
 	cancellation_event: threading.Event | None = None,
 ) -> tuple[Any, dict[str, Any], dict[str, Any] | None]:
-	"""Run one owned process and reuse the maintenance authority evaluator."""
+	"""执行本次拥有的单个进程，复用维护入口对结果的判定。"""
 	effective_command = list(command)
 	maintenance: Any = None
 	_assert_workspace_identity(workspace, expected_workspace_identity)
@@ -1166,9 +1160,7 @@ def _run_authoritative_phase(
 		max_stderr_characters=MAX_CAPTURE_CHARACTERS,
 		cancellation_event=cancellation_event,
 	)
-	# Do not inspect logs, lifecycle markers, or any other filesystem evidence
-	# until the supervisor has positively proved the owned process boundary quiet.
-	# A descendant may still be writing those files when this proof is absent.
+	# 等监督器确认整个进程树已停止后再读取日志、生命周期标记与其他文件，否则后代进程可能仍在写入。
 	if not _process_boundary_quiescent(result):
 		return result, {
 			"ok": False,
@@ -1297,7 +1289,7 @@ def _run_authoritative_phase(
 
 
 def _parse_lifecycle_for_test(result: Any) -> dict[str, Any] | None:
-	"""Test seam only; the production path consumes completed_command_result."""
+	"""只供测试解析生命周期输出，正式运行使用 completed_command_result。"""
 	try:
 		import gf_maintenance
 		return gf_maintenance.parse_gut_lifecycle_gate_output(
@@ -1312,7 +1304,7 @@ def _owned_command_log_path(
 	command: tuple[str, ...] | list[str],
 	owned_log_root: Path,
 ) -> Path:
-	"""Require exactly one fresh .log output directly below the owned root."""
+	"""要求本次拥有的根目录下直接产生唯一的新 .log 文件。"""
 	paths: list[str] = []
 	for index, argument in enumerate(command):
 		if argument == "--log-file":
@@ -1350,7 +1342,7 @@ def _control_gut_command(
 	junit_path: Path,
 	owned_log_root: Path,
 ) -> tuple[str, ...]:
-	"""Preserve the authoritative G0.1 directory-selection semantics."""
+	"""为对照运行保留原始 GUT 目录选择语义。"""
 	try:
 		import gf_maintenance
 		base = gf_maintenance.gut_shard_observation_command(
@@ -1364,9 +1356,8 @@ def _control_gut_command(
 			"The authoritative control GUT command is unavailable.",
 			"gut",
 		) from error
-	# The helper's canonical definition is module-rooted.  A same-process worker
-	# executes in a separate materialization, so bind only the invocation-owned log
-	# destination to that workspace while retaining all other authoritative argv.
+	# 命令的权威定义位于模块根目录。同进程分片在独立工作区运行，只把本次拥有的日志路径绑定到该工作区，
+	# 其他参数沿用原值。
 	try:
 		log_index = base.index("--log-file") + 1
 	except ValueError as error:
@@ -1407,7 +1398,7 @@ def _parse_published_junit_observation(
 	expected_scripts: tuple[str, ...],
 	invocation_chain: tuple[tuple[Path, tuple[int, int, int]], ...],
 ) -> dict[str, Any]:
-	"""Consume the exact producer pair only after its directory chain is quiet."""
+	"""在目录链确认静止后读取同一生产者发布的 JUnit 与配套记录。"""
 	_assert_managed_directory_chain(invocation_chain)
 	try:
 		junit_identity = gf_gut_sharding.stable_file_identity(junit_path.lstat())
@@ -1484,8 +1475,7 @@ def _validate_workspace_binding(
 		)["fingerprint"]
 	except (ImportError, KeyError, OSError, ValueError) as error:
 		fingerprint_error = error
-	# The publication token is the only workspace identity authority.  Recheck it
-	# even when fingerprinting failed, and never replace it with a later lstat.
+	# 只有发布时取得的令牌能标识工作区。即使指纹计算失败也须复核令牌，不能用之后的 lstat 代替。
 	_assert_workspace_identity(workspace, expected_workspace_identity)
 	if fingerprint_error is not None:
 		raise GutShardWorkerError(
@@ -1562,7 +1552,7 @@ def _discover_inventory_with_deadline(
 	workspace: Path,
 	deadline: float,
 ) -> tuple[str, ...]:
-	"""Reuse G0 inventory rules under the stricter worker-local deadline."""
+	"""按现有 GUT 清单规则发现脚本，同时受工作进程更严格的截止时间约束。"""
 	return gf_gut_sharding.discover_gut_test_scripts(
 		workspace,
 		deadline=deadline,
@@ -1641,7 +1631,7 @@ def _create_real_directory_chain(
 	root: Path,
 	relative_path: Path,
 ) -> Path:
-	"""Create a bounded relative directory chain without traversing aliases."""
+	"""在预算范围内创建相对目录链，逐级确认路径不穿过别名。"""
 	root = _validate_real_directory(root, "managed directory root")
 	if relative_path.is_absolute() or not relative_path.parts:
 		raise GutShardWorkerError(
@@ -1779,10 +1769,8 @@ def _private_environment(
 			remove_owned_environment_value(environment, name)
 		private_values: dict[str, str]
 		if os.name == "nt":
-			# Godot appends ``Godot/app_userdata/<project>`` to APPDATA.  Point it
-			# at the already-owned root instead of adding another directory name;
-			# deep Storage transaction paths must remain below legacy MAX_PATH on
-			# Windows hosts where long-path support is disabled.
+			# Godot 会在 APPDATA 下追加 Godot/app_userdata/<project>。直接复用已有的私有根，
+			# 避免深层 Storage 事务路径超过 Windows MAX_PATH。
 			private_values = {
 				"APPDATA": str(root),
 				"LOCALAPPDATA": str(directories["localappdata"]),
@@ -1818,19 +1806,15 @@ def _private_environment(
 
 
 def _private_environment_root_path(workspace: Path, nonce: str) -> Path:
-	"""Return the short, invocation-owned sibling used for platform state."""
+	"""返回本次调用保存平台状态所用的短同级目录。"""
 	if not _is_sha256(nonce):
 		raise GutShardWorkerError(
 			"worker_request_nonce_invalid",
 			"Observation nonce must be exactly 64 lowercase hexadecimal characters.",
 		)
-	# Production materialization names candidate parents 0..8 (and the control
-	# parent c) with at-most-two concurrent workspaces s0/s1.  The matching 0/1
-	# sibling is collision-free inside that fresh owned parent and avoids
-	# repeating a 64-character nonce in every user:// path.  Keeping the private
-	# root inside workspace.parent is important: that is the narrowest parent
-	# scope granted by the request; the worker must not infer authority over a
-	# lexical grandparent.
+	# 候选批次以 0 至 8 命名，对照批次用 c，每批至多两个并发工作区 s0/s1。
+	# 在新建且归本次所有的父目录中使用 0/1 作为同级目录，避免每条 user:// 路径重复 64 字符随机值。
+	# 请求授权的范围到 workspace.parent 为止。
 	parent_name = workspace.parent.name
 	if (
 		workspace.name in {"s0", "s1"}
@@ -1839,9 +1823,7 @@ def _private_environment_root_path(workspace: Path, nonce: str) -> Path:
 		return workspace.parent / workspace.name[1]
 	if parent_name == "c" and workspace.name == "s0":
 		return workspace.parent / "0"
-	# Direct test/API callers with another workspace layout retain a bounded
-	# nonce-derived sibling fallback; exist_ok=False remains the final fail-closed
-	# collision guard in every layout.
+	# 其他布局使用由随机值导出的有界同级目录名。创建目录时仍要求不存在，以便发现名称冲突。
 	return (
 		workspace.parent
 		/ f".gfe-{nonce[:PRIVATE_ENVIRONMENT_FALLBACK_NONCE_CHARACTERS]}"
@@ -1864,7 +1846,7 @@ def _remove_private_environment_root(
 	root: Path,
 	expected_identity: os.stat_result | None,
 ) -> str:
-	"""Remove only the exact sibling tree created by this invocation."""
+	"""仅移除本次调用实际创建且身份匹配的同级目录树。"""
 	if expected_identity is None:
 		return "private environment ownership was not recorded"
 	try:
@@ -1891,7 +1873,7 @@ def _require_remaining_budget(
 	required: float,
 	phase: str,
 ) -> None:
-	"""Refuse to start a phase unless every later policy floor still fits."""
+	"""只有剩余预算仍能覆盖后续各阶段的最低时限时才允许启动。"""
 
 	remaining = deadline - time.monotonic()
 	if not math.isfinite(remaining) or remaining < required:
@@ -1934,7 +1916,7 @@ def _final_report_duration_seconds(
 	report: Mapping[str, Any],
 	duration_started: float,
 ) -> float:
-	"""Cover both phase durations even when the wall timer has coarser precision."""
+	"""总耗时至少覆盖两个阶段，容纳外层计时器精度较低的情况。"""
 	wall_duration = time.perf_counter() - duration_started
 	if not math.isfinite(wall_duration) or wall_duration < 0.0:
 		wall_duration = 0.0
@@ -2020,7 +2002,7 @@ def _same_file_token(
 	handle_after: os.stat_result,
 	path_after: os.stat_result,
 ) -> bool:
-	"""Detect drift without assuming Windows path/handle timestamp parity."""
+	"""识别文件身份变化，同时容纳 Windows 路径和句柄时间戳的差异。"""
 	return (
 		_stable_metadata_token(path_before) == _stable_metadata_token(path_after)
 		and _stable_metadata_token(handle_before) == _stable_metadata_token(handle_after)

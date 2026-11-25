@@ -1,4 +1,4 @@
-"""Provision the compiler and verified Windows editor/templates used to qualify GF release ZIPs."""
+"""为 Windows CI 安装固定版本的 Rust、Godot 编辑器和经过摘要校验的导出模板。"""
 import hashlib
 import os
 from pathlib import Path
@@ -15,6 +15,7 @@ TEMPLATES_SHA256 = "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea24
 
 
 def download(directory: Path, filename: str, expected: str) -> Path:
+    """下载固定版本的 Godot 产物并校验 SHA-256，摘要不符时抛出 ValueError。"""
     path = directory / filename
     url = f"https://github.com/godotengine/godot-builds/releases/download/{VERSION}/{filename}"
     subprocess.run(["curl.exe" if os.name == "nt" else "curl", "--fail", "--silent", "--show-error", "--location", "--retry", "3",
@@ -26,11 +27,13 @@ def download(directory: Path, filename: str, expected: str) -> Path:
 
 
 def extract(archive: zipfile.ZipFile, member: str, target: Path) -> None:
+    """将归档中的一个已选成员按字节写入目标文件，目标目录由调用方准备。"""
     with archive.open(member) as source, target.open("wb") as output:
         shutil.copyfileobj(source, output)
 
 
 def main() -> None:
+    """安装 Windows 原生验收所需的工具链、编辑器和模板，并向后续 CI 步骤公布编辑器路径。"""
     root = Path(__file__).resolve().parents[2]
     toolchain = tomllib.loads((root / "native/gf_native/rust-toolchain.toml").read_text(encoding="utf-8"))["toolchain"]
     subprocess.run(["rustup", "toolchain", "install", toolchain["channel"], "--profile", toolchain["profile"],

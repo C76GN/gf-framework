@@ -1,4 +1,4 @@
-"""Assemble and verify the installable GF Windows archives without rebuilding their inputs."""
+"""从已构建的 DLL 和给定的便携包组装 Windows 原生发布归档，并校验实际交付字节。"""
 from __future__ import annotations
 
 import hashlib
@@ -24,14 +24,16 @@ MAX_NATIVE_FILE = 64 * 1024 * 1024
 
 
 def native_inputs() -> list[Path]:
+    """返回决定原生源码身份的文件，按相对 crate 的 POSIX 路径排序。"""
     paths = [*(CRATE / name for name in (
         'Cargo.toml', 'Cargo.lock', 'build.rs', '.cargo/config.toml', 'rust-toolchain.toml', LOADER, 'THIRD_PARTY_NOTICES.txt',
     )), *CRATE.glob('src/**/*.rs')]
-    # Windows and POSIX path objects order mixed-case names differently.
+    # Windows 与 POSIX 对大小写混合的路径排序不同，使用同一种文本顺序计算摘要。
     return sorted(paths, key=lambda path: path.relative_to(CRATE).as_posix())
 
 
 def native_source_digest() -> str:
+    """把路径名和内容一同计入源码摘要，使移动或修改文件都能被发现。"""
     digest = hashlib.sha256()
     digest.update(b'../../LICENSE.md\0' + hashlib.sha256(read_package_source_bytes(ROOT / 'LICENSE.md')).digest())
     for path in native_inputs():
@@ -41,6 +43,7 @@ def native_source_digest() -> str:
 
 
 def notice_bytes() -> bytes:
+    """从仓库许可证及固定依赖信息构造随库交付的声明字节。"""
     notices = read_package_source_bytes(CRATE / 'THIRD_PARTY_NOTICES.txt')
     packages = tomllib.loads(read_package_source_bytes(CRATE / 'Cargo.lock').decode())['package']
     sources = {f'https://static.crates.io/crates/{p["name"]}/{p["name"]}-{p["version"]}.crate'
@@ -52,7 +55,7 @@ def notice_bytes() -> bytes:
 
 
 def descriptor(features: set[str]) -> bytes:
-    """Select only libraries actually installed with this copy of the addon."""
+    """仅为本次安装包实际包含的原生库生成 Godot 加载条目。"""
     template = read_package_source_bytes(CRATE / LOADER).decode()
     config, libraries = template.split('[libraries]\n')
     mappings, windows_dependencies = libraries.split('\n[dependencies]\n')
@@ -66,6 +69,7 @@ def descriptor(features: set[str]) -> bytes:
 
 
 def check_dll(data: bytes) -> None:
+    """核对 DLL 的文件头与 x86-64 目标，不符合 Windows 分发要求时抛出 ValueError。"""
     if len(data) < 64 or data[:2] != b'MZ':
         raise ValueError('Expected a Windows x86_64 DLL.')
     offset = struct.unpack_from('<I', data, 60)[0]
@@ -84,6 +88,7 @@ def build_metadata(version: str, revision: str, contents: dict[str, bytes]) -> b
 
 
 def write_entry(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
+    """用分发约定的 ZIP 元数据写入给定名称和原始字节。"""
     info = zipfile.ZipInfo(name, ZIP_TIMESTAMP)
     info.compress_type = zipfile.ZIP_DEFLATED
     info.external_attr = 0o644 << 16
@@ -92,6 +97,7 @@ def write_entry(archive: zipfile.ZipFile, name: str, data: bytes) -> None:
 
 def assemble(portable: Path, supplement: Path, bundle: Path, library: bytes,
              std_notices: bytes, version: str, revision: str) -> None:
+    """从现有便携归档、DLL 和许可证组装补充包与整包，沿用相同的原生载荷。"""
     check_dll(library)
     contents = {LOADER: descriptor({'windows.x86_64'}), DLL: library,
                 NOTICES: notice_bytes(), STD_NOTICES: std_notices}
@@ -99,7 +105,7 @@ def assemble(portable: Path, supplement: Path, bundle: Path, library: bytes,
     with zipfile.ZipFile(supplement, 'x') as archive:
         for name in sorted(contents):
             write_entry(archive, ADDON + name, contents[name])
-    # Preserve the portable archive's compressed entries and append the same overlay payload.
+    # 保留便携归档已有条目的压缩字节，再追加同一份原生补充内容。
     shutil.copyfile(portable, bundle)
     with zipfile.ZipFile(bundle, 'a') as archive:
         for name in sorted(contents):
@@ -107,6 +113,7 @@ def assemble(portable: Path, supplement: Path, bundle: Path, library: bytes,
 
 
 def verify(portable: Path, supplement: Path, bundle: Path, version: str, revision: str) -> None:
+    """核对便携版、补充包和整包之间的成员、元数据及载荷一致性，差异以 ValueError 报告。"""
     with (zipfile.ZipFile(portable) as base, zipfile.ZipFile(supplement) as extra,
           zipfile.ZipFile(bundle) as complete):
         native_names = {ADDON + name for name in (LOADER, DLL, NOTICES, STD_NOTICES, METADATA)}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared strict Markdown parsing for the current GF changelog."""
+"""把当前更新日志解析成保留源码行位置的版本、分类和条目，供发布工具共用。"""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ LIST_PREFIX_RE = re.compile(
 
 @dataclass(frozen=True)
 class VisibleMarkdownLine:
-	"""One source line outside fenced/indented code and HTML comments."""
+	"""表示围栏、缩进代码和 HTML 注释之外的一行原始文档。"""
 
 	offset: int
 	line_number: int
@@ -62,7 +62,7 @@ class VisibleMarkdownLine:
 
 @dataclass(frozen=True)
 class MarkdownHeading:
-	"""One visible ATX or Setext heading with its source position."""
+	"""记录可见 ATX 或 Setext 标题及其源码位置。"""
 
 	level: int
 	text: str
@@ -73,10 +73,9 @@ class MarkdownHeading:
 
 
 def visible_markdown_lines(text: str) -> list[VisibleMarkdownLine]:
-	"""Return source-preserving lines that can contribute visible Markdown.
+	"""返回可能贡献可见 Markdown 的源码行，并保留其位置。
 
-	Block syntax is recognized only from the original source line. HTML comment
-	removal never splices tokens into a new fence or heading.
+	块语法只按原始行识别，移去 HTML 注释后不会拼接两侧 token 生成新的围栏或标题。
 	"""
 
 	result: list[VisibleMarkdownLine] = []
@@ -127,7 +126,7 @@ def visible_markdown_lines(text: str) -> list[VisibleMarkdownLine]:
 
 
 def markdown_syntax_issues(text: str) -> list[str]:
-	"""Reject ambiguous syntax that the strict changelog grammar does not use."""
+	"""拒绝严格更新日志语法不接受的多义写法。"""
 
 	issues: list[str] = []
 	fence_character = ""
@@ -204,7 +203,7 @@ def markdown_syntax_issues(text: str) -> list[str]:
 
 
 def parse_markdown_headings(text: str) -> list[MarkdownHeading]:
-	"""Parse visible ATX and Setext headings without container coercion."""
+	"""从可见内容解析 ATX 和 Setext 标题，保留容器对标题的限制。"""
 
 	visible_lines = visible_markdown_lines(text)
 	by_offset = {line.offset: line for line in visible_lines}
@@ -259,7 +258,7 @@ def parse_markdown_headings(text: str) -> list[MarkdownHeading]:
 
 
 def parse_changelog_sections(text: str) -> list[dict[str, object]]:
-	"""Parse visible ``## [version]`` sections while preserving exact bodies."""
+	"""按可见的二级版本标题解析更新日志，完整保留各段原文。"""
 
 	source_lines = text.splitlines()
 	all_headings = parse_markdown_headings(text)
@@ -299,7 +298,7 @@ def strict_document_heading_issues(
 	text: str,
 	candidate_heading: str,
 ) -> list[str]:
-	"""Require the one supported top-level changelog document layout."""
+	"""检查更新日志是否满足约定的唯一顶层文档结构。"""
 
 	issues: list[str] = []
 	first_visible_line = first_visible_nonempty_source_line(text)
@@ -328,7 +327,7 @@ def strict_document_heading_issues(
 
 
 def first_visible_nonempty_source_line(text: str) -> VisibleMarkdownLine | None:
-	"""Return the first non-comment source line that renders block content."""
+	"""返回首个会渲染为块内容的非注释源行。"""
 
 	in_html_comment = False
 	for offset, raw_line in enumerate(text.splitlines()):
@@ -360,14 +359,14 @@ def first_visible_nonempty_source_line(text: str) -> VisibleMarkdownLine | None:
 
 
 def is_valid_opening_fence(match: re.Match[str]) -> bool:
-	"""Return whether a fence opener follows the CommonMark info-string rule."""
+	"""判断围栏开头是否符合 CommonMark 对信息字符串的规定。"""
 
 	marker = match.group("fence")
 	return marker[0] == "~" or "`" not in match.group("suffix")
 
 
 def is_indented_code(line: str) -> bool:
-	"""Return whether leading spaces/tabs reach a four-column Markdown indent."""
+	"""检查前导空格与制表符是否达到四列的 Markdown 代码缩进。"""
 
 	column = 0
 	for character in line:
@@ -383,7 +382,7 @@ def is_indented_code(line: str) -> bool:
 
 
 def strip_markdown_container_prefix(line: str) -> tuple[str, bool]:
-	"""Strip list/blockquote container markers without coercing their content."""
+	"""移除列表或引用容器标记，保留其正文原意。"""
 
 	remainder = line
 	has_container = False
@@ -402,13 +401,13 @@ def strip_markdown_container_prefix(line: str) -> tuple[str, bool]:
 
 
 def is_reference_definition(line: str) -> bool:
-	"""Return whether a source line is a non-rendered Markdown link definition."""
+	"""判断源码行是否为只定义链接且本身不渲染的引用定义。"""
 
 	return REFERENCE_DEFINITION_RE.fullmatch(line) is not None
 
 
 def is_thematic_break(line: str) -> bool:
-	"""Return whether one visible line is a CommonMark thematic break."""
+	"""判断可见行是否按 CommonMark 规则构成主题分隔线。"""
 
 	trimmed = line.lstrip(" ")
 	if len(line) - len(trimmed) > 3:
@@ -422,13 +421,13 @@ def is_thematic_break(line: str) -> bool:
 
 
 def has_readable_text(value: str) -> bool:
-	"""Require at least one rendered Unicode letter or number."""
+	"""要求渲染文本至少含有一个 Unicode 字母或数字。"""
 
 	return any(character.isalnum() for character in markdown_plain_text(value))
 
 
 def markdown_plain_text(value: str) -> str:
-	"""Return conservative reader-visible text for supported inline Markdown."""
+	"""从受支持的行内 Markdown 保守提取读者可见的文本。"""
 
 	plain_lines: list[str] = []
 	for raw_line in value.splitlines() or [value]:
@@ -542,7 +541,7 @@ def validate_document_layout(
 	candidate_heading: str,
 	path_label: str,
 ) -> list[str]:
-	"""Validate a reader-only changelog document and its exact top-level shape."""
+	"""校验面向读者的更新日志及其顶层结构。"""
 
 	issues = [
 		f"{path_label} {issue}"
@@ -562,7 +561,7 @@ def validate_formal_section(
 	*,
 	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
-	"""Validate one stable release candidate section."""
+	"""校验一个稳定版候选段落的版本及正文。"""
 
 	issues: list[str] = []
 	if not str(section["body"]).strip():
@@ -595,7 +594,7 @@ def validate_unreleased_section(
 	*,
 	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
-	"""Validate one development release candidate section."""
+	"""校验开发版本的未发布候选段落。"""
 
 	issues: list[str] = []
 	if str(section["heading"]) != "## [未发布]":
@@ -621,7 +620,7 @@ def validate_entry_structure(
 	*,
 	required_categories: tuple[str, ...] = (),
 ) -> list[str]:
-	"""Validate the reader-visible overview and ordered category bodies."""
+	"""核验读者可见的概述及按规定次序排列的分类正文。"""
 
 	body_text = str(section["body"])
 	body_lines = body_text.splitlines()

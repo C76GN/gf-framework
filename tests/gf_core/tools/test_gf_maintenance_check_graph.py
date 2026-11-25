@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for maintenance check-graph workspace fingerprinting."""
+"""验证维护检查图如何将工作区输入变化反映到指纹中。"""
 
 from __future__ import annotations
 

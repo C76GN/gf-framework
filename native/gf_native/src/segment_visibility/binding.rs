@@ -1,5 +1,5 @@
-//! The static method borrows immutable Variant arguments for one synchronous call.
-//! Only registration uses godot-rust's main-thread tables. Workers use Godot's C ABI.
+//! 在主线程解析 Godot 的 C ABI，工作线程通过静态方法同步借用只读 Variant。
+//! 每次调用独占其输出，读锁让已进入的工作线程在场景卸载前完成。
 use super::{GfSegmentVisibilityBackend, MAX_POINTS, MAX_SEGMENTS, Topology};
 use godot::builtin::{PackedInt32Array, PackedInt64Array, StringName, Variant};
 use godot::global::Error;
@@ -40,7 +40,7 @@ struct Abi {
     destroy: sys::GDExtensionInterfaceVariantDestroy,
 }
 
-// Only function pointers cross threads. A writer drains all active calls during scene teardown.
+// 在线程间共享的只有函数指针，场景卸载须取得写锁，因而会等待正在执行的调用。
 static ABI: SceneBinding<Abi> = SceneBinding(RwLock::new(None));
 
 struct SceneBinding<T>(RwLock<Option<T>>);
@@ -50,19 +50,21 @@ impl<T> SceneBinding<T> {
         *self.0.write().unwrap_or_else(|e| e.into_inner()) = binding;
     }
 
+    /// 持有读锁直到回调返回。绑定已撤回或尚未发布时返回 `None`。
     fn call<R>(&self, operation: impl FnOnce(&T) -> R) -> Option<R> {
         let active = self.0.read().unwrap_or_else(|e| e.into_inner());
         active.as_ref().map(operation)
     }
 }
 
+/// 在场景初始化时注册静态方法。缺少所需的内建方法时保留脚本回退路径。
 pub(crate) fn register() {
-    // SAFETY: The scene init hook runs on main after the internal class was registered.
+    // SAFETY: 此入口由主线程上的场景初始化回调调用，此时内部类已注册。
     let engine = unsafe { sys::on_main() };
     let size = StringName::from("size");
     let resize = StringName::from("resize");
+    // SAFETY: 两个 StringName 在查询期间存活，方法签名哈希来自 Godot 对应的 size() 和 resize(int)。
     let resolve = || unsafe {
-        // Godot extension_api hashes for int size() and int resize(int).
         Some(Abi {
             tag: engine.variant_get_type,
             int: (engine.variant_get_ptr_internal_getter)(INT)?,
@@ -122,7 +124,7 @@ pub(crate) fn register() {
         default_argument_count: 0,
         default_arguments: ptr::null_mut(),
     };
-    // SAFETY: ClassDB copies the descriptors before this call returns. VARARG selects varcall only.
+    // SAFETY: ClassDB 在返回前复制方法描述，局部参数表此时有效。VARARG 只走已注册的 varcall。
     unsafe {
         (engine.classdb_register_extension_class_method)(
             sys::get_library(),
@@ -132,12 +134,17 @@ pub(crate) fn register() {
     }
 }
 
+/// 等待所有已进入的调用离开后撤回 ABI，后续调用只能观察到未注册状态。
 pub(crate) fn unregister() {
     ABI.replace(None);
 }
 
-// SAFETY: Godot supplies live arguments and an initialized return Variant and call-error slot.
-// No argument pointer, result storage or instance is retained past this call.
+/// Godot 的静态 varcall 入口，成功时返回掩码列，计算失败时返回整数错误码。
+///
+/// # Safety
+///
+/// Godot 必须提供本次调用有效的参数数组、已初始化且独立的结果 Variant 和可写错误槽。
+/// 输入在回调返回前必须保持存活且只读。
 unsafe extern "C" fn call(
     _: *mut c_void,
     _: sys::GDExtensionClassInstancePtr,
@@ -146,9 +153,10 @@ unsafe extern "C" fn call(
     result: sys::GDExtensionVariantPtr,
     error: *mut sys::GDExtensionCallError,
 ) {
+    // SAFETY: 入口契约保证错误槽和参数有效，读锁使 ABI 在整个计算期间有效。
     let completed = ABI.call(|abi| unsafe {
         (*error).error = sys::GDEXTENSION_CALL_OK;
-        // Keep a live Variant in the result slot at every point where Rust code can unwind.
+        // 可能发生 unwind 的 Rust 计算期间，结果槽必须始终持有可销毁的 Variant。
         let compute = || {
             if argc != 4 {
                 return Err(Error::ERR_INVALID_PARAMETER);
@@ -163,18 +171,23 @@ unsafe extern "C" fn call(
         }
     });
     if completed.is_none() {
+        // SAFETY: 即使绑定已经撤回，Godot 提供的错误槽仍在本次回调内有效。
         unsafe { (*error).error = sys::GDEXTENSION_CALL_ERROR_INVALID_METHOD };
     }
 }
 
 impl Abi {
+    /// 校验参数和工作量，在独立的结果槽构造掩码列。
+    ///
+    /// # Safety
+    ///
+    /// 四个参数指针须指向计算期间存活、只读的 Variant，结果槽须已初始化且与输入不别名。
     unsafe fn compute(
         &self,
         args: &[sys::GDExtensionConstVariantPtr; 4],
         result: sys::GDExtensionVariantPtr,
     ) -> Result<(), Error> {
-        // SAFETY: Check exact types before using internal getters. Inputs stay live and
-        // read-only until the caller returns. Rust only sees bounded, non-null borrowed slices.
+        // SAFETY: 先校验四个 Variant 的实际类型，再借用其连续存储。调用期间输入只读，长度受预算约束。
         unsafe {
             for (&arg, expected) in args.iter().zip([I32_ARRAY, I32_ARRAY, I64_ARRAY, INT]) {
                 if (self.tag)(arg) != expected {
@@ -193,7 +206,7 @@ impl Abi {
             )
             .ok_or(Error::ERR_INVALID_PARAMETER)?;
 
-            // The result is distinct from every input. Construct only after all admission checks.
+            // 结果槽与输入独立，整批数据通过检查后才构造输出数组。
             let mut error = sys::GDExtensionCallError {
                 error: 0,
                 argument: 0,
@@ -228,8 +241,12 @@ impl Abi {
     }
 }
 
-// SAFETY: The caller keeps the matching packed Variant alive and immutable for 'a.
-// Godot's index-const returns its contiguous packed storage; index 0 is only valid if nonempty.
+/// 借用最多 `limit` 个元素，空列直接返回空切片。
+///
+/// # Safety
+///
+/// `base`、`size` 和 `read` 必须来自同一数组类型，元素布局与 `T` 一致。调用者保证数组的
+/// 连续存储在整个 `'a` 内存活且不可变，长度对应的字节数可由 `isize` 表示。
 unsafe fn column<'a, T>(
     base: sys::GDExtensionTypePtr,
     size: Builtin,
@@ -237,6 +254,7 @@ unsafe fn column<'a, T>(
     limit: usize,
 ) -> Result<&'a [T], Error> {
     let mut count = 0_i64;
+    // SAFETY: size 对应 base 的类型，无参数，count 提供对齐的 i64 结果槽。
     unsafe { size(base, ptr::null(), (&raw mut count).cast(), 0) };
     let count = usize::try_from(count).map_err(|_| Error::ERR_INVALID_PARAMETER)?;
     if count > limit {
@@ -245,10 +263,12 @@ unsafe fn column<'a, T>(
     if count == 0 {
         return Ok(&[]);
     }
+    // SAFETY: 已验证数组非空，索引零有效，read 对应同一存储类型。
     let first = unsafe { read(base, 0) };
     if first.is_null() {
         return Err(Error::ERR_INVALID_PARAMETER);
     }
+    // SAFETY: 首地址非空，数组长度已校验，类型对齐、连续性和 'a 的借用期限由入口契约保证。
     Ok(unsafe { std::slice::from_raw_parts(first, count) })
 }
 
@@ -284,8 +304,7 @@ mod tests {
                 })
             });
             active.recv().unwrap();
-            // The previous revision is now cancelled while holding the same call guard
-            // as the actual C callback. A second reader can still finish independently.
+            // 旧版本被取消时仍持有真实回调使用的读锁，第二次读取可以先完成，卸载则必须等待。
             let current_revision = 2;
             assert_eq!(binding.call(|input| input.pair_count), Some(10));
             assert!(matches!(

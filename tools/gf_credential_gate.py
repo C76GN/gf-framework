@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Scan only explicit GF release inputs and Git-tracked files for credentials."""
+"""按明确的发布输入或 Git 跟踪清单扫描凭据，以脱敏问题记录供发布工具判定。"""
 
 from __future__ import annotations
 
@@ -285,7 +285,7 @@ ASCII_METADATA_TRANSLATION = bytes(
 
 @dataclass(frozen=True)
 class GateLimits:
-	"""Hard input budgets for one credential-gate invocation."""
+	"""限定单次凭据扫描调用可接受的输入规模。"""
 
 	max_tracked_files: int = 100_000
 	max_source_file_bytes: int = 16 * 1024 * 1024
@@ -319,7 +319,7 @@ class GateLimits:
 
 
 class GateInputError(Exception):
-	"""An input failed a stable, non-secret-bearing validation rule."""
+	"""输入违反稳定的校验规则，错误信息可公开报告且不携带匹配值。"""
 
 	def __init__(self, rule_id: str) -> None:
 		super().__init__(rule_id)
@@ -327,7 +327,7 @@ class GateInputError(Exception):
 
 
 class IssueCollector:
-	"""Collect only schema-bounded, non-secret issue metadata."""
+	"""只收集符合报告结构和数量上限的脱敏问题元数据。"""
 
 	def __init__(self, limit: int) -> None:
 		self._limit = max(1, limit)
@@ -378,7 +378,7 @@ class IssueCollector:
 
 @dataclass
 class WorkBudget:
-	"""Invocation-global work counters shared across source and release scans."""
+	"""源码和发布产物扫描在一次调用中共享的工作量计数。"""
 
 	source_bytes: int = 0
 	text_bytes: int = 0
@@ -444,7 +444,7 @@ class WorkBudget:
 
 
 class _BudgetedBinaryReader:
-	"""Account every physical or logical read against one invocation budget."""
+	"""将每次物理或逻辑读取计入同一轮扫描预算。"""
 
 	def __init__(
 		self,
@@ -511,7 +511,7 @@ class _BudgetedBinaryReader:
 
 
 class _BudgetedBinaryWriter:
-	"""Preflight and account every snapshot write before bytes leave the process."""
+	"""快照字节写出进程前先核预算，并记录本次写入消耗。"""
 
 	def __init__(
 		self,
@@ -546,7 +546,7 @@ class _BudgetedBinaryWriter:
 
 @dataclass(frozen=True)
 class ReleaseEvidence:
-	"""Private release identity evidence; never include this object in reports."""
+	"""仅在调用内部持有的发布身份凭据，不可序列化进报告。"""
 
 	manifest_sha256: str
 	artifacts: tuple[tuple[str, int, str], ...]
@@ -554,7 +554,7 @@ class ReleaseEvidence:
 
 @dataclass(frozen=True)
 class _RegularFileBinding:
-	"""Private file identity and content binding held across a multi-step scan."""
+	"""在跨步骤扫描期间固定普通文件的身份与内容。"""
 
 	metadata: os.stat_result
 	parent_chain: tuple[tuple[Path, os.stat_result], ...]
@@ -563,7 +563,7 @@ class _RegularFileBinding:
 
 @dataclass(frozen=True)
 class _ScannablePath:
-	"""Keep validated policy semantics separate from the redacted report label."""
+	"""将参与策略判定的已校验路径与面向报告的脱敏标签分开保存。"""
 
 	policy_path: str
 	report_path: str
@@ -572,7 +572,7 @@ class _ScannablePath:
 
 @dataclass(frozen=True)
 class ZipPreflight:
-	"""Bounded EOCD facts that must agree with the parsed central directory."""
+	"""在解析后需与中央目录核对的有界 ZIP 结束记录。"""
 
 	entry_count: int
 	central_directory_bytes: int
@@ -583,7 +583,7 @@ class ZipPreflight:
 
 @dataclass(frozen=True)
 class ReleaseSnapshot:
-	"""Private materialized release snapshot shared by scanning and semantic audit."""
+	"""扫描与语义审计共用的私有发布快照。"""
 
 	manifest_path: Path
 	evidence: ReleaseEvidence
@@ -591,6 +591,7 @@ class ReleaseSnapshot:
 
 @dataclass
 class ScanStats:
+	"""分别统计跟踪文件、归档及其成员和解包量，供调用方区分扫描范围与实际读取量。"""
 	tracked_file_count: int = 0
 	artifact_count: int = 0
 	archive_count: int = 0
@@ -612,6 +613,7 @@ class ScanStats:
 
 
 def main() -> int:
+	"""按给定范围检查跟踪源码或发布产物，仅以脱敏结果呈现凭据问题。"""
 	configure_stdio()
 	parser = argparse.ArgumentParser(
 		description="Scan Git-tracked files and explicitly manifested release artifacts for credentials.",
@@ -676,6 +678,7 @@ def run_tracked_gate(
 	repo_root: Path = ROOT,
 	limits: GateLimits | None = None,
 ) -> dict[str, object]:
+	"""扫描当前仓库明确登记的跟踪文件，以脱敏的规则和位置信息报告命中。"""
 	try:
 		return scan_tracked_repository(repo_root, limits)
 	except gf_process_supervisor.SupervisedProcessCleanupError:
@@ -706,7 +709,7 @@ def run_release_gate_with_evidence(
 	artifact_manifest: Path,
 	limits: GateLimits | None = None,
 ) -> tuple[dict[str, object], ReleaseEvidence | None]:
-	"""Run the release gate and retain non-serializable identity evidence for a caller."""
+	"""执行发布扫描，并为调用方保留不进入序列化报告的身份凭据。"""
 	evidence: list[ReleaseEvidence] = []
 	try:
 		result = scan_release_manifest(
@@ -730,7 +733,7 @@ def release_audit_matches_evidence(
 	audit_result: dict[str, object],
 	evidence: ReleaseEvidence | None,
 ) -> bool:
-	"""Compare an artifact audit to private gate evidence without exposing digests."""
+	"""比较产物审计与私有扫描凭据，无需在报告中披露摘要。"""
 	if evidence is None:
 		return False
 	raw_artifacts = audit_result.get("artifacts")
@@ -760,7 +763,7 @@ def release_audit_matches_evidence(
 
 
 def release_snapshot_failure() -> dict[str, object]:
-	"""Return a stable report for cross-step release identity drift."""
+	"""为跨步骤的发布输入身份变化返回稳定的失败报告。"""
 	return _failure_result(
 		"release",
 		"credential_gate.release_snapshot_changed",
@@ -773,7 +776,7 @@ def materialized_release_snapshot(
 	manifest_path: Path,
 	limits: GateLimits | None = None,
 ) -> Iterator[tuple[ReleaseSnapshot | None, dict[str, object] | None]]:
-	"""Copy one explicit release set into a private bounded snapshot for all consumers."""
+	"""将显式指定的发布集合复制成私有、有界快照，供各检查共用。"""
 	active_limits = limits or GateLimits()
 	work_budget = WorkBudget()
 	temporary: tempfile.TemporaryDirectory[str] | None = None
@@ -1350,6 +1353,7 @@ def print_result(result: dict[str, object], as_json: bool) -> None:
 
 
 def issue_summary(raw_issue: dict[str, object]) -> str:
+	"""将凭据问题投影为可安全写入报告的字段，避免传递原始匹配内容。"""
 	raw_rule_id = raw_issue.get("rule_id")
 	rule_id = (
 		raw_rule_id
@@ -1367,7 +1371,7 @@ def issue_summary(raw_issue: dict[str, object]) -> str:
 
 
 def safe_path_label(raw_path: str, fallback: str) -> str:
-	"""Return a bounded relative path label with credential-shaped values removed."""
+	"""给出长度受限的相对路径标签，隐藏其中形似凭据的值。"""
 	return _safe_report_path(raw_path, fallback)
 
 
@@ -1456,7 +1460,7 @@ def _git_tracked_paths(
 
 
 def _credential_gate_process_authority(repo_root: Path) -> FrozenProcessAuthority:
-	"""Reuse an active authority or freeze ambient process state exactly once."""
+	"""沿用当前调用已绑定的进程环境，否则只在入口冻结一次。"""
 	active_authority = active_process_authority()
 	if active_authority is not None:
 		return active_authority
@@ -1473,7 +1477,7 @@ def _run_git_bounded_capture(
 	max_stdout_bytes: int,
 	max_stderr_bytes: int,
 ) -> tuple[int, bytes, bytes]:
-	"""Run one frozen Git command with bounded output and positive cleanup proof."""
+	"""用已冻结的配置执行一条 Git 命令，限制输出并确认进程已清理。"""
 	identity = git_process.command(arguments)
 	stdout_budget = max(0, max_stdout_bytes)
 	stderr_budget = max(0, max_stderr_bytes)
@@ -2025,7 +2029,7 @@ class _SnapshotTargetBinding:
 
 
 class _SnapshotRootBinding:
-	"""Pin a private snapshot root and create every target below pinned parents."""
+	"""固定私有快照根目录，在已固定身份的父目录内创建每个目标。"""
 
 	def __init__(self, snapshot_root: Path) -> None:
 		self.root = absolute_lexical_path(snapshot_root)
@@ -3230,7 +3234,7 @@ def _scan_zip_ascii_metadata(
 	*,
 	allow_suppression: bool,
 ) -> None:
-	"""Scan credential-shaped printable runs embedded in bounded ZIP metadata."""
+	"""在预算范围内扫描 ZIP 元数据中的连续可打印字符，寻找凭据形态。"""
 	if not payload or collector.exhausted:
 		return
 	work_budget.consume_text_bytes(len(payload), limits)

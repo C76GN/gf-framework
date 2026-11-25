@@ -1,4 +1,4 @@
-"""Fail-closed result/deadline regression tests for the optional native runner."""
+"""检验可选原生验收工具的报告、耗时证据与截止时间，防止将未完成的运行记为成功。"""
 import base64
 import hashlib
 import json

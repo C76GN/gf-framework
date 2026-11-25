@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate GF API Catalog XML and MkDocs API Reference pages."""
+"""从同一份 GDScript 声明生成 XML API 目录与 MkDocs 参考页。"""
 
 from __future__ import annotations
 
@@ -99,6 +99,7 @@ MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]\n]*\]\(([^)\n]+)\)")
 MARKDOWN_FENCE_PATTERN = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 EXPLICIT_ANCHOR_PATTERN = re.compile(r'<a\s+id="([^"]+)"\s*></a>')
 def main(argv: list[str] | None = None) -> int:
+	"""从当前声明渲染 API 目录和参考页，检查模式比对磁盘差异，生成模式发布结果。"""
 	parser = argparse.ArgumentParser(description="Generate GF API Catalog XML and API Reference pages.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--catalog", default="docs/api_catalog", help="Generated XML catalog directory.")
@@ -177,14 +178,17 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def collect_api_classes(source_root: Path) -> list[ApiClass]:
+	"""从源码归集具名类型，供目录和 Markdown 使用相同的类型集合。"""
 	return api_classes_from_owners(collect_api_owner_model(source_root))
 
 
 def collect_api_owner_model(source_root: Path) -> list[ApiOwner]:
+	"""构建生成参考文档所需的类型与 AutoLoad 所有者模型。"""
 	return collect_resolved_api_owners(source_root, ROOT)
 
 
 def api_classes_from_owners(api_owners: list[ApiOwner]) -> list[ApiClass]:
+	"""从所有者记录提取具名类型，保留内部类的从属关系。"""
 	result: list[ApiClass] = []
 	for owner in class_owners(api_owners):
 		api_class = owner.to_api_class()
@@ -209,6 +213,7 @@ def render_catalog_files(
 	source_root: Path,
 	api_autoloads: list[ApiOwner] | None = None,
 ) -> dict[str, str]:
+	"""生成目录 XML 的相对路径与内容，以便检查和发布复用同一份渲染结果。"""
 	api_autoloads = api_autoloads or []
 	validate_api_model(api_classes)
 	validate_api_autoloads(api_classes, api_autoloads)
@@ -833,8 +838,7 @@ def append_inner_classes_markdown(lines: list[str], api_class: ApiClass, heading
 	class_heading_level = heading_level + 1
 	member_group_level = class_heading_level + 1
 	member_level = class_heading_level + 2
-	# Keep fully qualified inner owners at one heading depth; recursive Markdown
-	# headings would exceed H6 while the source model remains a recursive tree.
+	# 内部类使用完整限定名并保持同一标题层级，以免嵌套超过 Markdown 的六级标题限制。
 	sorted_inner_classes = sorted(flatten_api_classes(api_class.inner_classes), key=full_api_class_name)
 	lines.extend([
 		f"{'#' * heading_level} 内部类概览",
@@ -1010,14 +1014,17 @@ def append_tag_line(lines: list[str], label: str, value: str, code: bool = True)
 
 
 def module_label(module: str) -> str:
+	"""返回参考文档展示模块时使用的名称。"""
 	return MODULE_LABELS.get(module, module.replace("/", " / ").replace("_", " ").title())
 
 
 def module_slug(module: str) -> str:
+	"""返回模块参考页使用的路径名称。"""
 	return module.replace("/", "-").replace("_", "-")
 
 
 def class_reference_link(api_class: ApiClass, from_classes_dir: bool = False) -> str:
+	"""返回类型参考页的相对路径及限定名锚点，内部类链接到最外层类型的页面。"""
 	page = f"{top_level_class_name(api_class)}.md" if from_classes_dir else class_page_path(api_class)
 	return f"{page}#{anchor_for(full_api_class_name(api_class))}"
 
@@ -1107,7 +1114,7 @@ def anchor_for(title: str) -> str:
 
 
 def validate_api_model(api_classes: list[ApiClass]) -> None:
-	"""Reject owner/path/anchor identities that cannot be rendered uniquely."""
+	"""拒绝渲染后无法唯一区分的所有者、路径或锚点。"""
 	top_level_pages: dict[str, str] = {}
 	for api_class in api_classes:
 		page = f"classes/{api_class.name}.md"
@@ -1154,7 +1161,7 @@ def validate_api_autoloads(
 	api_classes: list[ApiClass],
 	api_autoloads: list[ApiOwner],
 ) -> None:
-	"""Reject AutoLoad identities that cannot coexist with class API owners."""
+	"""拒绝与具名类型所有者发生身份冲突的 AutoLoad。"""
 	owner_identities = {
 		portable_identity(full_api_class_name(api_class)): f"class:{full_api_class_name(api_class)}"
 		for api_class in flatten_api_classes(api_classes)
@@ -1496,7 +1503,7 @@ def api_class_members(api_class: ApiClass) -> list[ApiMember]:
 
 
 def validate_generated_reference_links(reference_files: dict[str, str]) -> list[str]:
-	"""Validate every local link and fragment in the in-memory generated tree."""
+	"""在写盘前核验生成树中的每个本地链接及片段。"""
 	errors: list[str] = []
 	anchors_by_file: dict[str, set[str]] = {}
 	for relative_path, text in sorted(reference_files.items()):

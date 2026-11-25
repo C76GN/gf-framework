@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a GF public API mention matrix with optional project-owned examples."""
+"""按 GF 公开 API 统计文档提及位置，可选纳入项目提供的用例。"""
 
 from __future__ import annotations
 
@@ -43,11 +43,12 @@ MEMBER_GROUPS = {
 
 
 class CoverageInputError(RuntimeError):
-	"""Report an incomplete or unsafe coverage evidence scan."""
+	"""覆盖证据扫描不安全或未能完整采集输入。"""
 
 
 @dataclass
 class CoverageReadBudget:
+	"""所有覆盖证据文件共用的计数器，分别限制目录项数、文件数和实际读取字节。"""
 	max_files: int = DEFAULT_MAX_INPUT_FILES
 	max_entries: int = DEFAULT_MAX_INPUT_ENTRIES
 	max_total_bytes: int = DEFAULT_MAX_TOTAL_BYTES
@@ -81,6 +82,7 @@ class CoverageReadBudget:
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""读取 API 目录及允许的示例来源，生成或核对公开 API 的文档提及矩阵。"""
 	parser = argparse.ArgumentParser(description="Generate GF API coverage planning matrix.")
 	parser.add_argument("--source", default="addons/gf", help="GDScript source root.")
 	parser.add_argument("--docs", default="docs/zh", help="Guide documentation root.")

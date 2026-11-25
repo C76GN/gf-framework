@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for the tracked-source and release credential gate."""
+"""用合成样本验证跟踪文件和发布产物的凭据扫描，以及报告对敏感值的处理。"""
 
 from __future__ import annotations
 

@@ -41,6 +41,7 @@ CONTRACT_VALIDATION_LIMITS = ValidationLimits()
 
 
 def contract_path(project_root: Path, relative_path: str = DEFAULT_CONTRACT_PATH) -> Path:
+	"""Resolve a project-relative intent contract path and reject linked path components."""
 	resolve_project_path(project_root, relative_path)
 	if project_path_has_link_component(project_root, relative_path):
 		raise ValueError("Project contract path crosses a symbolic link, junction, or reparse point.")
@@ -52,6 +53,7 @@ def initialize_contract(
 	project_root: Path,
 	relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Create a starter intent contract if absent, or validate the existing one and report created as false."""
 	path = contract_path(project_root, relative_path)
 	if path.exists():
 		result = load_contract(project_root, relative_path)
@@ -75,6 +77,7 @@ def load_contract(
 	project_root: Path,
 	relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Read the project intent contract and return its digest, validation issues, and status together."""
 	try:
 		path = contract_path(project_root, relative_path)
 	except ValueError as exc:
@@ -159,6 +162,7 @@ def load_contract(
 
 
 def validate_contract_data(data: dict[str, Any], project_root: Path) -> list[dict[str, str]]:
+	"""Return schema and semantic issues for a contract interpreted within the supplied project root."""
 	issues = [
 		_issue("error", str(item["code"]), str(item["path"]), str(item["message"]))
 		for item in validate_schema_file(data, SCHEMA_ROOT / "project_contract.schema.json", limits=CONTRACT_VALIDATION_LIMITS)

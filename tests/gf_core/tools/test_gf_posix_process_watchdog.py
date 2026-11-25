@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Linux real-process coverage for the public POSIX watchdog lease contract."""
+"""在 Linux 上启动真实的进程树，验证看门狗租约到期或父进程离开后的回收。"""
 
 from __future__ import annotations
 
@@ -173,6 +173,7 @@ def _read_proc_stat(pid: int) -> _ProcStat:
 
 
 def _capture_identity(pid: int) -> _ProcIdentity:
+	"""将测试进程号与 /proc 中的身份绑定，供后续核实该进程是否仍存活。"""
 	stat = _read_proc_stat(pid)
 	return _ProcIdentity(pid=pid, start_time_ticks=stat.start_time_ticks)
 
@@ -280,7 +281,7 @@ def _fd_snapshot() -> dict[int, str]:
 		try:
 			result[int(name)] = os.readlink(f"/proc/self/fd/{name}")
 		except FileNotFoundError:
-			# The descriptor used by os.listdir may already have closed.
+			# os.listdir 使用的文件描述符此时可能已关闭。
 			continue
 	return result
 
@@ -294,6 +295,7 @@ def _identity_safe_emergency_cleanup(
 	service: _ProcIdentity | None,
 	helper: _ProcIdentity | None,
 ) -> None:
+	"""在测试异常退出时按保存的进程身份清理，避免向复用的 PID 发送信号。"""
 	if service is not None:
 		stat = _matching_live_stat(service)
 		if stat is not None and stat.process_group_id == service.pid:

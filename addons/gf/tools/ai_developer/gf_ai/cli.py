@@ -18,19 +18,22 @@ MAX_FEEDBACK_INPUT_CHARS = 1024 * 1024
 
 
 class CLIArgumentError(ValueError):
-	"""Raised when argparse would otherwise emit non-JSON process output."""
+	"""Signal an argument error for the CLI to render in its structured result."""
 
 
 class CLIInteractionError(ValueError):
-	"""Raised when a destructive command has no interactive human terminal."""
+	"""Signal a failure to obtain the interactive confirmation required by a command."""
 
 
 class JSONArgumentParser(argparse.ArgumentParser):
+	"""将参数错误交给 CLI 的结构化错误出口，以便自动化调用方读取。"""
 	def error(self, message: str) -> None:
+		"""把 argparse 的用法错误转换为 CLIArgumentError。"""
 		raise CLIArgumentError(message)
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""Dispatch a project command and return its process exit status after emitting the result."""
 	_configure_stdio()
 	parser = _make_parser()
 	try:

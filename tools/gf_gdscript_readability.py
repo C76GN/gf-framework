@@ -187,7 +187,7 @@ _FATAL = {"source_encoding", "source_budget", "source_unreadable", "source_ident
 
 @dataclass(frozen=True)
 class Token:
-	"""One exact token; offsets are zero-based, line and column are one-based."""
+	"""一枚原始 token，源码偏移从 0 起算，行号和列号从 1 起算。"""
 
 	kind: str
 	value: str
@@ -201,7 +201,7 @@ class Token:
 
 @dataclass(frozen=True)
 class Group:
-	"""Balanced delimiter and its direct comma-delimited token spans."""
+	"""一对已闭合的定界符，以及由直接子层逗号划分的 token 区间。"""
 
 	open_index: int
 	close_index: int
@@ -212,7 +212,7 @@ class Group:
 
 @dataclass(frozen=True)
 class LexedSource:
-	"""Immutable lexical view, shared by checks and mechanical migrations."""
+	"""检查器与机械迁移共用的只读词法视图。"""
 
 	source: str
 	lines: tuple[str, ...]
@@ -224,7 +224,7 @@ class LexedSource:
 
 
 class _SourceAnalysis:
-	"""Own derived views only for one audit; close even when a rule raises."""
+	"""只在一次检查内持有派生视图，规则抛出异常时也要关闭。"""
 
 	def __init__(self) -> None:
 		self._views: dict[int, tuple[LexedSource, dict[tuple[str, tuple[int, ...]], Any]]] = {}
@@ -236,18 +236,18 @@ class _SourceAnalysis:
 		identity = id(view)
 		entry = self._views.get(identity)
 		if entry is None:
-			# Retain the identity owner until close, so an id cannot be reused.
+			# 持有产生身份标识的对象直到关闭，避免其 id 被另一个对象复用。
 			entry = view, {}
 			self._views[identity] = entry
 		values = entry[1]
 		if key not in values:
-			# None is a completed, fail-closed result; exceptions publish nothing.
+			# None 表示检查已结束且拒绝该输入。抛出异常时没有可发布的结果。
 			values[key] = build()
 		return values[key]
 
 	def close(self) -> None:
 		self._closed = True
-		# Views and matcher inputs may refer back to this invocation owner.
+		# 词法视图和匹配输入可能反向引用本次调用的所有者。
 		self._views.clear()
 
 
@@ -264,11 +264,9 @@ def _analysis_result(view: LexedSource, name: str, build: Callable[[], Any]) -> 
 
 @dataclass(frozen=True)
 class SimpleCallLayoutSpan:
-	"""One structurally simple call; token and source ranges are half-open.
+	"""描述一个结构简单的调用，token 和源码区间均为左闭右开。
 
-	The callee range ends before its opening parenthesis. The complete source
-	range includes any callee continuation and the closing parenthesis. Existing
-	grouping parentheses and an optional argument comma remain part of the span.
+	被调用项的区间截至左括号之前。完整范围包含被调用项的续行、分组括号、已有参数逗号及右括号。
 	"""
 
 	callee_start_index: int
@@ -285,12 +283,10 @@ class SimpleCallLayoutSpan:
 
 @dataclass(frozen=True)
 class DictionaryEntryLayoutSpan:
-	"""A dictionary field's key, separator and first value token.
+	"""记录字典字段的键、分隔符及值的首个 token。
 
-	Token and source ranges are half-open. The source range stops after the
-	first value token, so joining this header cannot flatten a call, container
-	or another expression within the value. Physical barriers remain observable
-	but must not be migrated or exempt the value's independent layout checks.
+	源码与 token 区间均左闭右开，范围止于首个值 token。合并字段头时保留值内的调用、容器和表达式。
+	局部的物理行障碍仍可观察，值自身的排版规则继续适用。
 	"""
 
 	dictionary_open_index: int
@@ -309,14 +305,11 @@ class DictionaryEntryLayoutSpan:
 
 @dataclass(frozen=True)
 class MultiArgumentCallLayoutSpan:
-	"""One call's argument region, independent of its receiver expression.
+	"""记录一次调用的参数区间，接收者表达式独立保留。
 
-	The source range includes only the call parentheses and their contents;
-	Argument token ranges are half-open and exclude their separator commas;
-	optional commas remain within the complete source range.
-	Exactly two atomic arguments use inline layout; other multiple-argument
-	calls use expanded layout. Barriers preserve physical structure, while existing
-	item, indentation and closing-delimiter checks still apply independently.
+	源码范围含调用括号及其内容。每个参数的 token 区间左闭右开且排除分隔逗号，完整范围则保留可选逗号。
+	仅两个原子参数使用同行形式，其他多参数调用展开。物理行障碍保护既有结构，元素、
+	缩进及闭合符规则仍分别生效。
 	"""
 
 	open_index: int
@@ -333,7 +326,7 @@ class MultiArgumentCallLayoutSpan:
 
 @dataclass(frozen=True)
 class AtomicGroupLayoutSpan:
-	"""A parenthesized atom, retaining every token in a half-open source range."""
+	"""括号中的原子表达式，保留左闭右开源码范围内的全部 token。"""
 
 	open_index: int
 	close_index: int
@@ -345,11 +338,10 @@ class AtomicGroupLayoutSpan:
 
 @dataclass(frozen=True)
 class SimpleStringLayoutSpan:
-	"""A complete literal-anchored string addition chain, retaining every token.
+	"""记录由实际字符串字面量标识的完整加法链，保留全部 token。
 
-	Source and token ranges are half-open. A complete grouped expression includes
-	all its parentheses; group_open_index names its outermost group, if present.
-	Consumers join only whitespace and preserve literal spelling and grouping.
+	源码和 token 区间左闭右开。已分组的完整表达式含其全部括号，group_open_index 指向最外层。
+	合行只改空白，保留字面量拼写及原有分组。
 	"""
 
 	start_index: int
@@ -363,11 +355,10 @@ class SimpleStringLayoutSpan:
 
 @dataclass(frozen=True)
 class SimpleFormatLayoutSpan:
-	"""One complete simple format expression, or its single-argument plain call.
+	"""记录完整的简单格式化表达式，或将其用作唯一参数的普通调用。
 
-	Token and source ranges are half-open. Context distinguishes an expression
-	from a whole call, including its callee and any existing argument comma.
-	Nested spans may overlap; joining whitespace never changes their tokens.
+	源码与 token 区间均左闭右开。完整调用还包含被调用项和已有逗号。内外范围可能重叠，
+	合并空白不改变其中的 token。
 	"""
 
 	start_index: int
@@ -381,12 +372,10 @@ class SimpleFormatLayoutSpan:
 
 @dataclass(frozen=True)
 class BooleanLayoutSpan:
-	"""A complete Boolean domain requiring expansion, including canonical source.
+	"""记录须展开的完整布尔表达式区域及对应的规范源码。
 
-	Ranges are half-open and retain all original tokens. Operators belong only to
-	this domain; calls, containers and ternary slots have independent domains.
-	The carrier is an existing delimiter. A proven statement cannot borrow its
-	enclosing lambda's call delimiter. Unsafe spans remain observable diagnostics.
+	区间左闭右开并保留全部原始 token。调用、容器与条件表达式的各部分独立拥有运算符。
+	续行使用已有的定界符，lambda 内独立语句不能借用外层调用括号。无法自动迁移的范围仍可产生诊断。
 	"""
 
 	start_index: int
@@ -407,12 +396,10 @@ class BooleanLayoutSpan:
 
 @dataclass(frozen=True)
 class ArgumentGroupLayoutSpan:
-	"""One redundant whole-argument group within an existing call.
+	"""记录现有调用中，完整包住某一参数的一层冗余括号。
 
-	Source ranges are half-open and include this layer's two parentheses. The
-	call index names the original parameter owner, including for inner layers
-	of a complete wrapper chain. Consumers may remove only these delimiters;
-	partial operand groups and every token inside them remain unchanged.
+	源码区间左闭右开且包含这一层左右括号。多层包装仍由原调用参数拥有。只可移除已经证明冗余的定界符，
+	局部操作数分组及括号内部 token 须保留。
 	"""
 
 	call_open_index: int
@@ -426,11 +413,10 @@ class ArgumentGroupLayoutSpan:
 
 @dataclass(frozen=True)
 class CallGroupLayoutSpan:
-	"""A complete assignment/return wrapper around one ordinary call.
+	"""记录完整包住普通调用的赋值右侧或返回值括号。
 
-	Source ranges are half-open and include this layer's parentheses. The call
-	and callee indexes identify retained tokens; removing a wrapper never removes
-	call delimiters or changes the left-hand side of the assignment.
+	区间左闭右开并包含本层括号。保留调用及被调用项的 token，
+	移除包装时不得改动赋值左侧或调用本身的定界符。
 	"""
 
 	context: str
@@ -446,11 +432,10 @@ class CallGroupLayoutSpan:
 
 @dataclass(frozen=True)
 class CastLayoutSpan:
-	"""A bounded cast suffix and the exact direct-call groups proven redundant.
+	"""记录有界类型转换后缀，以及直接调用外可证明冗余的分组。
 
-	Source/token ranges are half-open. Group open indexes name existing balanced
-	par_expr layers, never call delimiters. Attachment preserves every token;
-	group removal also requires semantic proof from the migration consumer.
+	源码和 token 区间左闭右开。分组起点指向已配对的表达式括号，排除调用定界符。
+	连接后缀保留全部 token，移除括号还需迁移方提供语义证明。
 	"""
 
 	start_index: int
@@ -482,13 +467,11 @@ def _issue(path: str, rule: str, line: int, column: int, message: str,
 
 
 def _template_view(path: str, source: str) -> tuple[str, list[int] | None]:
-	"""Instantiate the existing controlled template contract with an offset map.
+	"""按受控替换实例化模板并建立源码偏移映射。
 
-    The existing comment-contract helper uses these literal substitutions and
-    an enclosing function for the integration snippet. Layout does not require
-    that synthetic function; leaving the snippet unwrapped preserves positions.
-    No template content is removed or exempted from any formatting rule.
-    """
+	文档契约检查需要用函数包裹集成片段，排版只使用相同的字面替换。保留原有位置，
+	使全部模板内容都参与规则检查。
+	"""
 	replacements: dict[str, str] = {}
 	if path == "addons/gf/tools/config_pipeline/templates/read_config.gd.txt":
 		replacements = {
@@ -532,12 +515,12 @@ def _template_view(path: str, source: str) -> tuple[str, list[int] | None]:
 
 
 def render_template(path: str, source: str) -> str:
-	"""Return the controlled lexical instance, preserving every original line."""
+	"""按受控规则实例化模板用于词法分析，保留原始行对应关系。"""
 	return _template_view(path, source)[0]
 
 
 def lex_source(path: str, text: str) -> LexedSource:
-	"""Tokenize without executing source, preserving literals and comments."""
+	"""对源码做纯词法分析并保留字面量和注释，全程不执行源码。"""
 	issues: list[dict[str, Any]] = []
 	try:
 		encoded = text.encode("utf-8", errors="strict")
@@ -755,13 +738,10 @@ def _atomic_layout_inputs(view: LexedSource) -> tuple[dict[int, Group], tuple[in
 def _atomic_layout_matcher(view: LexedSource) -> tuple[
 	Callable[[int], bool], Callable[[int, int], int | None], Callable[[int, int], bool],
 ]:
-	"""Share bounded atom and physical-boundary matching across layout rules.
+	"""为多项排版规则共享有界的原子匹配及物理行边界判断。
 
-	Atoms are single-line literals, identifiers, member chains, empty containers,
-	or one unary operator over an atom. Parentheses may wrap the atom without
-	adding complexity. Calls, indexing and other expressions are not atoms.
-	Comments, explicit continuation markers and multiline literals preserve
-	physical structure. No column or name length participates in this decision.
+	单行字面量、标识符、成员链、空容器以及加一个一元运算符的原子均可匹配，外层括号不增加复杂度。
+	调用和索引另行处理。注释、显式续行、多行字面量的物理结构须保留。列宽与标识符长度不参与判定。
 	"""
 	tokens = view.tokens
 	group_by_open, comment_starts, barrier_prefix = _analysis_result(
@@ -829,7 +809,7 @@ def _atomic_layout_matcher(view: LexedSource) -> tuple[
 
 
 def atomic_group_layout_spans(view: LexedSource) -> tuple[AtomicGroupLayoutSpan, ...]:
-	"""Find groups containing one atom, preserving complex surrounding structure."""
+	"""找出只含一个原子表达式的括号组，保留其外层复杂结构。"""
 	if view.issues:
 		return ()
 	_identifier, atom_unary_count, barrier_free = _atomic_layout_matcher(view)
@@ -850,7 +830,7 @@ def atomic_group_layout_spans(view: LexedSource) -> tuple[AtomicGroupLayoutSpan,
 
 
 def simple_call_layout_spans(view: LexedSource) -> tuple[SimpleCallLayoutSpan, ...]:
-	"""Find zero/one-atom calls, retaining complex receivers and physical barriers."""
+	"""找出零参数或单原子参数的调用，保留复杂接收者与物理行边界。"""
 	if view.issues:
 		return ()
 	tokens = view.tokens
@@ -897,7 +877,7 @@ def simple_call_layout_spans(view: LexedSource) -> tuple[SimpleCallLayoutSpan, .
 
 
 def _entry_call_physical_barriers(view: LexedSource) -> Callable[[int, int], tuple[str, ...]]:
-	"""Index physical boundaries for the two structural entry/call rules only."""
+	"""仅对入口与调用的两项结构规则建立物理行边界索引。"""
 	tokens = view.tokens
 	comment_starts = tuple(comment.start for comment in view.comments)
 	continuations = [0]
@@ -923,12 +903,10 @@ def _entry_call_physical_barriers(view: LexedSource) -> Callable[[int, int], tup
 
 
 def dictionary_entry_layout_spans(view: LexedSource) -> tuple[DictionaryEntryLayoutSpan, ...]:
-	"""Find dictionary headers without flattening any value's child structure.
+	"""定位字典字段头，保留值中子表达式的原始结构。
 
-	Only a direct colon/equal sign separates the key and value. A complete
-	single-line dynamic key is eligible just like a literal key; nested groups
-	are skipped while finding that separator. A multiline key or a physical
-	barrier in the local header preserves its original layout.
+	只有当前层的冒号或等号分隔键值。扫描时跳过嵌套分组，完整的单行动态键与字面键同样处理。
+	多行键或字段头内的物理行障碍须保留排版。
 	"""
 	if view.issues:
 		return ()
@@ -967,12 +945,10 @@ def dictionary_entry_layout_spans(view: LexedSource) -> tuple[DictionaryEntryLay
 
 
 def multi_argument_call_layout_spans(view: LexedSource) -> tuple[MultiArgumentCallLayoutSpan, ...]:
-	"""Classify only a call's two-or-more direct arguments by structure.
+	"""按结构分类一次调用中至少两个直接参数。
 
-	The receiver is outside this rule's source range, so complex receivers are
-	retained. An adjacent dot and member name prove a member call even where the
-	shared lexer treats a keyword-shaped member as parameters or grouping.
-	Annotation and declaration parameter groups do not enter the call policy.
+	接收者位于本规则的范围之外。相邻的点和成员名可确认成员调用，即使成员拼写为关键字。
+	注解以及声明中的形参括号另行处理。
 	"""
 	if view.issues:
 		return ()
@@ -1006,24 +982,15 @@ def multi_argument_call_layout_spans(view: LexedSource) -> tuple[MultiArgumentCa
 
 
 def argument_group_layout_spans(view: LexedSource) -> tuple[ArgumentGroupLayoutSpan, ...]:
-	"""Find only complete multiline argument wrappers with no scope barriers.
+	"""定位可整体移除的多行参数包装，保留会影响作用域或物理结构的括号。
 
-	A call already supplies continuation delimiters for its arguments. Removing
-	an entire argument wrapper does not change its internal operator precedence.
-	Direct item boundaries are essential: a lambda body's independent statements
-	must never be mistaken for the enclosing call's complete argument. All layers
-	inherit barriers from the original full parameter, so a nested wrapper cannot
-	bypass a comment, lambda, cast or await elsewhere in that value. A complete
-	inner array or dictionary seals its own conditions; conditions in the current
-	expression, including inside a call or index, still preserve the wrapper.
-	An existing whole three-or-more-term Boolean argument group remains a valid
-	logic layer; a complex Boolean expression inside a child call/container does
-	not make its ordinary outer wrapper a Boolean continuation carrier.
+	外层调用已经提供续行定界符，完整参数的包装不会改变内部优先级。
+	依据直接元素边界排除 lambda 体内的独立语句。各层继承完整参数中的注释、lambda、转换和 await 限制。
+	完整的内部数组与字典封闭自身条件，当前表达式内的条件（包括调用及索引内的条件）仍保护包装。
+	至少三项的布尔实参分组保留为逻辑层，子调用或子容器里的复杂布尔表达式不会改变普通外包装的用途。
 
-	Prefix counts, one delimiter-stack pass and indexed group lookup avoid
-	rescanning candidate contents. A container blocks propagation only to its
-	parent, retaining each child's own condition flag for independent checks.
-	The wrapper walk is bounded by the lexer's existing delimiter depth limit.
+	用前缀计数、一次定界符栈遍历及分组索引避免反复扫描。容器只阻止标记传到父层，各子项仍可独立检查。
+	包装遍历受词法器既有的嵌套深度预算限制。
 	"""
 	if view.issues:
 		return ()
@@ -1093,7 +1060,7 @@ def argument_group_layout_spans(view: LexedSource) -> tuple[ArgumentGroupLayoutS
 
 
 def _independent_statement_starts(view: LexedSource) -> tuple[dict[int, int], set[int]]:
-	"""Reuse this exact view's statement proof without exposing mutable cache data."""
+	"""复用当前词法视图的语句起点判定，避免向调用方暴露可变缓存。"""
 	if view._analysis is None:
 		return _build_independent_statement_starts(view)
 	first_by_line, starts = _analysis_result(
@@ -1103,13 +1070,11 @@ def _independent_statement_starts(view: LexedSource) -> tuple[dict[int, int], se
 
 
 def _build_independent_statement_starts(view: LexedSource) -> tuple[dict[int, int], set[int]]:
-	"""Prove physical statement starts outside delimiters or in a lambda body.
+	"""识别定界符以外及 lambda 函数体内的独立语句起点。
 
-	An anonymous function's parameter owner and header colon establish its body
-	domain. Direct comma items keep sibling parameters separate; an indentation
-	stack restores the outer body after a nested lambda ends. A declaration's
-	parameter list or a container without such a body cannot create statements.
-	Each token and lambda stack entry is visited a bounded number of times.
+	通过匿名函数的参数归属和头部冒号定位函数体。直接逗号分隔同级参数，
+	缩进栈在嵌套 lambda 结束后恢复外层函数体。普通形参列表和容器本身不产生独立语句，
+	每个 token 和栈项的访问次数都有上限。
 	"""
 	tokens, groups = view.tokens, view.groups
 	by_open = {group.open_index: group for group in groups}
@@ -1179,8 +1144,7 @@ def _build_independent_statement_starts(view: LexedSource) -> tuple[dict[int, in
 		return None
 
 	def lambda_colon(parameters: Group) -> int | None:
-		# Read only this header's suffix. A missing colon must not scan another
-		# func header or a lambda body elsewhere on the same physical line.
+		# 只读取本声明头的后缀，缺少冒号时不能借用同一物理行上的其他函数头或 lambda 函数体。
 		cursor = header_cursor(parameters.close_index + 1, tokens[parameters.close_index].end_line)
 		if cursor is None:
 			return None
@@ -1231,12 +1195,10 @@ def _build_independent_statement_starts(view: LexedSource) -> tuple[dict[int, in
 
 
 def call_group_layout_spans(view: LexedSource) -> tuple[CallGroupLayoutSpan, ...]:
-	"""Find whole statement-value groups around an unchanged ordinary call.
+	"""定位完整包住赋值右侧或返回值中普通调用的括号。
 
-	Only complete assignment and return values qualify. Calls or operators after
-	the group, complex callees and all scope/physical barriers retain their groups.
-	Lambda bodies use proven independent statement starts, never a line prefix
-	inside a call, container or function parameter declaration by itself.
+	仅完整语句值可参与。若括号后跟有调用或运算符、被调用项复杂，或遇到作用域与物理行限制，
+	则保留原括号。lambda 函数体使用经验证的独立语句起点，不能仅凭行前缀将参数列表或容器内容视作语句。
 	"""
 	if view.issues:
 		return ()
@@ -1316,7 +1278,7 @@ def call_group_layout_spans(view: LexedSource) -> tuple[CallGroupLayoutSpan, ...
 			return True
 		next_token = tokens[end]
 		if next_token.value in {".", "[", "(", "+", "-", "*", "/", "%", "**", "<<", ">>", "&", "|", "^", "==", "!=", "<", ">", "<=", ">=", "and", "or", "is", "in", "as", "if", "else", "\\"}:
-			# A following block header is a new statement, not a conditional suffix.
+			# 后续代码块的头部已经开始一条新语句。
 			if not (
 				next_token.value in {"if", "else"}
 				and next_token.line > tokens[group.close_index].end_line
@@ -1382,12 +1344,10 @@ def call_group_layout_spans(view: LexedSource) -> tuple[CallGroupLayoutSpan, ...
 def _expression_layout_candidates(view: LexedSource, identifier: Callable[[int], bool]) -> tuple[
 	dict[int, Group], list[int | None], dict[str, dict[int | None, list[int]]], set[tuple[int, int]],
 ]:
-	"""Index direct operators and complete expression domains in bounded passes.
+	"""在有界遍历内索引直接运算符和完整表达式区域。
 
-	Only complete delimiter items, groups, defaults and proven statement values
-	qualify. Balanced-group jumps keep statement scanning outside nested values;
-	operator ownership prevents a child expression from supplying its parent's
-	operator. Matching rules still decide which complete domains are simple.
+	候选包括完整定界符元素、分组、默认值及已证实的语句值。跳过平衡分组以保持内外运算符归属，
+	由后续匹配规则判断完整区域是否简单。
 	"""
 	tokens, groups = view.tokens, view.groups
 	by_open = {group.open_index: group for group in groups}
@@ -1462,12 +1422,10 @@ def _expression_layout_candidates(view: LexedSource, identifier: Callable[[int],
 
 
 def _boolean_name_path_roles(view: LexedSource, statement_starts: set[int]) -> tuple[set[int], set[int]]:
-	"""Prove member/node names and node-reference markers independently of operators.
+	"""独立识别成员名、节点路径名和节点引用标记。
 
-	Path names may themselves be language keywords. Whitespace does not turn a
-	/NAME path component into a Boolean operator. This indexes syntactic roles;
-	it never promotes a receiver to an ordinary callee or changes other rules.
-	Each indexed path is consumed once.
+	节点名可以与关键字同名，斜杠路径段间的空白也不会把名称变成布尔运算符。每段路径只消费一次，
+	此步骤仅建立语法角色索引。
 	"""
 	tokens = view.tokens
 	names = {
@@ -1493,7 +1451,7 @@ def _boolean_name_path_roles(view: LexedSource, statement_starts: set[int]) -> t
 	}
 	for index, token in enumerate(tokens):
 		if token.kind == "string" and token.value.startswith(('$"', "$'")):
-			# The lexer folds the $ header into its opaque quoted path token.
+			# 词法器将 $ 前缀合并到带引号的路径 token 中。
 			path_tokens.add(index)
 			continue
 		if token.kind != "symbol" or token.value not in {"$", "%"} or index in path_tokens:
@@ -1548,12 +1506,12 @@ def _boolean_name_path_roles(view: LexedSource, statement_starts: set[int]) -> t
 
 
 def _boolean_name_roles(view: LexedSource, statement_starts: set[int]) -> set[int]:
-	"""Keep the established name-role API for Boolean scope consumers."""
+	"""为布尔作用域的调用方提供已确认属于名称的 token 位置。"""
 	return _boolean_name_path_roles(view, statement_starts)[0]
 
 
 def _boolean_group_kinds(view: LexedSource, names: set[int]) -> tuple[str, ...]:
-	"""Restore group owners using proven keyword-name roles in the scope view."""
+	"""依据作用域中已确认的关键字名称角色还原分组归属。"""
 	kinds: list[str] = []
 	for group in view.groups:
 		kind = group.kind
@@ -1571,7 +1529,7 @@ def _boolean_group_kinds(view: LexedSource, names: set[int]) -> tuple[str, ...]:
 def _boolean_scope_view(view: LexedSource) -> tuple[
 	LexedSource, LexedSource, dict[int, int], set[int], set[int], tuple[str, ...],
 ] | None:
-	"""Reuse the scope closure, keeping each consumer's mutable collections private."""
+	"""复用作用域闭包，每个调用方独立持有可变集合。"""
 	if view._analysis is None:
 		return _build_boolean_scope_view(view)
 	scope = _analysis_result(view, "boolean_scope", lambda: _build_boolean_scope_view(view))
@@ -1584,13 +1542,11 @@ def _boolean_scope_view(view: LexedSource) -> tuple[
 def _build_boolean_scope_view(view: LexedSource) -> tuple[
 	LexedSource, LexedSource, dict[int, int], set[int], set[int], tuple[str, ...],
 ] | None:
-	"""Close keyword roles over proven statements in at most two bounded passes.
+	"""在最多两轮有界遍历内，按已确认的语句确定关键字的角色。
 
-	A lambda value has the same header/item/indentation proof in an index as in
-	an array. Only the statement-proof lens presents indices as eligible arrays;
-	logical domains retain their actual index kind and never borrow its carrier
-	for body statements. This keeps body proof stable while names restore an
-	old array classification to an index. Raw groups and tokens remain untouched.
+	索引与数组内的 lambda 使用一致的头部、元素及缩进依据。只有确认语句起点时将索引视为可容纳该结构，
+	实际逻辑表达式仍保留索引身份。即便纠正了最初的数组分类，也不能把索引括号借给函数体。
+	原始分组和 token 保持完整。
 	"""
 	def lens(kinds: tuple[str, ...], statement_proof: bool = False) -> LexedSource:
 		groups = tuple(Group(
@@ -1617,17 +1573,15 @@ def _build_boolean_scope_view(view: LexedSource) -> tuple[
 
 
 def boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, ...]:
-	"""Return immutable Boolean spans, shared only inside the owning audit."""
+	"""返回只在本次检查中共享的不可变布尔表达式范围。"""
 	return _analysis_result(view, "boolean_spans", lambda: _build_boolean_layout_spans(view))
 
 
 def _build_boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, ...]:
-	"""Index complete three-or-more-term Boolean domains without flattening syntax.
+	"""索引至少三项的完整布尔表达式区域，保留原有语法层级。
 
-	Ordinary groups are transparent for term counting; calls, containers and
-	ternary slots are independent. Direct-owner indexes, delimiter jumps and the
-	existing depth budget bound the work. Physical barriers affect migration
-	safety, never whether a required layout remains visible to the checker.
+	普通分组可穿透计数，调用、容器和条件表达式各部分分别计数。直接归属索引、
+	定界符跳转与深度上限约束扫描成本。物理行障碍只限制可否自动迁移，检查器仍报告要求的排版。
 	"""
 	if view.issues or not view.tokens:
 		return ()
@@ -1658,9 +1612,8 @@ def _build_boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, .
 		else:
 			context = "return" if start > 0 and tokens[start - 1].value == "return" else "assignment"
 			domains[start, end] = context, None
-	# The shared simple-expression index intentionally recognizes only =/:=.
-	# Boolean domains also include complete compound RHSs and value statements;
-	# keep that extension local so String/format candidate sets remain unchanged.
+	# 共享索引只识别 = 和 :=。布尔规则额外检查复合赋值右侧和值语句，这项扩展限于本规则，
+	# 以保持字符串与格式化候选集稳定。
 	compound = {"+=", "-=", "*=", "/=", "%=", "**=", "<<=", ">>=", "&=", "|=", "^="}
 	non_values = _CONTROL | {
 		"func", "signal", "class", "class_name", "enum", "extends", "get", "set",
@@ -1814,8 +1767,7 @@ def _build_boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, .
 		owner = parents[inner_start]
 		function_indexes = within(functions.get(owner, []), inner_start, inner_end)
 		if function_indexes and function_indexes[0] == inner_start:
-			# A lambda is an operand, not a Boolean expression made of its body.
-			# Proven body statements and parameter defaults are separate candidates.
+			# lambda 整体是操作数，其函数体语句和参数默认值应分别检查。
 			return
 		carrier = wrappers[0] if wrappers else carrier
 		ifs = within(conditionals.get(owner, []), inner_start, inner_end)
@@ -1855,8 +1807,7 @@ def _build_boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, .
 		)))
 	for (start, end), (context, carrier) in sorted(domains.items(), key=lambda item: (item[0][0], -item[0][1])):
 		domain(start, end, context, carrier)
-	# Transparent nested groups are one Boolean domain, not duplicate issues.
-	# Opaque child scopes remain independently observable even inside a host span.
+	# 透明的嵌套分组共用一条布尔诊断，拥有独立语义的子作用域即使位于同一范围内也须单独观察。
 	covered: dict[int | None, int] = {}
 	spans: list[BooleanLayoutSpan] = []
 	for scope, span in sorted(observed, key=lambda item: (item[1].start_index, -item[1].end_index)):
@@ -1868,13 +1819,10 @@ def _build_boolean_layout_spans(view: LexedSource) -> tuple[BooleanLayoutSpan, .
 
 
 def simple_string_layout_spans(view: LexedSource) -> tuple[SimpleStringLayoutSpan, ...]:
-	"""Find complete flat + chains with a real String literal as a syntax anchor.
+	"""找出以真实 String 字面量为依据的完整平坦加法链。
 
-	Unknown variable types are not inferred, and numeric/non-String literals do
-	not qualify. Complete groups may be joined inside a more complex expression,
-	but ungrouped prefixes or suffixes of that expression never become candidates.
-	Delimiter-owner indexes, span caches and balanced-group jumps bound the work;
-	no candidate rescans the whole source or walks its ancestor chain.
+	不推断未知变量类型，数字或其他非字符串字面量不能作为依据。复杂表达式内的完整分组可单独合行，
+	未成组的前缀或后缀不可。借助定界符归属、范围缓存及分组跳转避免为每个候选重新遍历源码或祖先链。
 	"""
 	if view.issues:
 		return ()
@@ -1967,17 +1915,13 @@ def simple_string_layout_spans(view: LexedSource) -> tuple[SimpleStringLayoutSpa
 
 
 def simple_format_layout_spans(view: LexedSource) -> tuple[SimpleFormatLayoutSpan, ...]:
-	"""Find complete String % scalar expressions and their plain one-argument calls.
+	"""找出完整的字符串对标量格式化表达式，以及接收它的普通单参数调用。
 
-	The String anchor is an ordinary/raw literal on one physical line. Scalar
-	operands may retain atomic groups and one unary operator; containers, calls,
-	indexing and compound operators are not scalar atoms. Complete groups inside
-	complex expressions remain independent candidates. No ungrouped prefix or
-	suffix can become a candidate, and no name length determines the layout.
+	字符串须是单行普通或原始字面量。标量可保留原子分组及一个一元运算符，容器、调用、
+	索引或复合运算另行处理。复杂表达式内仅已闭合的分组可成为独立候选，名称长度不影响排版。
 
-	Direct-owner operator indexes and memoized group matching bound the work.
-	Whole-call spans may overlap expression spans so consumers can retain the
-	expression when a comment or complex receiver protects the surrounding call.
+	直接归属的运算符索引及带缓存的分组匹配约束扫描成本。整次调用与内部表达式可以重叠，
+	当注释或复杂接收者保护调用时，仍可单独处理表达式。
 	"""
 	if view.issues:
 		return ()
@@ -2001,8 +1945,7 @@ def simple_format_layout_spans(view: LexedSource) -> tuple[SimpleFormatLayoutSpa
 	def name(index: int) -> bool:
 		return identifier(index) and tokens[index].value not in {"true", "false", "null"}
 
-	# Lexical closure has already validated each explicit continuation. Index
-	# runs once so path headers, segments and binary-% context skip them in O(1).
+	# 显式续行已经词法校验。预建索引后，路径前缀、段和二元 % 均可在常数时间内跳过续行。
 	before_continuation: dict[int, int] = {}
 	after_continuation: dict[int, int] = {}
 	previous_real = -1
@@ -2018,9 +1961,8 @@ def simple_format_layout_spans(view: LexedSource) -> tuple[SimpleFormatLayoutSpa
 		else:
 			next_real = index
 
-	# $Node and primary %UniqueNode are get_node receivers, not plain name
-	# callees. Index their raw path bases once; a binary % after a complete
-	# operand still permits the independent ordinary call on its right.
+	# $Node 和作为主表达式的 %UniqueNode 都是 get_node 接收者，须单独索引原始路径。
+	# 二元 % 后的普通调用仍独立检查。
 	_first_by_line, statement_starts = _independent_statement_starts(view)
 	node_receiver_starts: set[int] = set()
 	for index, token in enumerate(tokens):
@@ -2035,9 +1977,8 @@ def simple_format_layout_spans(view: LexedSource) -> tuple[SimpleFormatLayoutSpa
 				):
 					continue
 		cursor = after_continuation.get(index + 1, index + 1)
-		# A primary shorthand header may contain whitespace around its leading
-		# slash. There is no left operand here; later segments retain raw spelling
-		# or their comments and line continuations, keeping plain division outside.
+		# 简写路径开头的斜杠可以带空白，此处没有左操作数。后续段保留其原拼写、注释和续行，
+		# 以便与普通除法区分。
 		if cursor < len(tokens) and tokens[cursor].value == "/":
 			cursor = after_continuation.get(cursor + 1, cursor + 1)
 		if cursor >= len(tokens) or not name(cursor):
@@ -2050,8 +1991,7 @@ def simple_format_layout_spans(view: LexedSource) -> tuple[SimpleFormatLayoutSpa
 			child = after_continuation.get(slash + 1, slash + 1)
 			if child >= len(tokens) or not name(child):
 				break
-			# Continuations and cross-line gaps (including line comments) protect
-			# this physical path segment. Plain same-line spacing stays division.
+			# 续行和跨行间隔（含行注释）保护此物理路径段，普通同行空白仍按除法解释。
 			if not (
 				slash > cursor + 1 or child > slash + 1
 				or tokens[cursor].end_line < tokens[slash].line
@@ -2164,7 +2104,7 @@ def simple_format_layout_spans(view: LexedSource) -> tuple[SimpleFormatLayoutSpa
 
 
 def _cast_type_reader(view: LexedSource) -> Callable[[int], int | None]:
-	"""Read only a nominal type or one native-supported typed collection layer."""
+	"""只读取具名类型或引擎支持的一层带类型容器。"""
 	tokens = view.tokens
 	groups = {group.open_index: group for group in view.groups}
 	cache: dict[int, int | None] = {}
@@ -2209,7 +2149,7 @@ def _cast_type_reader(view: LexedSource) -> Callable[[int], int | None]:
 
 
 def cast_layout_spans(view: LexedSource) -> tuple[CastLayoutSpan, ...]:
-	"""Find closed-operand casts without widening expression or lambda scope."""
+	"""寻找操作数已闭合的类型转换，保持原有表达式与 lambda 作用域。"""
 	if view.issues:
 		return ()
 	tokens, groups = view.tokens, view.groups
@@ -2314,12 +2254,10 @@ def _call_closing_suffix_allowed(
 	view: LexedSource, group: Group, read_cast_type: Callable[[int], int | None],
 	group_by_close: dict[int, Group], group_by_open: dict[int, Group],
 ) -> bool:
-	"""Recognize a finite expression suffix after an expanded value's close.
+	"""识别展开值闭合符之后可接受的有限表达式后缀。
 
-	This is a layout boundary proof, not a replacement language parser. Operator
-	suffixes need a possible expression operand, postfix delimiters need their
-	matched group, and a cast prefix retains the existing bounded type reader.
-	Another expanded layer's close on this physical line is always rejected.
+	运算符须有可能的操作数，后缀定界符须能匹配，类型转换使用既有的有界读取器。
+	同一物理行上不能再闭合另一个展开层。这里判定排版边界，语法有效性由解析器处理。
 	"""
 	tokens = view.tokens
 	opening = group.open_index
@@ -2392,7 +2330,7 @@ def _call_closing_suffix_allowed(
 
 
 def audit_source(path: str, text: str) -> list[dict[str, Any]]:
-	"""Return every observed violation, or a hard failure for incomplete input."""
+	"""报告给定源码中观察到的全部违规，无法完整分析时返回失败。"""
 	view = lex_source(path, text)
 	if view.issues:
 		return list(view.issues)
@@ -2404,7 +2342,7 @@ def audit_source(path: str, text: str) -> list[dict[str, Any]]:
 
 
 def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str, Any]]:
-	"""Audit a complete lexical view using its invocation-owned derived inputs."""
+	"""以本次调用拥有的派生输入检查一个完整词法视图。"""
 	issues: list[dict[str, Any]] = []
 	tokens, groups = view.tokens, view.groups
 	from gf_gdscript_expression_layout import effective_group_kinds
@@ -2585,9 +2523,8 @@ def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str
 			bisect_right(required_boolean_operators, group.close_index - 1)
 			> bisect_right(required_boolean_operators, group.open_index)
 		):
-			# Only a real index containing this rule's required work escapes its
-			# false array classification. Actual arrays retain every array rule;
-			# child-domain operators never enter the index's own term count.
+			# 只有确认为索引且涉及本规则要求的工作时才排除数组判定。数组仍检查全部数组规则，
+			# 子表达式的运算符不计入索引本身。
 			boolean_index_carriers.add(group.open_index)
 	for number, indexes in by_line.items():
 		first = tokens[indexes[0]]
@@ -2612,8 +2549,7 @@ def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str
 				_check_inline(path, tokens, colon, issues)
 				if first.value == "match":
 					match_scopes.append((indent, tokens[colon].line, ambient_parent))
-		# match arms are indented and end in a colon. Type annotations and
-		# dictionary fields are already enclosed by their literal groups.
+		# match 分支有缩进且以冒号结束。类型标注与字典字段已经位于各自的分组内。
 		elif match_arm or (first.column > 1 and first.value not in {
 			"var", "const", "@", "func", "static", "signal", "class", "extends", "enum",
 		}):
@@ -2625,8 +2561,7 @@ def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str
 	read_cast_type = _cast_type_reader(view)
 	for group_number, group in enumerate(groups):
 		if group.open_index in boolean_index_carriers:
-			# This is a proven Boolean index, not an array literal requiring a comma.
-			# Its own carrier/layer checks below retain closure and indentation.
+			# 此处已确认是布尔索引，无需数组字面量的逗号。下方仍校验其定界符和缩进。
 			continue
 		layout_kind = "call" if group.open_index in multi_call_open_indexes else effective_kinds[group_number]
 		opener, closer = tokens[group.open_index], tokens[group.close_index]
@@ -2657,7 +2592,7 @@ def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str
 					parent_lambda_colons[parent_key] = function_colons.get(parent_start)
 				outer_colon = parent_lambda_colons[parent_key]
 				if outer_colon is not None and outer_colon < group.open_index:
-					# An enclosing lambda's body contains independent statements.
+					# 外层 lambda 函数体可包含多条独立语句。
 					expression_parent = False
 		if layout_kind == "call" and expression_parent and group.items:
 			start, _end = group.items[-1]
@@ -2760,7 +2695,7 @@ def _audit_source_view(path: str, text: str, view: LexedSource) -> list[dict[str
 
 
 def _check_canonical_layout(path: str, view: LexedSource, issues: list[dict[str, Any]]) -> None:
-	"""Consume the same source-bound plan that supplies concrete preview diffs."""
+	"""使用与具体排版差异预览相同的源码计划执行标准排版检查。"""
 	from gf_gdscript_format_plan import FormatPlan
 	issues.extend(FormatPlan.from_view(path, view).diagnostics())
 
@@ -2774,7 +2709,7 @@ def _header_colon(tokens: tuple[Token, ...], start: int,
 		token = tokens[cursor]
 		continued = cursor > start and tokens[cursor - 1].value == "\\"
 		if cursor > start and token.line > header_line and not continued:
-			# A parenthesized header is skipped below as a complete group.
+			# 下方按完整分组跳过带括号的声明头。
 			return None
 		if cursor in group_by_open:
 			closing = group_by_open[cursor].close_index
@@ -2809,7 +2744,7 @@ def _check_boolean_layout(
 	layer_groups: set[int], issues: list[dict[str, Any]],
 	spans: tuple[BooleanLayoutSpan, ...], kinds: tuple[str, ...],
 ) -> None:
-	"""Apply the same complete-domain contract used by mechanical migrations."""
+	"""按机械迁移使用的完整表达式范围检查布尔排版。"""
 	by_open = {group.open_index: group for group in view.groups}
 	group_numbers = {group.open_index: number for number, group in enumerate(view.groups)}
 	first_non_open = {
@@ -2830,8 +2765,7 @@ def _check_boolean_layout(
 			if carrier_kind == "group" or span.context == "match_when":
 				layer_groups.add(group_numbers[carrier.open_index])
 			elif carrier_kind == "index":
-				# The general multiline-item rule deliberately excludes index syntax.
-				# Only an index acting as this proven Boolean carrier needs these closes.
+				# 普通多行元素规则排除了索引语法，只有已确认承载布尔表达式的索引须按这里的方式闭合。
 				opener, closer = view.tokens[carrier.open_index], view.tokens[carrier.close_index]
 				if opener.line == first.line:
 					bad = True
@@ -2877,7 +2811,7 @@ def _check_boolean_layout(
 
 def _check_ternaries(path: str, view: LexedSource, parents: dict[int, int],
 					 issues: list[dict[str, Any]], layer_groups: set[int]) -> None:
-	# Conditional and lambda keywords are operators only outside proven names.
+	# 已确认为名称的 token 即使拼写为条件或 lambda 关键字，也应保留其名称含义。
 	scope = _boolean_scope_view(view)
 	if scope is None:
 		_first, statement_starts = _independent_statement_starts(view)
@@ -2953,8 +2887,7 @@ def _check_ternaries(path: str, view: LexedSource, parents: dict[int, int],
 									cursor += 1
 							dictionary_separators[domain_key] = separator
 						separator = dictionary_separators[domain_key]
-						# A field contains two independent expression domains. Its
-						# key and value conditionals do not nest in one another.
+						# 字段的键和值各有独立的表达式区域，两边的条件表达式不互相嵌套。
 						side = int(separator is not None and index > separator)
 					if domain_key not in lambda_domains:
 						span_start, span_end = domain.items[item]
@@ -3027,10 +2960,10 @@ def _check_expression_layers(
 	by_line: dict[int, list[int]], line_indents: dict[int, int],
 	layer_groups: set[int], issues: list[dict[str, Any]],
 ) -> None:
-	"""Validate proven complex condition/ternary layers, not arbitrary parentheses.
+	"""校验已确认的复杂条件或条件表达式层级。
 
-	A call/container remains the nearest owner of its parameters and lambda body.
-	Grouping closers can retain expression suffixes, but not another layer's close.
+	调用和容器保留其参数及 lambda 函数体的最近归属。分组闭合符之后可跟表达式后缀，
+	同一行仍不能再闭合另一层。
 	"""
 	closing_groups = {
 		view.groups[number].close_index: number
@@ -3086,7 +3019,7 @@ def _is_link(info: os.stat_result) -> bool:
 
 @dataclass(frozen=True)
 class BlankBoundary:
-	"""One-based half-open range of blank physical lines, outside literal payloads."""
+	"""字面量内容之外的空白物理行，区间从 1 起算且左闭右开。"""
 
 	rule: str
 	start_line: int
@@ -3112,11 +3045,10 @@ def _blank_layout_boundaries(
 	view: LexedSource, parents: dict[int, int], by_line: dict[int, list[int]],
 	line_indents: dict[int, int],
 ) -> list[BlankBoundary]:
-	"""Index only member sections and adjacent definitions using the existing lexer.
+	"""利用共享词法器索引成员分区及相邻声明间的空行。
 
-	Offside layout locates declaration ends; delimiter parents keep continuations,
-	decorators and literal payloads out of member-boundary classification. This
-	does not infer logical paragraphs or change ordinary member-group spacing.
+	按缩进找出声明的结束位置，借助定界符归属排除续行、注解和字面量内容。在这个范围之外，
+	正文段落和普通成员分组的间距保持原样。
 	"""
 	tokens = view.tokens
 	group_by_open = {group.open_index: group for group in view.groups}
@@ -3295,13 +3227,13 @@ def _blank_layout_boundaries(
 
 
 def blank_layout_boundaries(path: str, source: str) -> list[BlankBoundary]:
-	"""Expose the same safe blank-line ranges for a private mechanical migration."""
+	"""为内部的机械迁移提供与检查器一致的安全空行区间。"""
 	view = lex_source(path, source)
 	return blank_layout_boundaries_from_view(view)
 
 
 def blank_layout_boundaries_from_view(view: LexedSource) -> list[BlankBoundary]:
-	"""Reuse an immutable lexical view without scanning the same source twice."""
+	"""复用不可变词法视图提取空行区间，省去重复扫描。"""
 	if view.issues:
 		raise ValueError("Blank layout requires complete lexical input.")
 	parents: dict[int, int] = {}
@@ -3324,7 +3256,7 @@ def _identity(info: os.stat_result) -> tuple[int, int, int, int]:
 
 def audit_repository(root: Path, paths: Iterable[str] | None = None, *,
 					 read_text: Callable[[Path], str] | None = None) -> dict[str, Any]:
-	"""Check complete owned inventory, or a clearly labeled diagnostic subset."""
+	"""检查全部自有源码，或检查一份在结果中明确标识的诊断子集。"""
 	root = Path(root).absolute()
 	issues: list[dict[str, Any]] = []
 	selected: list[str] = []
@@ -3467,6 +3399,7 @@ def audit_repository(root: Path, paths: Iterable[str] | None = None, *,
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""检查指定源码范围的 GDScript 排版，并以完整性及违规情况决定退出码。"""
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
 	parser.add_argument("--json", action="store_true")

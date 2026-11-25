@@ -52,7 +52,7 @@ BASELINES = {"height": ("heightfield_3d", "GFHeightfield3D"), "flow": ("grid_pat
 
 
 def profile_voronoi(source_path: Path, target: Path) -> None:
-    """Measure only the insertion loop on a separate copy of the selected implementation."""
+    """在所选实现的独立副本中测量站点插入循环，隔离其他 Voronoi 构建阶段。"""
     source = source_path.read_text(encoding="utf-8-sig")
     source, classes = re.subn(r"(?m)^class_name \w+$", "", source)
     source, bases = re.subn(r"(?m)^extends RefCounted$", "extends RefCounted\n\nstatic var insert_usec: int = 0", source)
@@ -71,6 +71,7 @@ def runtime_sources() -> list[Path]:
 
 
 def stage(project: Path, probe: Path, native: Path) -> None:
+    """在隔离工程中放入实际运行时、探针和原生库，使工作线程能够对照脚本与原生路径。"""
     for source in runtime_sources():
         target = project / source.relative_to(ROOT)
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -82,9 +83,8 @@ def stage(project: Path, probe: Path, native: Path) -> None:
             f'[configuration]\nentry_symbol="{entry}"\ncompatibility_minimum="4.6"\n'
             f'[libraries]\nwindows.x86_64="./{dll.name}"\n', encoding="utf-8")
     profile_voronoi(project / MATH_DIR / 'gf_voronoi_2d.gd', project / 'profile_voronoi.gd')
-    # On the same worker in the same release binary, exercise the real portable facade
-    # with only capability lookup pointed at an absent class. The package test also
-    # exercises an unmodified facade in a genuinely script-only installation.
+    # 在同一发布二进制的同一工作线程上，只把能力查询指向缺席的类，以测量真实脚本适配层。
+    # 打包验收另测纯脚本安装。
     visibility = (project / MATH_DIR / 'gf_segment_visibility_2d.gd').read_text(encoding="utf-8")
     service = '&"GfSegmentVisibilityBackend"'
     if visibility.count(service) != 1:
@@ -105,6 +105,7 @@ def stage(project: Path, probe: Path, native: Path) -> None:
 
 
 def stage_baseline(project: Path, kind: str, path: Path) -> str:
+    """将指定版本的实现装入基准工程并返回原始源码摘要，拒绝类型声明不符的文件。"""
     data = path.read_bytes()
     source = data.decode("utf-8-sig").replace("\r\n", "\n")
     _, class_name = BASELINES[kind]
@@ -120,6 +121,7 @@ def stage_baseline(project: Path, kind: str, path: Path) -> str:
 
 
 def summarize(output: str, baselines: dict[str, str]) -> dict:
+    """要求输出中只有一份基准报告，并核对对照组身份、测量与结果。"""
     prefix = "GF_FOUNDATION_BENCHMARK="
     records = [json.loads(line[len(prefix):]) for line in output.splitlines() if line.startswith(prefix)]
     if len(records) != 1:
@@ -147,8 +149,7 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
             if len(samples) != report["samples"] or any(type(value) is not int or value <= 0 for value in samples):
                 raise ValueError(f"Invalid {mode} samples for {name}")
             medians[name][mode] = statistics.median(samples) / 1000
-    # Both lanes call the public decoder on the same valid pixels. Falling back to
-    # script on the main thread would preserve values but lose the native speedup.
+    # 两条路径用同一组有效像素调用公开解码器，主线程退回脚本仍可能给出相同数值，耗时须单独检验。
     terrain = medians["terrain_rgb8_512"]
     if terrain["native"] > terrain["portable"] * 0.5:
         raise ValueError("Installed Terrain-RGB decoder is not accelerating the public entry point")
@@ -160,8 +161,7 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
     for workload in ("visibility_84x8", "visibility_84x14"):
         if medians[workload]["native"] > medians[workload]["portable"] * 0.5:
             raise ValueError(f"Installed segment visibility backend did not accelerate {workload}")
-    # A 64-fold area increase should leave eight reads approximately constant. A timer
-    # floor and wide ratio tolerate CPU scheduling noise while detecting a full-map scan.
+    # 地图面积扩大 64 倍后，八次读取耗时应大致不变。计时下限和宽松比例容纳调度波动，仍可识别全图扫描。
     if medians["height_queries_512"]["public"] > max(0.020, medians["height_queries_64"]["public"]) * 8:
         raise ValueError("Eight height queries scale with grid area")
     if "voronoi" in baselines and medians["voronoi_512"]["public"] > medians["voronoi_512"]["previous"] * 1.5:
@@ -170,10 +170,12 @@ def summarize(output: str, baselines: dict[str, str]) -> dict:
 
 
 def fingerprint(paths: list[Path], base: Path = ROOT) -> dict[str, str]:
+    """返回相对基准根目录的路径到文件内容 SHA-256 的映射。"""
     return {p.relative_to(base).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
 
 
 def main() -> None:
+    """在 Windows 发布导出中运行基础能力基准，并核实本轮测量前后输入一致。"""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot", default="godot", help="Godot editor with the matching Windows export template")
     parser.add_argument("--height-baseline", type=Path, help="Older trusted gf_heightfield_3d.gd for a paired comparison")

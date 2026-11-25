@@ -77,12 +77,14 @@ class _ValidationIssues(list[dict[str, Any]]):
 def validate_schema_file(
 	value: Any, schema_path: Path, *, limits: ValidationLimits | None = None,
 ) -> list[dict[str, Any]]:
+	"""Check the schema definition from disk before validating a value and return the resulting issues."""
 	schema = read_json_object(schema_path)
 	definition_issues = validate_schema_definition(schema)
 	return definition_issues if definition_issues else validate_schema(value, schema, limits=limits)
 
 
 def validate_schema_definition(schema: dict[str, Any]) -> list[dict[str, Any]]:
+	"""Return issues for invalid definitions or keywords outside the kit's supported schema subset."""
 	issues: list[dict[str, Any]] = []
 	_validate_schema_definition_node(schema, "$schema", issues)
 	return issues
@@ -91,6 +93,14 @@ def validate_schema_definition(schema: dict[str, Any]) -> list[dict[str, Any]]:
 def validate_schema(
 	value: Any, schema: dict[str, Any], *, limits: ValidationLimits | None = None,
 ) -> list[dict[str, Any]]:
+	"""Validate an already parsed value within the traversal limits.
+
+	Returns:
+	    A list of issues, empty when the value passes the supported checks.
+
+	Raises:
+	    ValueError: A supplied validation limit is not a positive integer.
+	"""
 	issues = _ValidationIssues(limits)
 	try:
 		if limits is not None:
@@ -100,13 +110,13 @@ def validate_schema(
 			_validate_structure(value, limits, issues)
 		_validate_node(value, schema, "$", issues)
 	except _ValidationStopped as stopped:
-		# Reserve one terminal diagnostic; an incomplete traversal is never valid.
+		# 为末尾的诊断预留一个名额，未遍历完整的数据不能判为有效。
 		list.append(issues, stopped.issue)
 	return issues
 
 
 def _validate_structure(value: Any, limits: ValidationLimits, issues: _ValidationIssues) -> None:
-	# Iterator stack retains only the current ancestor chain, not all siblings.
+	# 迭代器栈只保留当前祖先链，避免一次保留全部同级节点。
 	stack = [iter(((value, "$", 0),))]
 	nodes = 0
 	while stack:

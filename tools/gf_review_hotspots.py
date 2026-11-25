@@ -1,40 +1,24 @@
-"""Bounded, optional GDScript function structure observations from source text.
+"""从给定的 GDScript 文本中观察函数结构，供维护者审阅。
 
-This is not a compiler, a quality gate, or a cyclomatic/cognitive complexity
-implementation. ``complete`` means this observation algorithm completed; it
-does not establish valid GDScript, type correctness, or runtime behavior.
+complete 表示本次观察算法完整执行。语法、类型和运行结果由 Godot 另行验证。
+共享 API 解析器负责屏蔽字面量与注释、识别函数名，本模块对其余语句和显式缩进块计数，
+另检查未闭合的字符串。analyze_source 只处理传入的文本，不读文件或 Git 状态，
+也不求值表达式或启动外部进程。
 
-The shared API parser supplies literal/comment masking and function-name
-recognition. This module only groups masked statements and observes explicit
-indentation blocks. A small closure audit supplements the shared masker's
-deliberately permissive handling of unfinished strings. No files, Git state,
-source expressions, or external processes are accessed by ``analyze_source``.
+每个具名方法（包括静态方法及内部类方法）对应一行结果。lambda 函数体计入最近的外层具名方法，
+具名方法以外的 lambda 单独计数。属性访问器和脚本初始化器不作为具名方法。
+方法范围从 func 到最后有代码的行，排除首部注解及尾部注释或空行。
+有效代码行数包含函数体内带结构代码的物理行，例如字面量赋值、续行，单独只有字面量内容的行除外。
 
-Named methods (including static and inner-class methods) receive rows. Lambda
-bodies belong to the nearest enclosing named method, inclusively, and do not
-receive duplicate rows. Lambdas outside named methods are counted separately;
-property accessors and script initializers are not named-method rows. Function
-ranges run from ``func`` through their last observed code line, excluding
-trailing comments/blank lines and preceding annotations. Effective code lines
-count body physical lines containing masked structural code, including literal
-assignments and expression continuations, but excluding literal-only lines.
+if、elif、else 的块头和每条 match 分支分别计一个分支，包括通配分支。
+模式的备选项和守卫不重复计数。match 本身增加嵌套，for 和 while 计作循环。
+嵌套深度只计控制块（包括 match 和分支），排除类、函数、lambda 和容器缩进。条件表达式单列统计，
+布尔运算、提前返回、调用和类似异常的语义不增加分支数。工具不推导调用图、表达式语义或可达性。
 
-Branches are explicit if/elif/else headers plus match arms (including wildcard,
-one per arm regardless of pattern alternatives or guards). Match itself adds
-nesting, not a branch. Loops are for/while headers. Nesting counts control
-blocks including match/arm, but not class/function/lambda/container indentation.
-Conditional-expression ``if`` tokens are separate; boolean operators, early
-returns, calls and exception-like semantics add no branches. No call graph,
-expression parser, reachability analysis or semantic validation is attempted.
-
-Malformed observed headers, delimiters, indentation and unsupported block
-forms produce incomplete observations. Any issue conservatively marks every
-row from that source incomplete. Input rejection yields unknown with no rows;
-mid-scan limits retain explicitly incomplete, bounded observations. All limits
-and the stable lexicographic ranking are reported; there is no scalar score.
-Tabs expand to four columns; mixed tab/space prefixes are incomplete. Semicolon
-statement sequences and multiline lambdas embedded in control headers are
-explicit support limits, rather than silently flattened expressions.
+发现不完整的块头、分隔符、缩进或不受支持的块时，该源码的所有观察行都标为不完整。
+输入被拒绝时返回 unknown 且无函数行，扫描途中达到预算时保留有界的部分结果。
+报告列出预算和稳定的多字段排序规则，各项指标分别呈现。制表符按四列处理，
+混用空格和制表符的前缀标为不完整。分号连续语句及控制头内的多行 lambda 也作为显式支持边界报告。
 """
 
 from __future__ import annotations
@@ -81,8 +65,7 @@ _CONTROL = frozenset({"if", "elif", "else", "for", "while", "match"})
 
 @dataclass
 class _LexState:
-	# scan_gdscript_line only requires this state field; API ownership parsing is
-	# intentionally not reused as a function-body parser.
+	# 共享词法函数 scan_gdscript_line 只需要此状态字段，函数体的结构分析有自己的规则。
 	multiline_quote: str = ""
 
 
@@ -94,11 +77,10 @@ class _Token:
 
 
 def _tokenize_line(masked: str, line: int) -> list[_Token]:
-	r"""Join adjacent XID continuation fragments without normalizing their spelling.
+	"""合并相邻的 Unicode XID 标识符续段，保留原始拼写。
 
-	Python regex ``\w`` omits combining marks and some other XID characters.
-	Check each fragment once, retaining offsets instead of rebuilding a growing
-	identifier prefix; total work and allocations remain linear in the line size.
+	Python 正则的单词字符不含部分组合标记和其他 XID 字符。每段仅核对一次，以偏移记录范围，
+	避免重复构造越来越长的标识符前缀，工作量和分配量均与行长线性相关。
 	"""
 	tokens: list[_Token] = []
 	start: int | None = None
@@ -142,7 +124,7 @@ class _LimitReached(Exception):
 
 
 def function_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
-	"""Use the same transparent order within a source and across source reports."""
+	"""单个源码文件及多个报告之间采用同一套排序规则。"""
 	metrics = row["metrics"]
 	return (
 		-metrics["max_nesting"], -metrics["branch_count"], -metrics["loop_count"],
@@ -151,11 +133,12 @@ def function_sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
 
 
 def analyze_source(source: str, path: str) -> dict[str, Any]:
-	"""Observe supplied text; ``path`` is an opaque display identity, not an IO path.
+	"""观察传入的源码文本，path 只用于报告定位。
 
-	Returned keys: schema_version, algorithm_version, path, status, source_bytes,
-	functions, script_lambda_count, issues, omitted_issue_count, limits, sort_order.
-	Issues contain code/line/message; source contents are never included in them.
+	Returns:
+	    报告包含 schema_version、algorithm_version、path、status、source_bytes、functions、
+	    script_lambda_count、issues、omitted_issue_count、limits 和 sort_order。问题仅记录 code、
+	    line 和 message，不包含源码原文。
 	"""
 	report: dict[str, Any] = {
 		"schema_version": SCHEMA_VERSION, "algorithm_version": ALGORITHM_VERSION,
@@ -207,7 +190,7 @@ def _reject(report: dict[str, Any], code: str, message: str) -> dict[str, Any]:
 
 
 def _ordinary_quotes_closed(text: str, initial_multiline_quote: str) -> bool:
-	"""Audit quote closure only; shared scan_gdscript_line owns structural masking."""
+	"""仅核对普通引号是否闭合，结构屏蔽仍使用共享的 scan_gdscript_line。"""
 	quote = initial_multiline_quote
 	i = 0
 	while i < len(text):
@@ -330,8 +313,7 @@ class _Observer:
 						else:
 							brackets.pop()
 				continued = tokens[-1].value == "\\"
-				# The consumed continuation marker joins physical lines; it is not
-				# part of the declaration/expression passed to structural observers.
+				# 续行标记只负责拼接物理行，交给结构观察器的声明或表达式应去掉该标记。
 				pending.extend(tokens[:-1] if continued else tokens)
 				if (len(brackets) <= base_depth or lambda_header) and not continued and not state.multiline_quote:
 					self.observe(_Statement(pending, self.indent(pending[0].line), pending_lines, number, base_depth))
@@ -378,8 +360,7 @@ class _Observer:
 			return
 		while self.scopes and statement.indent <= self.scopes[-1].indent:
 			self.close_scope()
-		# After a lambda body, the enclosing call/container still owns following
-		# arguments. Their indentation is expression layout, not a new block.
+		# lambda 体结束后，后续参数仍归外层调用或容器。此处缩进属于表达式排版。
 		in_expression = statement.bracket_depth > 0 and not any(scope.kind == "lambda" for scope in self.scopes)
 		if self.scopes:
 			scope = self.scopes[-1]
@@ -426,9 +407,8 @@ class _Observer:
 
 	def function(self, tokens: list[_Token], statement: _Statement) -> None:
 		name = parse_function_name(" ".join(token.value for token in tokens))
-		# The API recognizer restricts the first character to ASCII and can return
-		# only a prefix before Unicode continuation characters. Preserve the whole
-		# validated token without changing API declaration/visibility rules.
+		# API 的名称识别以 ASCII 开头，遇到后续 Unicode 字符时可能只取到前缀。观察器保留完整已校验 token，
+		# 声明可见性仍按原规则判断。
 		if len(tokens) >= 3 and tokens[1].value.isidentifier() and tokens[2].value == "(" and name != tokens[1].value:
 			name = tokens[1].value
 		if not name:

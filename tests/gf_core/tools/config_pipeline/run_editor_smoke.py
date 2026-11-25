@@ -1,4 +1,4 @@
-"""Exercise the configuration workbench in an isolated native editor lifecycle."""
+"""在隔离的 Godot 编辑器实例中实际打开配置工作台，验证插件生命周期。"""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ MAX_FILE_BYTES = 32 * 1024 * 1024
 
 
 def inventory(source: Path) -> dict[str, str]:
+	"""记录源码树中文件的摘要，拒绝符号链接、过深目录及超出预算的输入。"""
 	result: dict[str, str] = {}
 	pending = [(source, 0)]
 	total_bytes = 0
@@ -53,6 +54,7 @@ def inventory(source: Path) -> dict[str, str]:
 
 
 def copy_inventory(source: Path, destination: Path, expected: dict[str, str]) -> None:
+	"""将已记录的文件复制到隔离工程，并重新核对内容是否与原清单相同。"""
 	for relative, digest in expected.items():
 		payload = path_security.read_pinned_regular_file(source, relative, max_bytes=MAX_FILE_BYTES)
 		if hashlib.sha256(payload).hexdigest() != digest:
@@ -65,6 +67,7 @@ def copy_inventory(source: Path, destination: Path, expected: dict[str, str]) ->
 
 
 def run_phase(name: str, command: list[str], project: Path, environment: dict[str, str], logs: Path) -> dict[str, object]:
+	"""在独立编辑器进程中执行单个阶段，记录退出状态、日志诊断和是否具备回收工程的条件。"""
 	result = supervisor.run_supervised_process(command, cwd=project, environment=environment, timeout_seconds=180, max_stdout_characters=1024 * 1024, max_stderr_characters=1024 * 1024)
 	(logs / f"{name}.stdout.log").write_text(result.stdout, encoding="utf-8")
 	(logs / f"{name}.stderr.log").write_text(result.stderr, encoding="utf-8")
@@ -85,6 +88,7 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 
 
 def main() -> int:
+	"""在私有编辑器工程中分阶段验证配置工作台，并按各阶段结果返回退出状态。"""
 	logs = ROOT / "ai_analysis/godot_logs" / ("config-workbench-smoke-" + uuid.uuid4().hex)
 	logs.mkdir(parents=True, exist_ok=False)
 	report: dict[str, object] = {"ok": False, "log_directory": str(logs), "phases": []}

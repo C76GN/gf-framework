@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused behavioral tests for GF maintenance generators and docs tooling."""
+"""通过独立输入和临时输出树验证 API、文档与其他维护生成器的行为。"""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ from gf_workspace_snapshot import WorkspaceSnapshot
 
 
 def api_docs(visibility: str, description: str = "") -> gdscript_api_parser.ApiDocs:
+	"""从可见性和可选正文构造测试用 ApiDocs，以便单独验证生成器对文档的处理。"""
 	return gdscript_api_parser.ApiDocs(
 		description=[description] if description else [],
 		tags={"api": [visibility]} if visibility else {},
@@ -386,7 +387,7 @@ def documented_data_member_spacing_issues(source: str, path: str = "fixture.gd")
 	issues: list[str] = []
 
 	def block_end(start: int, limit: int, indent: int) -> tuple[int, int]:
-		# The last occupied line excludes trailing separators but includes literal content.
+		# 最后一个占用行包含字面量内容，排除结尾分隔空行。
 		last_occupied = start - 1
 		index = start
 		while index < limit:
@@ -1386,8 +1387,7 @@ class NestedPublicApiConsumerTests(unittest.TestCase):
 		with contextlib.redirect_stdout(io.StringIO()):
 			self.assertEqual(generate_api_reference.check_reference_coverage(self.classes, self.reference), 0)
 		anchor = generate_api_reference.member_anchor_id(self.detail, "methods", self.detail.methods[0])
-		# Remove both the anchor and its summary link, so the coverage gate must
-		# inspect the nested owner rather than relying on generic link validation.
+		# 同时移除锚点和摘要链接，确保覆盖检查会核对嵌套声明，普通链接检查无法识别该遗漏。
 		self.reference["classes/GFNested.md"] = "\n".join(
 			line for line in self.reference["classes/GFNested.md"].splitlines()
 			if anchor not in line

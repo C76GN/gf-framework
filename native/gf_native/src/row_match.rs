@@ -1,4 +1,4 @@
-//! Match signed 64-bit identities without copying the input columns or their capacity tails.
+//! 将当前批次的 64 位稳定 ID 映射到前一批次的行号。仅借用有效行，预留容量不参与匹配。
 use std::collections::HashMap;
 
 use godot::builtin::{PackedInt32Array, PackedInt64Array, Variant};
@@ -16,8 +16,7 @@ impl GfDataBatchRowMatchBackend {
         1
     }
 
-    // Protocol 1 returns an owned PackedInt32Array on success (including empty),
-    // or a Godot error code. Partial row mappings never cross this boundary.
+    /// 成功时转交 `PackedInt32Array`，零行也是成功。失败时返回 Godot 错误码。
     #[func]
     fn match_ids(
         &self,
@@ -44,11 +43,17 @@ impl GfDataBatchRowMatchBackend {
     }
 }
 
+/// 借用恰好 `count` 个 ID。行数超出 i32 索引范围或实际存储长度时返回 `None`。
 fn prefix(ids: &[i64], count: i64) -> Option<&[i64]> {
     let count = i32::try_from(count).ok()?;
     ids.get(..usize::try_from(count).ok()?)
 }
 
+/// 为当前批次按行写入旧行号，新 ID 写入 `-1`。调用者为每个当前 ID 提供一个输出槽。
+///
+/// # Errors
+///
+/// 任一批次出现重复 ID，或哈希表无法预留空间时返回错误。错误发生前可能已写入部分行。
 fn match_into(previous: &[i64], current: &[i64], rows: &mut [i32]) -> Result<(), Error> {
     if previous.is_sorted_by(|a, b| a < b) && current.is_sorted_by(|a, b| a < b) {
         let mut old_row = 0;

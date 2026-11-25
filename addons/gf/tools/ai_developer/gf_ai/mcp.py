@@ -22,6 +22,7 @@ INTERNAL_ERROR_MESSAGE = "Internal GF MCP server error."
 
 
 def main() -> int:
+	"""Serve newline-delimited JSON-RPC on standard input and write responses to standard output."""
 	_configure_stdio()
 	while True:
 		line = sys.stdin.readline(MAX_REQUEST_CHARS + 1)
@@ -57,6 +58,7 @@ def main() -> int:
 
 
 def handle_message(message: dict[str, Any]) -> dict[str, Any] | None:
+	"""Dispatch one JSON-RPC request, returning no response for a notification handled without a reply."""
 	method_value = message.get("method")
 	if message.get("jsonrpc") != "2.0" or not isinstance(method_value, str) or not method_value:
 		return _error(message.get("id"), -32600, "MCP request must use JSON-RPC 2.0 and a non-empty method.")
@@ -105,6 +107,7 @@ def handle_message(message: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def list_tools() -> list[dict[str, Any]]:
+	"""Return the project tools and input schemas advertised by the MCP server."""
 	project_root = {"type": "string", "minLength": 1, "maxLength": 1024, "description": "Absolute or client-workspace-relative Godot project root."}
 	contract_path = {"type": "string", "minLength": 1, "maxLength": 240, "default": DEFAULT_CONTRACT_PATH}
 	return [
@@ -209,6 +212,7 @@ def _call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
 
 
 def list_resources() -> list[dict[str, str]]:
+	"""Return the resource URIs and descriptions that this installation exposes to MCP clients."""
 	return [
 		{"uri": "gf://knowledge/architecture", "name": "GF Architecture Boundaries", "description": "Project, framework, and provider adapter ownership rules.", "mimeType": "text/markdown"},
 		{"uri": "gf://knowledge/workflow", "name": "GF Project Workflow", "description": "Contract-driven implementation and verification workflow.", "mimeType": "text/markdown"},

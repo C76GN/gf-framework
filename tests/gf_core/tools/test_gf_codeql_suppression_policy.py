@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for the tracked-source CodeQL suppression policy."""
+"""用受版本控制的源码与配置样本检验 CodeQL 抑制策略的判定边界。"""
 
 from __future__ import annotations
 

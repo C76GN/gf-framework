@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the GF GUT lifecycle gate against process-level failure fixtures."""
+"""用真实进程的失败场景验证 GUT 生命周期报告与退出状态的判定。"""
 
 from __future__ import annotations
 
@@ -53,6 +53,7 @@ BOOTSTRAP_FIXTURE_ENVIRONMENT = "GF_GUT_LIFECYCLE_BOOTSTRAP_FIXTURE"
 
 @dataclass(frozen=True)
 class Scenario:
+	"""将故障样本与预期生命周期判定绑定，用于区分预期失败和验收失败。"""
 	name: str
 	fixture: str
 	expect_ok: bool
@@ -147,6 +148,7 @@ SCENARIOS: tuple[Scenario, ...] = (
 
 @dataclass
 class ScenarioResult:
+	"""把实际退出状态、生命周期报告与偏离预期的原因归在同一个场景下。"""
 	name: str
 	ok: bool
 	issues: list[str] = field(default_factory=list)
@@ -170,6 +172,7 @@ class ScenarioResult:
 
 
 def main() -> int:
+	"""运行进程级生命周期场景，并根据实际结果是否符合各场景预期决定退出码。"""
 	parser = argparse.ArgumentParser(
 		description="Run process-level GF GUT lifecycle gate fixtures.",
 	)
@@ -209,6 +212,7 @@ def run_scenario(
 	*,
 	base_environment: Mapping[str, str],
 ) -> ScenarioResult:
+	"""通过受监督的 Godot 进程运行一个场景，并将结果与该场景自己的预期对照。"""
 	run_token = f"{os.getpid()}_{secrets.token_hex(4)}"
 	log_path = LOG_ROOT / f"gut_lifecycle_smoke_{scenario.name}_{run_token}.log"
 	log_path.unlink(missing_ok=True)

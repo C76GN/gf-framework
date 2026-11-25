@@ -1,3 +1,4 @@
+"""验证源码观察报告在输入或子进程证据不足时如何表示不完整的结果。"""
 from __future__ import annotations
 
 import hashlib
@@ -32,6 +33,7 @@ def binary_result(**changes: object) -> gf_maintenance.gf_process_supervisor.Sup
 
 
 class DeferredCleanupFixture:
+	"""模拟进程清理晚于调用返回的情况，让测试能区分首次结果与最终状态。"""
 	def __init__(self, *, completed: bool = True, pid: int = 8123) -> None:
 		self.completed = completed
 		self.pid = pid

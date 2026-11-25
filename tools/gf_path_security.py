@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Filesystem containment helpers shared by GF build and analysis tools."""
+"""验证构建与分析工具的文件系统边界，约束路径解析、目录归属和受控读取。"""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ _NATIVE_OS_NAME = os.name
 
 
 class PinnedReadError(OSError):
-	"""Stable, path-free failure from a pinned regular-file read."""
+	"""固定身份的普通文件读取失败，错误代码稳定且不含路径。"""
 
 	def __init__(self, rule_id: str) -> None:
 		super().__init__(rule_id)
@@ -23,12 +23,12 @@ class PinnedReadError(OSError):
 
 
 def absolute_lexical_path(path: Path) -> Path:
-	"""Return an absolute path without resolving links or requiring existence."""
+	"""返回词法绝对路径，无需目标存在，也不解析链接。"""
 	return Path(os.path.abspath(os.fspath(path.expanduser())))
 
 
 def path_is_inside_lexical(root: Path, child: Path) -> bool:
-	"""Check lexical containment with platform case semantics."""
+	"""按宿主平台的大小写规则判断词法包含关系。"""
 	root_path = absolute_lexical_path(root)
 	child_path = absolute_lexical_path(child)
 	try:
@@ -39,7 +39,7 @@ def path_is_inside_lexical(root: Path, child: Path) -> bool:
 
 
 def path_is_inside(root: Path, child: Path) -> bool:
-	"""Require both lexical and resolved containment."""
+	"""要求路径的词法形式和解析后的实际位置都在范围内。"""
 	if not path_is_inside_lexical(root, child):
 		return False
 	try:
@@ -50,7 +50,7 @@ def path_is_inside(root: Path, child: Path) -> bool:
 
 
 def path_has_reparse_component(path: Path) -> bool:
-	"""Fail closed when any existing ancestor is a link or Windows reparse point."""
+	"""任一现存祖先是链接或 Windows 重解析点时，按不安全路径处理。"""
 	current = absolute_lexical_path(path)
 	while True:
 		try:
@@ -75,7 +75,7 @@ def read_pinned_utf8_regular_file(
 	*,
 	max_bytes: int,
 ) -> str:
-	"""Read a contained UTF-8 file while pinning its filesystem root-to-leaf chain."""
+	"""固定从根到文件的完整路径链，读取受控的 UTF-8 普通文件。"""
 	payload = read_pinned_regular_file(
 		containment_root,
 		relative_path,
@@ -93,7 +93,7 @@ def read_optional_pinned_utf8_regular_file(
 	*,
 	max_bytes: int,
 ) -> str | None:
-	"""Read one optional UTF-8 leaf while proving a stable missing observation."""
+	"""读取可选 UTF-8 文件，缺失时也须核实该末端路径稳定地不存在。"""
 	payload = read_optional_pinned_regular_file(
 		containment_root,
 		relative_path,
@@ -113,7 +113,7 @@ def read_pinned_regular_file(
 	*,
 	max_bytes: int,
 ) -> bytes:
-	"""Read contained regular-file bytes while pinning the root-to-leaf chain."""
+	"""固定从根到文件的完整路径链，读取受控普通文件的原始字节。"""
 	if type(max_bytes) is not int or max_bytes < 0:
 		raise PinnedReadError("path_security.invalid_budget")
 	try:
@@ -137,7 +137,7 @@ def read_optional_pinned_regular_file(
 	*,
 	max_bytes: int,
 ) -> bytes | None:
-	"""Read a contained regular-file leaf, or prove that exact leaf was missing."""
+	"""读取受控的可选普通文件，或确认缺失的正是规定的末端路径。"""
 	if type(max_bytes) is not int or max_bytes < 0:
 		raise PinnedReadError("path_security.invalid_budget")
 	try:
@@ -228,8 +228,7 @@ def _read_optional_pinned_regular_file(
 		try:
 			path_before = _stat_path_entry(path, parent_descriptor)
 		except FileNotFoundError:
-			# Observe the same missing leaf twice while the complete parent chain
-			# remains pinned. Other lookup failures are never interpreted as absence.
+			# 保持完整父目录链固定，两次确认同一末端路径缺失。其他查询错误不能解释为不存在。
 			if not _directory_bindings_are_current(directory_bindings):
 				raise PinnedReadError("path_security.chain_changed")
 			try:

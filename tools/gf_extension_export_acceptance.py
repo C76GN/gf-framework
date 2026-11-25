@@ -57,6 +57,7 @@ func _ready() -> void:
 
 @contextmanager
 def owned_projects(build: Path) -> Iterator[Path]:
+    """在指定 build 目录下创建本次运行拥有的工程，退出时按目录身份回收。"""
     if path_has_reparse_component(build):
         raise RuntimeError(f"Cannot verify the extension export fixture parent: {build}")
     root = Path(tempfile.mkdtemp(prefix="extension-export-", dir=build))
@@ -122,6 +123,7 @@ def prepare_project(project: Path, enabled: bool, strong_reference: bool, archiv
 
 
 def run_acceptance(godot: str, archive: Path | None = None, *, deadline: float | None = None) -> dict:
+    """在隔离的 Windows 消费工程中实际导出，并验证启用与禁用扩展时的策略结果。"""
     if os.name != "nt":
         raise RuntimeError("The export acceptance requires Windows x86_64 and its Godot export template.")
     build = ROOT / "build"
@@ -145,7 +147,7 @@ def run_acceptance(godot: str, archive: Path | None = None, *, deadline: float |
             if code or DIAGNOSTIC.search(output):
                 raise RuntimeError(f"{name} import failed; see {logs}")
             if name == "enabled":
-                # Export starts another editor. Check the project as the first editor left it.
+                # 导出会再启动一个编辑器，应先核对首次编辑器退出时留下的工程状态。
                 code, output = run_command([*command, "--", EXTENSION_PATH], project, logs,
                                            "enabled-source-run", deadline)
                 if code or DIAGNOSTIC.search(output) or output.splitlines().count("GF_EXTENSION_PROBE=success") != 1:

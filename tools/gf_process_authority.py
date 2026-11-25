@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Immutable executable and environment authority for maintenance subprocesses."""
+"""将维护子进程使用的可执行文件和环境冻结到一次调用的上下文中。"""
 
 from __future__ import annotations
 
@@ -31,17 +31,18 @@ GIT_AUTHORITY_ENVIRONMENT_VALUES = (
 
 
 class GitExecutableResolutionError(ExecutableResolutionError):
-	"""Raised when the invocation cannot bind its mandatory Git capability."""
+	"""本次调用无法绑定必须使用的 Git 可执行文件。"""
 
 
 @dataclass(frozen=True)
 class FrozenProcessEnvironment:
-	"""Own one by-value environment snapshot used for resolution and dispatch."""
+	"""按值持有一份环境快照，供可执行文件解析及调度共用。"""
 
 	_items: tuple[tuple[str, str], ...] = field(repr=False)
 
 	@classmethod
 	def capture(cls, environment: Mapping[str, str]) -> FrozenProcessEnvironment:
+		"""校验并复制启动环境。调用方随后修改原映射不会影响命令解析。"""
 		items = tuple(environment.items())
 		if any(
 			type(name) is not str
@@ -58,6 +59,7 @@ class FrozenProcessEnvironment:
 		return cls(items)
 
 	def values(self) -> dict[str, str]:
+		"""返回可传给子进程的一份新字典，调用方可独立修改。"""
 		return dict(self._items)
 
 	def resolve(
@@ -66,6 +68,7 @@ class FrozenProcessEnvironment:
 		*,
 		cwd: Path,
 	) -> CommandIdentity:
+		"""在指定工作目录使用这份环境解析命令，以便执行时复用相同的可执行文件。"""
 		return resolve_command_identity(
 			command,
 			environment=self.values(),
@@ -75,7 +78,7 @@ class FrozenProcessEnvironment:
 
 @dataclass(frozen=True)
 class FrozenGitProcess:
-	"""Bind every Git workspace operation to one executable and environment."""
+	"""将所有 Git 工作区操作绑定到一个确定的可执行文件及其环境。"""
 
 	identity: CommandIdentity
 	environment: FrozenProcessEnvironment = field(repr=False)
@@ -113,7 +116,7 @@ class FrozenGitProcess:
 
 @dataclass(frozen=True)
 class FrozenProcessAuthority:
-	"""Pair one invocation environment with its mandatory Git capability."""
+	"""保存一次调用的环境以及该调用必须使用的 Git 进程配置。"""
 
 	environment: FrozenProcessEnvironment = field(repr=False)
 	git: FrozenGitProcess
@@ -135,7 +138,7 @@ def freeze_git_process(
 	*,
 	cwd: Path,
 ) -> FrozenGitProcess:
-	"""Resolve Git once and derive its no-lock, by-value child environment."""
+	"""只解析一次 Git，并基于环境快照构造禁用可选锁的子进程环境。"""
 	if not isinstance(process_environment, FrozenProcessEnvironment):
 		raise TypeError("Git process freezing requires a frozen environment.")
 	environment = _derive_git_environment(process_environment)
@@ -156,7 +159,7 @@ def freeze_git_process(
 def _derive_git_environment(
 	process_environment: FrozenProcessEnvironment,
 ) -> dict[str, str]:
-	"""Remove inherited Git redirection/config authority, then add owned policy."""
+	"""移除继承的 Git 配置与重定向变量，再写入本次受管的策略。"""
 	environment = process_environment.values()
 	for name in tuple(environment):
 		is_git_name = (
@@ -176,7 +179,7 @@ def freeze_process_authority(
 	*,
 	cwd: Path,
 ) -> FrozenProcessAuthority:
-	"""Freeze one exact invocation authority before any workspace Git I/O."""
+	"""在任何针对工作区的 Git 读写之前冻结本次调用的进程配置。"""
 	if not isinstance(process_environment, FrozenProcessEnvironment):
 		raise TypeError("Process authority freezing requires a frozen environment.")
 	return FrozenProcessAuthority(
@@ -194,6 +197,7 @@ _ACTIVE_PROCESS_AUTHORITY: contextvars.ContextVar[
 
 
 def active_process_environment() -> FrozenProcessEnvironment | None:
+	"""返回当前上下文激活的进程环境，尚未激活时返回 None。"""
 	return _ACTIVE_PROCESS_ENVIRONMENT.get()
 
 
@@ -203,6 +207,7 @@ def active_git_process() -> FrozenGitProcess | None:
 
 
 def active_process_authority() -> FrozenProcessAuthority | None:
+	"""返回本次调用固定的进程权限上下文，未绑定时返回 None。"""
 	return _ACTIVE_PROCESS_AUTHORITY.get()
 
 
@@ -210,6 +215,7 @@ def active_process_authority() -> FrozenProcessAuthority | None:
 def activate_process_environment(
 	process_environment: FrozenProcessEnvironment,
 ) -> Iterator[None]:
+	"""在上下文作用域内启用冻结的环境，退出时恢复先前绑定。"""
 	if not isinstance(process_environment, FrozenProcessEnvironment):
 		raise TypeError("Active process environment must be frozen by value.")
 	token = _ACTIVE_PROCESS_ENVIRONMENT.set(process_environment)
@@ -223,6 +229,7 @@ def activate_process_environment(
 def activate_process_context(
 	process_authority: FrozenProcessAuthority,
 ) -> Iterator[None]:
+	"""同时绑定进程选择权限及其冻结环境，退出时恢复外层上下文。"""
 	if not isinstance(process_authority, FrozenProcessAuthority):
 		raise TypeError("Active process context requires one frozen authority.")
 	environment_token = _ACTIVE_PROCESS_ENVIRONMENT.set(process_authority.environment)

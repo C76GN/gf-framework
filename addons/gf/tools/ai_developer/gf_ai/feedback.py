@@ -34,6 +34,7 @@ def analyze_candidate(
 	candidate: dict[str, Any],
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Evaluate evidence and its eligibility for a framework issue under the project's declared policy."""
 	candidate = _enrich_environment(project_root, deepcopy(candidate))
 	contract_result = load_contract(project_root, contract_relative_path)
 	contract_data = contract_result.get("contract", {})
@@ -99,6 +100,7 @@ def draft_feedback(
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 	write: bool = True,
 ) -> dict[str, Any]:
+	"""Build a redacted local draft from an eligible candidate and report its project-relative path."""
 	analysis = analyze_candidate(project_root, candidate, contract_relative_path)
 	if not analysis.get("ok") or not analysis.get("eligible_for_official_issue"):
 		return {"ok": False, "analysis": analysis, "path": "", "draft": {}, "issues": analysis.get("issues", [])}
@@ -129,6 +131,7 @@ def draft_feedback(
 
 
 def load_draft(project_root: Path, relative_path: str) -> dict[str, Any]:
+	"""Read a saved feedback draft within the managed feedback directory and validate its integrity."""
 	normalized = relative_path.strip().replace("\\", "/")
 	if not normalized.startswith(DEFAULT_FEEDBACK_ROOT + "/"):
 		raise ValueError(f"Feedback drafts must stay under {DEFAULT_FEEDBACK_ROOT}.")
@@ -145,6 +148,7 @@ def prepare_submission(
 	draft: dict[str, Any],
 	contract_relative_path: str = DEFAULT_CONTRACT_PATH,
 ) -> dict[str, Any]:
+	"""Recheck the local draft and contract and return the confirmation digest for an eligible submission."""
 	try:
 		_validate_draft_integrity(draft)
 	except ValueError as exc:
@@ -181,6 +185,7 @@ def check_duplicates(
 	draft: dict[str, Any],
 	runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> dict[str, Any]:
+	"""Query GitHub for issues with the draft's evidence fingerprint and return matches or a query failure."""
 	try:
 		_validate_draft_integrity(draft)
 	except ValueError as exc:
@@ -230,6 +235,19 @@ def submit_issue(
 	runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 	human_approved: bool = False,
 ) -> dict[str, Any]:
+	"""Submit a reviewed draft only after its confirmation digest and duplicate check succeed.
+
+	Args:
+	    project_root: Project that owns the draft and contract.
+	    draft: Prepared feedback with its evidence fingerprint and issue payload.
+	    confirmation_sha256: Digest returned for the exact reviewed submission.
+	    contract_relative_path: Intent contract path relative to the project.
+	    runner: Subprocess runner used for GitHub CLI commands.
+	    human_approved: Whether the interactive caller obtained human approval.
+
+	Returns:
+	    A result containing the created URL on success, or issues explaining why submission did not complete.
+	"""
 	if not human_approved:
 		return {
 			"ok": False,
@@ -375,14 +393,14 @@ def _enrich_environment(project_root: Path, candidate: dict[str, Any]) -> dict[s
 		return candidate
 	from . import catalog, snapshot
 
-	# Each missing field has a bounded metadata reader; no source analysis or cache is needed.
+	# 缺失的字段各有受预算约束的元数据读取入口，无需启动源码分析或依赖缓存。
 	for field in missing:
 		try:
 			if field == "gf_version":
 				environment[field] = catalog.project_framework_version(project_root)
 			elif field == "packages":
 				report = catalog.installed_package_report(project_root)
-				# Invalid installation metadata already yields an empty package list.
+				# 安装元数据无效时，读取结果已将包列表置空。
 				environment[field] = list(report["packages"])
 			else:
 				version = snapshot.read_project_godot_version(project_root)

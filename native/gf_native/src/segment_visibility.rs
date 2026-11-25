@@ -1,4 +1,4 @@
-//! Exact, bounded all-pairs visibility for the packed topology admitted by GFSegmentVisibility2D.
+//! 根据 GFSegmentVisibility2D 的整数拓扑计算每对点的可见层。预算在分配输出之前校验。
 use godot::prelude::*;
 
 pub(crate) mod binding;
@@ -14,6 +14,7 @@ const MAX_SEGMENT_TESTS: usize = 1_048_576;
 #[class(no_init, internal, base=RefCounted)]
 struct GfSegmentVisibilityBackend {}
 
+/// 一次同步调用借用的拓扑。坐标差、点对数和相交测试数均已经 `admit` 校验。
 struct Topology<'a> {
     points: &'a [Point],
     segments: &'a [[i32; 6]],
@@ -23,6 +24,7 @@ struct Topology<'a> {
 }
 
 impl<'a> Topology<'a> {
+    /// 校验各列长度、具名端点及掩码所属层，超出几何或工作量上限时返回 `None`。
     fn admit(
         xy: &'a [i32],
         raw_segments: &'a [i32],
@@ -65,6 +67,7 @@ impl<'a> Topology<'a> {
         })
     }
 
+    /// 按 `(i, j)` 的字典序写入 `i < j` 的点对。调用者须提供至少 `pair_count` 个槽位。
     fn fill(&self, output: &mut [i64]) {
         let mut index = 0;
         for (i, &a) in self.points.iter().enumerate() {
@@ -104,7 +107,7 @@ fn endpoint_matches(points: &[Point], row: i32, position: Point) -> bool {
 }
 
 fn orientation(a: Point, b: Point, c: Point) -> i64 {
-    // Admission bounds each difference by 2B and the determinant by 8B² < 2^63.
+    // 设坐标绝对值上限为 B，坐标差至多 2B，两个乘积之差至多 8B²，仍可用 i64 表示。
     i64::from(b[0] - a[0]) * i64::from(c[1] - a[1])
         - i64::from(b[1] - a[1]) * i64::from(c[0] - a[0])
 }
@@ -113,6 +116,7 @@ fn same_side(left: i64, right: i64) -> bool {
     left > 0 && right > 0 || left < 0 && right < 0
 }
 
+/// 相交时仅放行具名端点的单点接触。共线且重叠长度大于零时，即使共用端点也会遮挡。
 fn obstructs(a: Point, b: Point, c: Point, d: Point, named_contact: bool) -> bool {
     let low_x = a[0].min(b[0]).max(c[0].min(d[0]));
     let high_x = a[0].max(b[0]).min(c[0].max(d[0]));

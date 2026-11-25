@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused pure-Python tests for the single-shard GUT worker."""
+"""隔离测试单分片工作进程的请求、导入、运行结果及失败时的清理。"""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Capture bounded current-source observations for an optional review report."""
+"""从受限的当前源码输入生成可选的结构观察报告，供人工审阅。"""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ MAX_FILE_ISSUES = 16
 
 
 def normalize_scope(value: str) -> str:
-	"""Accept a literal repository-relative file or directory, never a pathspec."""
+	"""接受相对仓库根的字面文件或目录名，按字面语义处理输入。"""
 	if not isinstance(value, str):
 		raise ValueError("review_hotspots.invalid_scope")
 	value = value.replace("\\", "/")
@@ -45,7 +45,7 @@ def normalize_scope(value: str) -> str:
 
 
 def parse_inventory(payload: bytes) -> list[str]:
-	"""Parse one bounded NUL-delimited Git inventory without lossy decoding."""
+	"""在预算内解析由 NUL 分隔的 Git 清单，保留原始路径的可解码性要求。"""
 	if len(payload) > MAX_INVENTORY_BYTES:
 		raise ValueError("review_hotspots.inventory_limit")
 	if payload and not payload.endswith(b"\0"):
@@ -58,9 +58,7 @@ def parse_inventory(payload: bytes) -> list[str]:
 		raise ValueError("review_hotspots.inventory_limit")
 	files: set[str] = set()
 	for path in paths:
-		# Git reports untracked nested repositories as directory markers, without
-		# inventorying their contents. Validate their literal spelling, then leave
-		# that separate repository outside this report's source inventory.
+		# Git 对未跟踪的嵌套仓库只报告目录标记。校验标记的原始拼写后，保持独立仓库处于本次清单之外。
 		is_directory = path.endswith("/")
 		literal = path[:-1] if is_directory else path
 		try:
@@ -74,6 +72,7 @@ def parse_inventory(payload: bytes) -> list[str]:
 
 
 def empty_report(scopes: list[str], limit: int) -> dict[str, Any]:
+	"""为给定范围和显示上限建立空报告，保留算法版本及后续观察所需字段。"""
 	return {
 		"schema_version": 1,
 		"algorithm_version": gf_review_hotspots.ALGORITHM_VERSION,
@@ -109,7 +108,7 @@ def build_report(
 	scopes: list[str] | None = None,
 	limit: int = 30,
 ) -> dict[str, Any]:
-	"""Read matching tracked/unignored files; keep partial coverage explicit."""
+	"""读取范围内已跟踪及未忽略的文件，在报告中明确标明未完整覆盖的部分。"""
 	if scopes is not None and len(scopes) > MAX_SCOPES:
 		raise ValueError("review_hotspots.scope_limit")
 	selected_scopes = sorted({normalize_scope(value) for value in (scopes or ["addons/gf"])})
@@ -187,7 +186,7 @@ def build_report(
 
 
 def render_text(report: dict[str, Any]) -> str:
-	"""Render locations and individual observations without a quality score."""
+	"""呈现源码位置及各项观察值，保留这些指标各自的含义。"""
 	lines = [
 		f"Review hotspots (observation only): {report['status']}",
 		f"Scopes: {', '.join(report['scopes'])}",

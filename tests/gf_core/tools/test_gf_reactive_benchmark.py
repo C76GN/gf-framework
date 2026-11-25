@@ -1,4 +1,4 @@
-"""No-engine checks for benchmark ownership and measurement boundaries."""
+"""无需启动引擎即可验证响应式基准的输入归属、测量范围和结果结构。"""
 
 from __future__ import annotations
 

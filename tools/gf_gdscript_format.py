@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def capture_file(root: Path, relative_path: str) -> FormatPlan:
-	"""Capture one bounded owned source, rejecting links and path aliases."""
+	"""在字节预算内采集一份归属明确的源码，拒绝链接和路径别名。"""
 	relative = PurePosixPath(relative_path)
 	if (
 		relative.as_posix() != relative_path or "\\" in relative_path
@@ -34,11 +34,10 @@ def capture_file(root: Path, relative_path: str) -> FormatPlan:
 
 
 def apply_safe_plan(root: Path, plan: FormatPlan) -> bool:
-	"""Stage and replace one unchanged file; never apply caller-supplied edits.
+	"""仅向保持原样的文件应用能验证的排版计划。
 
-		The plan's source is an optimistic concurrency token. Re-capture and compare
-		before staging and immediately before replacement. This guards ordinary
-		concurrent edits, not a hostile filesystem writer racing the final replace.
+	计划中的源码作为乐观并发依据，在暂存前和替换前各重新采集并核对一次，编辑内容由工具自行推导。
+	这能发现常规并发编辑，无法排除其他写入者抢在最后一次核对与替换之间改写文件。
 	"""
 	captured = capture_file(root, plan.path)
 	if captured.source != plan.source:
@@ -79,6 +78,7 @@ def apply_safe_plan(root: Path, plan: FormatPlan) -> bool:
 
 
 def format_file(root: Path, relative_path: str, *, write: bool = False) -> dict:
+	"""比较文件与排版计划。默认只预览，显式写入时只应用可证明保留 token 和独立行结构的修改。"""
 	plan = capture_file(root, relative_path)
 	suggested = plan.suggested_source()
 	safe = plan.safe_source() if relative_path.endswith(".gd") else plan.source
@@ -98,6 +98,7 @@ def format_file(root: Path, relative_path: str, *, write: bool = False) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+	"""按参数预览单文件排版，显式选择写入时仅应用经过验证的安全子集。"""
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--path", required=True, help="One literal repository-relative owned source or template.")
 	parser.add_argument("--write", action="store_true", help="Apply only proven horizontal token spacing. Remaining violations still fail.")

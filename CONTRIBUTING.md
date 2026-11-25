@@ -82,6 +82,8 @@ cannot be used as merge evidence; use a Ready PR for that purpose.
 
 ## Change Contract
 
+GF uses Godot documentation comments, rustdoc, and Google-style Python docstrings. Chinese is welcome in documentation and implementation comments. The [source documentation guide (中文)](docs/maintainers/source-comments.md) covers language choices and gives examples for each format.
+
 Every PR must make these points reviewable:
 
 1. The problem or capability being addressed.

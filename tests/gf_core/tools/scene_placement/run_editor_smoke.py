@@ -43,6 +43,7 @@ def require_regular(path: Path) -> None:
 
 
 def inventory(source: Path) -> dict[str, str]:
+	"""记录待复制场景工具文件的身份，遇到链接或不受支持的目录项时拒绝采集。"""
 	require_regular(source)
 	result: dict[str, str] = {}
 	pending = [(source, 0)]
@@ -76,6 +77,7 @@ def inventory(source: Path) -> dict[str, str]:
 
 
 def copy_inventory(source: Path, destination: Path, expected: dict[str, str]) -> None:
+	"""复制预先登记的文件并复核内容，防止边复制边修改导致输入与清单不符。"""
 	destination.mkdir(parents=True, exist_ok=True)
 	for name, digest in expected.items():
 		content = path_security.read_pinned_regular_file(source, name, max_bytes=MAX_FILE_BYTES)
@@ -89,6 +91,7 @@ def copy_inventory(source: Path, destination: Path, expected: dict[str, str]) ->
 
 
 def write_project(project: Path, enabled: bool) -> None:
+	"""在临时工程内写入可切换插件启用状态的项目配置。"""
 	plugins = (
 		'"res://addons/gf/tools/scene_placement/plugin.cfg", '
 		'"res://addons/scene_placement_smoke/plugin.cfg"'
@@ -102,6 +105,7 @@ def write_project(project: Path, enabled: bool) -> None:
 
 
 def run_phase(name: str, command: list[str], project: Path, environment: dict[str, str], logs: Path) -> dict[str, object]:
+	"""在隔离项目中执行编辑器阶段并收集退出状态和日志问题。"""
 	result = supervisor.run_supervised_process(
 		command, cwd=project, timeout_seconds=180, environment=environment,
 		max_stdout_characters=1024 * 1024, max_stderr_characters=1024 * 1024,
@@ -128,8 +132,7 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 		issues.append("Godot reported a script error or reload warning.")
 	if any(token in combined for token in ("ERROR:", "WARNING:", FAILURE)):
 		issues.append("Godot reported an error, lifecycle warning, or failed assertion.")
-	# CI consumes this report even when the standalone log tree is unavailable.
-	# Keep the fixture's first failed assertion visible without copying full logs.
+	# CI 可能只保留这个报告。保留首个失败断言即可定位问题，无需复制完整日志。
 	failed_assertion = next((line for line in combined.splitlines() if line.startswith(FAILURE + " ")), "")
 	if failed_assertion:
 		issues.append(failed_assertion[:2000])
@@ -197,6 +200,7 @@ def run_phase(name: str, command: list[str], project: Path, environment: dict[st
 
 
 def main() -> int:
+	"""收集隔离编辑器中的放置操作与渲染证据，未取得可核验结果时返回失败。"""
 	parser = argparse.ArgumentParser(description=__doc__)
 	parser.add_argument("--keep-logs", action="store_true")
 	parser.add_argument("--rendered", action="store_true")

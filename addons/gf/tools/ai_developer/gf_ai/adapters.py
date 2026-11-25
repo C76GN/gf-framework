@@ -70,6 +70,17 @@ def install_agents(
 	dry_run: bool = False,
 	replace_drifted: bool = False,
 ) -> dict[str, Any]:
+	"""Install or preview the selected project-local agent instructions.
+
+	Args:
+	    project_root: Project in which to resolve managed paths.
+	    targets: Agent names. An empty list selects the project's defaults.
+	    dry_run: Return the planned operations without writing files.
+	    replace_drifted: Allow replacement of previously managed files that have changed.
+
+	Returns:
+	    A report with the selected targets, proposed operations, issues, and success flag.
+	"""
 	normalized = _normalize_targets(targets, _default_install_targets(project_root))
 	if "codex" in normalized and not _project_package_available(project_root):
 		return {
@@ -119,6 +130,7 @@ def install_agents(
 
 
 def uninstall_agents(project_root: Path, targets: list[str], dry_run: bool = False) -> dict[str, Any]:
+	"""Remove unchanged managed instructions, or return their removal plan in dry-run mode."""
 	normalized = _normalize_targets(targets, _default_install_targets(project_root))
 	read_budget = _AgentReadBudget()
 	status = agent_status(project_root, read_budget)
@@ -165,6 +177,7 @@ def agent_status(
 	project_root: Path,
 	_read_budget: _AgentReadBudget | None = None,
 ) -> dict[str, Any]:
+	"""Report installed and locally modified agent integrations from the project files."""
 	read_budget = _read_budget or _AgentReadBudget()
 	installed: list[str] = []
 	drifted: list[str] = []
@@ -318,15 +331,14 @@ def _commit_agent_operations(
 	resolved: list[tuple[dict[str, Any], Path]] = []
 	attempted: list[tuple[Path, bytes | None, bytes | None]] = []
 	try:
-		# Validate the whole reviewed source set before the first mutation.
+		# 第一次写入之前先校验整批已审阅的源文件，以免只安装其中一部分。
 		for operation in operations:
 			relative = str(operation["path"])
 			path = resolve_project_path(project_root, relative)
 			current = read_budget.read_optional(path, relative)
 			_assert_operation_source(operation, current)
 			resolved.append((operation, path))
-		# Recheck each source immediately before its mutation. The remaining
-		# uncooperative parent-directory race is tracked by TOOL-AI-DEV-005.
+		# 每次变更前再核对相应源文件。其他进程同时替换父目录的剩余竞态见 TOOL-AI-DEV-005。
 		for operation, path in resolved:
 			current = read_budget.read_optional(path, str(operation["path"]))
 			_assert_operation_source(operation, current)

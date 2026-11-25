@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract GF release notes from docs/zh/changelog.md for a SemVer tag."""
+"""按 SemVer 标签从中文更新日志中提取对应版本的发布说明。"""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ GITHUB_RELEASE_LINK_RE = re.compile(
 
 
 def main() -> int:
+	"""按标签提取本次发布说明，使用命令行指定的输出位置。"""
 	parser = argparse.ArgumentParser(
 		description="Extract a version section from docs/zh/changelog.md and validate release metadata."
 	)
@@ -120,6 +121,7 @@ def check_asset_store(path: Path, version: str) -> None:
 
 
 def read_markdown_fields(path: Path) -> dict[str, str]:
+	"""从 Markdown 元数据中提取字段，保留供发布检查使用的名称和值。"""
 	fields: dict[str, str] = {}
 	for line in path.read_text(encoding="utf-8").splitlines():
 		match = MARKDOWN_FIELD_RE.match(line)
@@ -129,6 +131,7 @@ def read_markdown_fields(path: Path) -> dict[str, str]:
 
 
 def read_comma_separated_fenced_field(path: Path, field_name: str) -> list[str]:
+	"""从字段的围栏代码块按逗号或换行拆分值，去掉空条目。"""
 	text = read_fenced_field(path, field_name)
 	values: list[str] = []
 	for item in re.split(r"[,\n]", text):
@@ -139,6 +142,7 @@ def read_comma_separated_fenced_field(path: Path, field_name: str) -> list[str]:
 
 
 def read_fenced_field(path: Path, field_name: str) -> str:
+	"""取指定字段后围栏代码块的内容，未找到匹配内容时返回空串。"""
 	lines = path.read_text(encoding="utf-8").splitlines()
 	marker = f"- {field_name}:"
 	for index, line in enumerate(lines):
@@ -159,6 +163,11 @@ def read_fenced_field(path: Path, field_name: str) -> str:
 
 
 def extract_release_notes(path: Path, version: str) -> str:
+	"""返回指定版本的变更正文，去除首尾空白。
+
+	Raises:
+	    SystemExit: 找不到变更日志、版本小节缺失或重复，或文档未通过发布格式检查。
+	"""
 	if not path.exists():
 		raise SystemExit(f"Changelog not found: {path}")
 	text = path.read_text(encoding="utf-8")
@@ -211,7 +220,7 @@ def strip_quotes(value: str) -> str:
 
 
 def render_github_release_notes(notes: str, changelog: Path, repository: str, tag: str) -> str:
-	"""Resolve documentation links from the changelog at its immutable release tag."""
+	"""按不可变的发布标签解析更新日志中的文档链接。"""
 	if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository) is None:
 		raise SystemExit(f"Invalid GitHub repository {repository!r}.")
 	root = Path(__file__).resolve().parents[1]

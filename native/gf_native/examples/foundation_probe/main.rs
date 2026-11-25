@@ -1,11 +1,11 @@
-//! Benchmark-only GDExtension. This example is never linked into gf_native.dll.
+//! 独立基准工程使用的 GDExtension，用同样的格子与目标队列测量原生寻路开销。
 use godot::builtin::{PackedByteArray, PackedInt32Array};
 use godot::prelude::*;
 use std::collections::VecDeque;
 
 struct FoundationProbe;
 
-// SAFETY: Registration is handled by godot-rust and only happens in the private probe project.
+// SAFETY: 扩展注册完全由 godot-rust 管理，此探针仅由隔离的基准工程加载。
 #[gdextension]
 unsafe impl ExtensionLibrary for FoundationProbe {}
 
@@ -15,6 +15,8 @@ struct GfFoundationProbe {}
 
 #[godot_api]
 impl GfFoundationProbe {
+    /// 从有效目标向外搜索，依次返回每格的下一步和到达目标的步数，两列均按行排列。
+    /// 不可达的格子填 `-1`。网格尺寸或掩码长度无效时返回空数组。
     #[func]
     fn flow(
         &self,
@@ -29,7 +31,7 @@ impl GfFoundationProbe {
         if mask.len() != count {
             return PackedInt32Array::new();
         }
-        // Store the next cell on the path. Distances follow in the second half.
+        // 两列共用一次分配，前半存下一步格号，后半存距目标的步数，未到达的格子两列均为 -1。
         let mut result = PackedInt32Array::new();
         result.resize(count * 2);
         let (next, distance) = result.as_mut_slice().split_at_mut(count);
@@ -67,7 +69,7 @@ fn cell_count(size: Vector2i) -> Option<usize> {
     (1..=1_048_576).contains(&count).then_some(count)
 }
 
-// Right, left, down, up. Equal-cost ties in GF's queue preserve insertion order.
+/// 按右、左、下、上访问相邻格。同长路径由队列入队顺序决定，基准与脚本须使用同一顺序。
 fn neighbors(cell: usize, size: Vector2i) -> [Option<usize>; 4] {
     let width = size.x as usize;
     let x = (cell % width) as i32;

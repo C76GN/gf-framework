@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Deterministic GUT inventory, shard-plan, and timing observation helpers.
+"""从当前测试清单生成确定性的 GUT 分片计划，并记录计时观察。
 
-This module is deliberately observation-only.  It does not run Godot, select a
-subset of tests, skip work, or accept historical results as validation evidence.
+本模块只处理观察数据。测试选择、Godot 进程启动与验收由执行入口负责，历史计时只用于观察。
 """
 
 from __future__ import annotations
@@ -177,7 +176,7 @@ _GDSCRIPT_INNER_CLASS_RE = re.compile(
 
 
 class GutShardingError(ValueError):
-	"""A closed, stable failure emitted by the GUT sharding helpers."""
+	"""GUT 分片辅助函数抛出的、带稳定代码的协议错误。"""
 
 	def __init__(self, code: str, message: str) -> None:
 		super().__init__(f"{code}: {message}")
@@ -186,7 +185,7 @@ class GutShardingError(ValueError):
 
 
 def canonical_json_bytes(value: Any) -> bytes:
-	"""Return the canonical UTF-8 JSON representation used for digests."""
+	"""返回用于计算摘要的规范 UTF-8 JSON 字节。"""
 
 	try:
 		encoded = json.dumps(
@@ -205,7 +204,7 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 
 def canonical_digest(value: Any) -> str:
-	"""Return a lowercase SHA-256 digest of canonical JSON bytes."""
+	"""返回规范 JSON 字节的小写十六进制 SHA-256。"""
 
 	return hashlib.sha256(canonical_json_bytes(value)).hexdigest()
 
@@ -215,11 +214,9 @@ def discover_gut_test_scripts(
 	*,
 	deadline: float | None = None,
 ) -> tuple[str, ...]:
-	"""Discover the stable, complete set of real GF GUT test scripts.
+	"""发现当前全部真实 GF GUT 测试脚本，并核实清单稳定。
 
-	Each of the two independent stability scans receives the configured scan
-	budget.  An optional caller deadline remains the hard upper bound for both
-	scans, so a worker cannot extend its own total execution budget.
+	两次相互独立的扫描各自使用配置的预算。调用方传入的截止时间是两次扫描共同的硬上限。
 	"""
 
 	root = Path(root)
@@ -241,7 +238,7 @@ def discover_gut_test_scripts(
 
 
 def _inventory_scan_deadline(overall_deadline: float | None) -> float:
-	"""Return one scan deadline without exceeding a caller-owned deadline."""
+	"""为一次清单扫描计算截止时间，保持在调用方时限以内。"""
 
 	scan_deadline = time.monotonic() + INVENTORY_DEADLINE_SECONDS
 	if overall_deadline is None:
@@ -250,10 +247,9 @@ def _inventory_scan_deadline(overall_deadline: float | None) -> float:
 
 
 def generate_bootstrap_manifest(root: Path) -> dict[str, Any]:
-	"""Generate an unweighted deterministic bootstrap manifest.
+	"""生成按脚本数量均衡的初始分片清单。
 
-	No timing balance is claimed: non-contract scripts are ordered by their path
-	digest and distributed round-robin so only the script counts are balanced.
+	非契约脚本按路径摘要排序后轮流分配，清单不根据历史耗时加权。
 	"""
 
 	inventory = discover_gut_test_scripts(root)
@@ -265,7 +261,7 @@ def validate_manifest(
 	payload: Any,
 	expected_inventory: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-	"""Validate and return a normalized manifest or raise GutShardingError."""
+	"""校验并返回规范化的分片清单，结构不符时抛出 GutShardingError。"""
 
 	if type(payload) is not dict:
 		raise GutShardingError(
@@ -423,7 +419,7 @@ def load_and_validate_manifest(
 	root: Path,
 	expected_inventory: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-	"""Read a strict manifest and bind it to the stable live inventory."""
+	"""严格读取分片清单，再用当前稳定的测试清单核实其内容。"""
 
 	data = _read_stable_regular_file(Path(path), MAX_MANIFEST_BYTES, "manifest")
 	payload = _load_strict_json(data, "manifest")
@@ -433,7 +429,7 @@ def load_and_validate_manifest(
 
 
 def render_manifest(payload: Any) -> str:
-	"""Render a validated manifest as stable, human-reviewable UTF-8 JSON."""
+	"""把已校验的清单渲染为稳定且可人工审阅的 UTF-8 JSON。"""
 
 	normalized = validate_manifest(payload)
 	return json.dumps(
@@ -454,7 +450,7 @@ def parse_gut_junit_xml(
 	expected_provenance_identity: tuple[int, int, int, int, int, int] | None = None,
 	expected_provenance_nonce: str | None = None,
 ) -> dict[str, Any]:
-	"""Parse one bounded, controlled GUT JUnit XML observation."""
+	"""在受控路径和预算内解析一次 GUT JUnit XML 观察结果。"""
 	if type(trusted_unfiltered_run) is not bool:
 		raise GutShardingError(
 			"junit_completeness_provenance_invalid",
@@ -976,7 +972,7 @@ def build_observation_report(
 	manifest: Any,
 	junit_report: Mapping[str, Any],
 ) -> dict[str, Any]:
-	"""Aggregate one full-suite JUnit observation by the bootstrap shards."""
+	"""按初始分片归集一次完整套件的 JUnit 观测数据。"""
 
 	if type(junit_report) is not dict:
 		raise GutShardingError(
@@ -997,7 +993,7 @@ def build_observation_report_from_script_records(
 	*,
 	failure_test_count: Any,
 ) -> dict[str, Any]:
-	"""Aggregate exact normalized script records by the bootstrap shards."""
+	"""按初始分片归集已经规范化并核实身份的脚本记录。"""
 
 	if type(scripts) is not list:
 		raise GutShardingError(
@@ -1132,7 +1128,7 @@ def build_observation_report_from_script_records(
 
 
 def _validate_observation_script_record(report: Mapping[str, Any]) -> None:
-	"""Accept only the exact, already-normalized script records emitted by the parser."""
+	"""只接受解析器所产出的确切形态和已经规范化的脚本记录。"""
 	_require_exact_keys(
 		report,
 		_JUNIT_SCRIPT_REPORT_KEYS,
@@ -2007,7 +2003,7 @@ def _normalize_inventory_base_path(value: str) -> str | None:
 
 
 def _mask_gdscript_noncode(script_text: str) -> str:
-	"""Mask comments and string contents while preserving code line structure."""
+	"""屏蔽 GDScript 注释和字符串内容，保留原有代码行的结构。"""
 
 	masked: list[str] = []
 	index = 0
@@ -2301,8 +2297,7 @@ def _parse_junit_suite(
 		"duration_scope": JUNIT_TESTCASE_DURATION_SCOPE,
 		"test_count": len(tests),
 		"status_counts": status_counts,
-		# GUT 9.7.1 exports per-suite failing and pending assertion counts
-		# under the conventional JUnit failures/skipped attribute names.
+		# GUT 9.7.1 将每套测试失败及待定的断言数分别写入 JUnit 的 failures 和 skipped 属性。
 		"failure_assertion_count": declared_failures,
 		"pending_assertion_count": declared_skipped,
 		"failure_test_count_lower_bound": status_counts["failed"],
@@ -2533,7 +2528,7 @@ def _validate_xml_tree_budget(root: ET.Element) -> None:
 
 
 class _XmlBudgetTarget:
-	"""Validate bounded XML tokens without allocating an Element tree."""
+	"""在不构造完整元素树的情况下，按预算校验 XML token。"""
 
 	def __init__(self) -> None:
 		self.element_count = 0
@@ -2606,7 +2601,7 @@ class _XmlBudgetTarget:
 
 
 def _validate_xml_stream_budget(text: str) -> None:
-	"""Reject oversized XML structures before the full tree is allocated."""
+	"""在完整元素树分配前拒绝超出结构预算的 XML。"""
 	parser = ET.XMLParser(target=_XmlBudgetTarget())
 	try:
 		for offset in range(0, len(text), 64 * 1024):
@@ -2762,7 +2757,7 @@ def _read_stable_regular_file(
 def stable_file_identity(
 	metadata: os.stat_result,
 ) -> tuple[int, int, int, int, int, int]:
-	"""Return metadata used to detect ordinary replacement around a stable read."""
+	"""返回稳定读取前后用来发现文件替换的元数据。"""
 	return (
 		int(getattr(metadata, "st_dev", 0)),
 		int(getattr(metadata, "st_ino", 0)),

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Behavior and safety tests for the optional project-side GF AI kit."""
+"""验证项目侧 AI 工具从契约、快照到 CLI 和 MCP 的可观察行为，以及写入项目的边界。"""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ class GFAIValidationPerformanceTests(unittest.TestCase):
 					paths._validate_json_unicode_scalars(document)
 			for document in ({"nested": [value]}, {value: "value"}):
 				if value == "\ud83d\ude00":
-					continue  # A valid escaped pair is decoded into a scalar by JSON.
+					continue  # JSON 会把合法的一对代理项解码为一个 Unicode 标量。
 				with self.subTest(json=repr(document)), self.assertRaises(ValueError):
 					paths.strict_json_loads(json.dumps(document))
 		valid = {"text": "\ud7ff\ue000\U0001f600中文"}
@@ -221,8 +221,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		)
 		result = initialize_contract(self.project_root)
 		self.assertTrue(result["ok"], result)
-		# Most cases exercise an explicitly reviewed architecture requirement.
-		# Initialization itself is tested separately without this fixture choice.
+		# 大部分用例需要已审阅的架构要求，初始化本身另有不带这项预设的测试。
 		fixture_contract = result["contract"]
 		fixture_contract["framework"]["capability_requirements"] = [{
 			"id": "architecture", "decision_state": "confirmed", "owner": "project",
@@ -2430,7 +2429,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 		legacy_schema_issues = validate_schema_file(contract, SCHEMA_ROOT / "project_contract.schema.json")
 		self.assertIn("const_mismatch", {item["code"] for item in legacy_schema_issues})
 		self.assertIn("missing_required", {item["code"] for item in legacy_schema_issues})
-		# Historical fixture bytes stay frozen; v9 does not accept its old domain shape.
+		# 保留旧版样本的原始字节，以验证 v9 会拒绝旧的领域结构。
 		snapshot_issues = validate_schema_file(report, SCHEMA_ROOT / "project_snapshot.schema.json")
 		self.assertTrue(any(item["code"] == "min_items" and item["path"].endswith(".domains") for item in snapshot_issues))
 		self.assertTrue(any(item["code"] == "missing_required" and item["path"].endswith(".unclassified_count") for item in snapshot_issues))
@@ -3010,8 +3009,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			{(item["code"], item["path"]) for item in direct_issues},
 		)
 
-		# Keep the source file valid UTF-8 while expressing the lone surrogate as
-		# a JSON escape, exactly as an untrusted contract can do on every platform.
+		# 用 JSON 转义表示孤立代理码位，让测试源码本身保持合法 UTF-8，并在各平台上产生同一输入。
 		contract_path.write_text(json.dumps(contract, ensure_ascii=True), encoding="utf-8")
 		contract_result = load_contract(self.project_root)
 		self.assertFalse(contract_result["ok"])
@@ -4178,8 +4176,8 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 
 		try:
 			if os.name == "nt":
-				# Windows keeps a broken junction in directory_names; present its
-				# real reparse identity through the POSIX file_names classification.
+				# Windows 把失效的 junction 留在 directory_names 中。
+				# 这里用 POSIX 的 file_names 分类呈现它的重解析身份。
 				with mock.patch.object(
 					dependencies.os,
 					"walk",
@@ -10535,7 +10533,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 			)
 			central_size = eocd[5]
 			central_offset = eocd[6]
-			# Fixed synthetic canary for malformed-archive disclosure checks.
+			# 用固定的合成标记检查处理损坏归档时是否泄露了标记内容。
 			synthetic_canary = b"api_key=ghp_" + b"Ab9" * 16
 			prefixed = bytearray(synthetic_canary + archive_payload)
 			cursor = central_offset + len(synthetic_canary)
@@ -10605,7 +10603,7 @@ class GFAIDeveloperKitTest(unittest.TestCase):
 				archive_payload,
 				eocd_offset + 16,
 			)[0]
-			# Fixed synthetic canary for malformed-archive disclosure checks.
+			# 用固定的合成标记检查处理损坏归档时是否泄露了标记内容。
 			synthetic_canary = b"api_key=ghp_" + b"Ab9" * 16
 			gapped = bytearray(
 				archive_payload[:central_offset]

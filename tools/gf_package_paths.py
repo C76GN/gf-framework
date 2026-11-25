@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic package manifest path matching shared by GF maintenance tools."""
+"""为模块清单提供一致的路径包含、通配匹配及归属判断。"""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ _WINDOWS_RESERVED_DEVICE_NUMBERS = "123456789¹²³"
 
 
 def normalize_manifest_path(path: str) -> str:
-	"""Normalize manifest syntax without resolving it against the filesystem."""
+	"""仅规范化清单路径语法，保留与实际文件系统无关的含义。"""
 	normalized = path.strip().replace("\\", "/")
 	if normalized.startswith("res://"):
 		normalized = normalized.removeprefix("res://")
@@ -28,7 +28,7 @@ def manifest_pattern_has_magic(pattern: str) -> bool:
 
 
 def portable_path_component_is_valid(component: str, *, allow_manifest_glob_characters: bool) -> bool:
-	"""Apply GF's platform-independent package path component policy."""
+	"""按 GF 跨平台路径规则校验单个路径段。"""
 	if (
 		not component
 		or component in {".", ".."}
@@ -67,7 +67,7 @@ def manifest_pattern_is_supported(pattern: str) -> bool:
 
 
 def portable_literal_path_identity(path: str) -> str:
-	"""Return GF's case-insensitive portable identity for a canonical relative literal path."""
+	"""为标准形式的相对字面路径生成可跨平台比较、忽略大小写的身份。"""
 	if not path or path != path.strip() or "\\" in path or path.startswith("/"):
 		return ""
 	parts = path.split("/")
@@ -80,7 +80,7 @@ def portable_literal_path_identity(path: str) -> str:
 
 
 def portable_manifest_path_identity(path: str) -> str:
-	"""Return a portable identity for a canonical manifest path, or ``""`` when unsafe."""
+	"""返回规范清单路径的可移植身份，路径不安全时返回空串。"""
 	if not path or path != path.strip() or "\\" in path or normalize_manifest_path(path) != path:
 		return ""
 	if not manifest_pattern_is_supported(path):
@@ -89,7 +89,7 @@ def portable_manifest_path_identity(path: str) -> str:
 
 
 def manifest_segment_matches(value: str, pattern: str) -> bool:
-	"""Match one path segment where only ``*`` and ``?`` have glob meaning."""
+	"""匹配单个路径段，只有星号和问号具有通配含义。"""
 	pattern_index = 0
 	value_index = 0
 	star_index = -1
@@ -117,7 +117,7 @@ def manifest_segment_matches(value: str, pattern: str) -> bool:
 
 
 def manifest_path_matches(path: str, raw_pattern: str) -> bool:
-	"""Match portable Godot paths with identical case-sensitive semantics on every OS."""
+	"""在所有操作系统上按同样区分大小写的规则匹配 Godot 路径。"""
 	normalized_path = normalize_manifest_path(path)
 	pattern = raw_pattern
 	if (
@@ -140,11 +140,12 @@ def manifest_path_matches(path: str, raw_pattern: str) -> bool:
 
 
 def path_matches_any_manifest_path(path: str, patterns: list[str]) -> bool:
+	"""使用跨平台一致的路径语义判断是否至少匹配一个清单条目。"""
 	return any(manifest_path_matches(path, pattern) for pattern in patterns)
 
 
 class ManifestPathIndex:
-	"""Index exact, recursive-prefix, and fallback glob ownership patterns."""
+	"""为精确路径、递归前缀和需要通配比较的归属模式建立索引。"""
 
 	def __init__(
 		self,
@@ -177,10 +178,12 @@ class ManifestPathIndex:
 		return bool(self._entries)
 
 	def find_one(self, path: str) -> dict[str, str] | None:
+		"""恰好只有一个匹配时返回其记录，缺失或多义时返回 None。"""
 		matches = self.find_all(path)
 		return matches[0] if len(matches) == 1 else None
 
 	def find_all(self, path: str) -> list[dict[str, str]]:
+		"""返回与候选路径匹配的所有清单记录，包括重叠的归属。"""
 		normalized_path = self._path_normalizer(path)
 		if not normalized_path or not portable_literal_path_identity(normalized_path):
 			return []

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Read-only, bounded test discovery evidence for GF validation planning.
+"""在既定预算内发现测试声明，为维护检查规划提供只读清单。
 
-This module inventories test declarations; it never executes tests, writes cache
-state, or decides that a validation action may be skipped.
+发现过程不执行测试、不写缓存，也不决定省略任何检查。
 """
 
 from __future__ import annotations
@@ -66,28 +65,28 @@ _HEXADECIMAL_DIGITS = frozenset("0123456789abcdefABCDEF")
 
 
 class TestInventoryError(RuntimeError):
-	"""Base error for fail-closed test inventory operations."""
+	"""无法可靠构建测试清单时的错误基类。"""
 
 
 class TestInventoryInputError(TestInventoryError):
-	"""Raised when the inventory root or a source entry is unsafe."""
+	"""测试清单根目录或源码条目不满足读取约束。"""
 
 
 class TestInventoryLimitError(TestInventoryError):
-	"""Raised when an inventory input exceeds a declared hard budget."""
+	"""测试清单输入超出已声明的硬上限。"""
 
 
 class TestInventoryDriftError(TestInventoryError):
-	"""Raised when an inventory input changes while it is being captured."""
+	"""输入在采集测试清单期间发生变化。"""
 
 
 class TestInventoryDeadlineError(TestInventoryError):
-	"""Raised when an advisory inventory capture exceeds its monotonic deadline."""
+	"""观察性的测试清单采集耗尽了单调时钟预算。"""
 
 
 @dataclass(frozen=True)
 class InventoryLimits:
-	"""Hard upper bounds for one test inventory capture."""
+	"""单次测试清单采集允许使用的硬上限。"""
 
 	max_entries: int = 4096
 	max_source_files: int = 2048
@@ -166,17 +165,14 @@ def collect_test_inventory(
 	deadline_seconds: float | None = None,
 	monotonic: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
-	"""Return stable declaration-inventory evidence below ``tests/gf_core``.
+	"""在 tests/gf_core 内取得稳定的测试声明清单。
 
-	Only regular ``.gd`` and ``.py`` files contribute source bytes. Every entry
-	below the fixed test root still consumes path and entry budgets and is checked
-	for links, reparse points, special file types, and portable path collisions.
+	只有普通 .gd 和 .py 提供源码字节，但根目录下的所有条目都计入路径及数量预算，并接受链接、
+	重解析点、特殊文件类型与跨平台路径冲突检查。
 
-	``capture_complete`` means the bounded source inventory and conservative test
-	declaration scan completed over one stable view. It does not claim that Godot
-	parsed, compiled, or executed any GDScript. ``deadline_seconds`` is an optional
-	absolute value in the injected monotonic clock's domain; expiry is advisory to
-	the caller and raises ``TestInventoryDeadlineError`` without returning evidence.
+	capture_complete 表示在同一稳定视图上完成了有界清单采集和保守的声明扫描。编译和执行测试另有步骤。
+	deadline_seconds 是可注入单调时钟域中的可选绝对截止值，到期时抛出 TestInventoryDeadlineError，
+	不返回证据。
 	"""
 	_validate_limits(limits)
 	deadline = _make_advisory_deadline(deadline_seconds, monotonic)
@@ -211,8 +207,7 @@ def collect_test_inventory(
 		deadline=deadline,
 	)
 
-	# Recheck all discovered identities after enumeration so ordinary replacement,
-	# deletion, and in-place source mutation cannot yield mixed-time evidence.
+	# 枚举后复核所有已发现对象的身份，避免文件被替换、删除或原地修改时得到混合时刻的证据。
 	for path, logical_path, expected in fixed_root_snapshots:
 		deadline.check()
 		_validate_unchanged_directory_identity(path, logical_path, expected)
@@ -238,8 +233,7 @@ def collect_test_inventory(
 			raise TestInventoryDriftError(
 				f"test_inventory.source_changed_after_capture:{source.logical_path}"
 			)
-	# Source verification may be long enough for a parent swap to race the first
-	# directory pass, so bind the full root-to-test chain once more before return.
+	# 核对源码可能持续到父目录已被替换，返回前还需再验证一次从根到测试文件的完整目录链。
 	for path, logical_path, expected in fixed_root_snapshots:
 		deadline.check()
 		_validate_unchanged_directory_identity(path, logical_path, expected)
@@ -700,10 +694,9 @@ def _discover_gdscript_tests(text: str, logical_path: str) -> list[str]:
 
 
 def _mask_gdscript_non_code(text: str, logical_path: str) -> str:
-	"""Mask literals/comments with a conservative, fail-closed lexer.
+	"""以保守的词法规则屏蔽字面量与注释，输入不完整时拒绝继续。
 
-	This validates only string-token boundaries and documented escape shapes. It
-	does not claim to replace the Godot parser or prove that the script compiles.
+	这里只验证字符串 token 的边界和受支持的转义形态。脚本能否编译由 Godot 解析器判断。
 	"""
 	if "\0" in text:
 		raise TestInventoryInputError(
@@ -759,8 +752,7 @@ def _mask_gdscript_non_code(text: str, logical_path: str) -> str:
 			index += 1
 			continue
 
-		# Triple strings may contain newlines; preserve only newline characters so
-		# declaration anchors outside the string keep their original line shape.
+		# 三引号字符串保留其中的换行，以维持字符串外声明锚点的原始行号。
 		if character == "\\":
 			index = _mask_gdscript_escape(
 				text,
@@ -967,7 +959,7 @@ def _windows_file_change_time_ns(file_descriptor: int) -> int:
 		raise TestInventoryInputError(
 			"test_inventory.windows_change_time_unavailable"
 		)
-	# FILE_BASIC_INFO timestamps are signed 100 ns ticks since 1601-01-01.
+	# FILE_BASIC_INFO 时间戳是从 1601-01-01 起计的有符号数，单位为 100 纳秒。
 	return change_time * 100
 
 

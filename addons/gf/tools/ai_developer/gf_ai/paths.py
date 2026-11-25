@@ -113,6 +113,7 @@ def project_path_has_link_component(project_root: Path, relative_path: str) -> b
 
 
 def resolve_project_root(raw_root: str | Path) -> Path:
+	"""Resolve a directory containing a valid project.godot entry, raising PathBoundaryError if the root cannot be admitted."""
 	root = Path(raw_root or ".").expanduser().resolve()
 	if not root.is_dir():
 		raise PathBoundaryError(f"Project root is not a directory: {root}")
@@ -131,6 +132,19 @@ def resolve_project_path(
 	*,
 	must_exist: bool = False,
 ) -> Path:
+	"""Resolve a relative path inside the project without crossing filesystem links.
+
+	Args:
+	    project_root: Root against which the relative path is resolved.
+	    relative_path: Non-empty path inside the project.
+	    must_exist: Require the target to exist when true.
+
+	Returns:
+	    The path inside the supplied project.
+
+	Raises:
+	    PathBoundaryError: The path violates the project boundary or a required target is absent.
+	"""
 	normalized = relative_path.strip().replace("\\", "/")
 	if not normalized or normalized.startswith(('/', '\\')):
 		raise PathBoundaryError(f"Project path must be non-empty and relative: {relative_path!r}")
@@ -195,6 +209,7 @@ def read_bounded_text(path: Path, max_bytes: int) -> str:
 
 
 def read_json_object(path: Path, max_bytes: int = DEFAULT_MAX_JSON_BYTES) -> dict[str, Any]:
+	"""Read a bounded UTF-8 JSON file and require its top-level value to be an object."""
 	if max_bytes <= 0:
 		raise ValueError("JSON byte budget must be positive.")
 	try:
@@ -208,6 +223,7 @@ def read_json_object(path: Path, max_bytes: int = DEFAULT_MAX_JSON_BYTES) -> dic
 
 
 def strict_json_loads(source: str) -> Any:
+	"""Decode JSON while rejecting duplicate keys, non-finite constants and surrogate code points."""
 	try:
 		value = json.loads(
 			source,
@@ -221,6 +237,7 @@ def strict_json_loads(source: str) -> Any:
 
 
 def canonical_json_bytes(value: Any) -> bytes:
+	"""Encode JSON as UTF-8 with sorted keys and compact separators for reproducible digests."""
 	return json.dumps(
 		value,
 		ensure_ascii=False,
@@ -231,10 +248,12 @@ def canonical_json_bytes(value: Any) -> bytes:
 
 
 def atomic_write_text(path: Path, text: str) -> None:
+	"""Encode text as UTF-8 and publish it using the byte writer's atomic replacement."""
 	atomic_write_bytes(path, text.encode("utf-8"))
 
 
 def atomic_write_bytes(path: Path, data: bytes) -> None:
+	"""Stage bytes beside the destination and replace it after checking the path for links."""
 	_reject_linked_write_path(path)
 	path.parent.mkdir(parents=True, exist_ok=True)
 	_reject_linked_write_path(path)
@@ -253,6 +272,7 @@ def atomic_write_bytes(path: Path, data: bytes) -> None:
 
 
 def atomic_write_json(path: Path, value: Any) -> None:
+	"""Write formatted JSON text through the same atomic replacement as other project files."""
 	text = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
 	atomic_write_text(path, text)
 
@@ -306,12 +326,14 @@ def atomic_compare_exchange_json(path: Path, expected_sha256: str, value: Any) -
 
 
 def sha256_bytes(value: bytes) -> str:
+	"""Return the lowercase hexadecimal SHA-256 digest of the exact supplied bytes."""
 	import hashlib
 
 	return hashlib.sha256(value).hexdigest()
 
 
 def sha256_json(value: Any) -> str:
+	"""Hash the canonical JSON encoding so key ordering in the input does not change identity."""
 	return sha256_bytes(canonical_json_bytes(value))
 
 

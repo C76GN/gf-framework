@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for observational GUT inventory, sharding, and JUnit data."""
+"""验证 GUT 测试清单、确定性分片计划与 JUnit 记录之间的对应关系。"""
 
 from __future__ import annotations
 

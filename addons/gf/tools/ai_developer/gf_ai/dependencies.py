@@ -38,6 +38,7 @@ _SKIPPED_DIRECTORY_NAMES = frozenset({".git", ".godot", ".import", "__pycache__"
 
 @dataclass(frozen=True)
 class SourceToken:
+	"""保留源码标记的类别、值、行号和原始文本，供依赖报告定位引用。"""
 	kind: str
 	value: str
 	line: int
@@ -46,18 +47,21 @@ class SourceToken:
 
 @dataclass(frozen=True)
 class PinnedSource:
+	"""将已读取的源码文本与读取时核实的文件身份保存在一起。"""
 	text: str
 	identity: tuple[int, int, int, int, int]
 
 
 @dataclass
 class PathRoleTraversalBudget:
+	"""在同一次路径角色遍历中共用剩余的目录项和字节预算。"""
 	remaining_entries: int
 	remaining_bytes: int
 
 
 @dataclass(frozen=True)
 class PathRoleState:
+	"""记录一路径的角色、判定状态以及已覆盖的模块，用于解释扫描覆盖范围。"""
 	path: str
 	role: str
 	status: str
@@ -66,6 +70,7 @@ class PathRoleState:
 
 @dataclass(frozen=True)
 class TargetOwnershipRoot:
+	"""描述模块或适配器所拥有的资源根及其参与源码扫描的方式。"""
 	owner_id: str
 	resource_root: str
 	source_module: bool
@@ -167,17 +172,21 @@ class TargetOwnershipPlan:
 
 	@property
 	def roots(self) -> tuple[TargetOwnershipRoot, ...]:
+		"""返回本次归属分析采用的资源根集合。"""
 		return self._roots
 
 	@property
 	def module_ids(self) -> frozenset[str]:
+		"""返回项目契约中参与模块归属判定的 ID。"""
 		return self._module_ids
 
 	@property
 	def component_ids(self) -> frozenset[str]:
+		"""返回归属计划中可作为引用目标的组件 ID。"""
 		return self._component_ids
 
 	def ownership_of(self, resource_path: str) -> TargetOwnershipRoot | None:
+		"""返回匹配资源路径的归属记录，未匹配时返回 None。"""
 		normalized = normalize_resource_path(resource_path)
 		if not normalized:
 			return None
@@ -187,6 +196,7 @@ class TargetOwnershipPlan:
 		return None
 
 	def owner_of(self, resource_path: str) -> str:
+		"""返回资源所属组件的 ID，无归属时返回空串。"""
 		record = self.ownership_of(resource_path)
 		return record.owner_id if record is not None else ""
 
@@ -197,6 +207,16 @@ def analyze_module_dependencies(
 	*,
 	contract_valid: bool,
 ) -> dict[str, Any]:
+	"""Observe module references within declared project roots and return evidence and coverage.
+
+	Args:
+	    project_root: Root used to resolve project resource paths.
+	    contract_data: Declared modules, adapters, and dependency policy.
+	    contract_valid: Whether the supplied contract passed validation. A failed contract blocks analysis.
+
+	Returns:
+	    Observations with status, completeness and truncation flags. Check completeness before interpreting an empty result.
+	"""
 	modules = _contract_modules(contract_data)
 	adapters = _contract_adapters(contract_data)
 	if not contract_valid:

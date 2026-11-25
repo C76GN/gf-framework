@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Strict SemVer 2.0 parsing and precedence helpers for GF tooling."""
+"""按 SemVer 2.0 解析版本标识并比较优先级，供分支及发布工具共用。"""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ SEMVER_RE = re.compile(
 @total_ordering
 @dataclass(frozen=True, eq=False)
 class SemVer:
-	"""Parsed SemVer whose comparisons follow SemVer precedence rules."""
+	"""已解析的语义版本，其比较遵循 SemVer 优先级。"""
 
 	major: int
 	minor: int
@@ -48,11 +48,12 @@ class SemVer:
 
 	@property
 	def precedence_key(self) -> tuple[int, int, int, tuple[str, ...]]:
+		"""返回用于相等判断及哈希的版本部分，构建元数据不影响这两个结果。"""
 		return (self.major, self.minor, self.patch, self.prerelease)
 
 
 def parse_semver(value: str) -> SemVer | None:
-	"""Parse a complete SemVer value; return None for malformed input."""
+	"""解析完整 SemVer 值，输入非法时返回 None。"""
 
 	text = value.strip()
 	match = SEMVER_RE.fullmatch(text)
@@ -70,7 +71,7 @@ def parse_semver(value: str) -> SemVer | None:
 
 
 def compare_semver(left: SemVer, right: SemVer) -> int:
-	"""Return -1, 0, or 1 using SemVer precedence, ignoring build metadata."""
+	"""按 SemVer 优先级返回 -1、0 或 1，构建元数据不参与排序。"""
 
 	left_core = (left.major, left.minor, left.patch)
 	right_core = (right.major, right.minor, right.patch)
@@ -104,7 +105,7 @@ def compare_semver(left: SemVer, right: SemVer) -> int:
 
 
 def reaches_exclusive_compatibility_bound(current: SemVer, maximum: SemVer) -> bool:
-	"""Return whether a framework version reaches an exclusive compatibility line."""
+	"""判断是否已越过兼容范围。在上界是稳定版时，同一主、次、补丁号的预发布版也计为到达上界。"""
 
 	current_core = (current.major, current.minor, current.patch)
 	maximum_core = (maximum.major, maximum.minor, maximum.patch)
@@ -116,7 +117,7 @@ def reaches_exclusive_compatibility_bound(current: SemVer, maximum: SemVer) -> b
 
 
 def next_major_version(value: str) -> str:
-	"""Return the next stable major boundary, or an empty string if invalid."""
+	"""返回下一稳定主版本的边界，输入无效时返回空串。"""
 
 	version = parse_semver(value)
 	if version is None:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve executables from an explicit environment and execution cwd."""
+"""仅使用调用者提供的环境和工作目录解析可执行文件，使选择结果可以复核。"""
 
 from __future__ import annotations
 
@@ -17,15 +17,15 @@ POSIX_PATH_LIST_SEPARATOR = ":"
 
 
 class ExecutableResolutionError(FileNotFoundError):
-	"""Raised when an executable has no match in the frozen search inputs."""
+	"""在已冻结的搜索输入中找不到匹配的可执行文件。"""
 
 
 class FrozenEnvironmentError(ValueError):
-	"""Raised when a caller-supplied environment has invalid target semantics."""
+	"""调用方提供的环境不满足目标平台的名称或值约束。"""
 
 
 class EnvironmentNameAmbiguityError(FrozenEnvironmentError):
-	"""Raised when a Windows environment contains duplicate folded names."""
+	"""Windows 环境中存在忽略大小写后同名的多个键。"""
 
 
 def _windows_environment_matching_keys(
@@ -46,7 +46,7 @@ def frozen_environment_value(
 	*,
 	platform_name: str | None = None,
 ) -> str | None:
-	"""Read one frozen environment value with target-platform name semantics."""
+	"""按目标平台的名称规则从已冻结的环境读取变量。"""
 	effective_platform = platform_name if platform_name is not None else os.name
 	if effective_platform != "nt":
 		return environment.get(name)
@@ -65,21 +65,18 @@ def set_owned_environment_value(
 	*,
 	platform_name: str | None = None,
 ) -> None:
-	"""Set one caller-owned environment value with target-platform semantics."""
+	"""按目标平台的名称规则修改调用方拥有的环境映射。"""
 	effective_platform = platform_name if platform_name is not None else os.name
 	if effective_platform != "nt":
 		environment[name] = value
 		return
-	# Validate the caller-owned snapshot before mutating it.  A single differently
-	# cased key is the same Windows variable and is replaced by the canonical name;
-	# multiple folded matches are ambiguous input and must fail closed.
+	# 修改前先验证调用方的环境快照。Windows 下仅大小写不同的单一键可替换，多项折叠到同一名称时须拒绝。
 	matching_keys = _windows_environment_matching_keys(environment, name)
 	if len(matching_keys) > 1:
 		raise EnvironmentNameAmbiguityError(
 			f"Frozen Windows environment contains ambiguous {name} entries."
 		)
-	# Publish the replacement before removing a differently cased alias so a
-	# failed dict assignment cannot erase the caller's existing value.
+	# 先写入规范名称再移除大小写别名，避免赋值失败时丢失原有值。
 	environment[name] = value
 	if matching_keys and matching_keys[0] != name:
 		del environment[matching_keys[0]]
@@ -91,7 +88,7 @@ def remove_owned_environment_value(
 	*,
 	platform_name: str | None = None,
 ) -> None:
-	"""Remove one caller-owned environment value with target-platform semantics."""
+	"""按目标平台的名称规则从调用方拥有的环境移除变量。"""
 	effective_platform = platform_name if platform_name is not None else os.name
 	if effective_platform != "nt":
 		environment.pop(name, None)
@@ -107,7 +104,7 @@ def resolve_frozen_executable(
 	cwd: Path,
 	platform_name: str | None = None,
 ) -> str:
-	"""Resolve one executable without consulting ambient environment or cwd."""
+	"""仅使用传入的环境和工作目录解析可执行文件。"""
 	if type(candidate) is not str or not candidate:
 		raise ValueError("Executable resolution requires a non-empty string candidate.")
 	effective_platform = platform_name if platform_name is not None else os.name
@@ -148,7 +145,7 @@ def _find_executable(
 	platform_name: str,
 	cwd: Path,
 ) -> Path | None:
-	"""Find an executable using only the supplied environment and cwd."""
+	"""在调用方明确提供的环境及工作目录中查找可执行文件。"""
 	path_module = ntpath if platform_name == "nt" else posixpath
 	if platform_name == "nt" and _windows_search_has_drive_relative_input(
 		candidate,
@@ -213,7 +210,7 @@ def _find_executable(
 
 
 def _host_path(value: str, platform_name: str) -> Path:
-	"""Represent target-platform separators on the current host filesystem."""
+	"""在当前主机上解释目标平台的路径分隔符。"""
 	if platform_name == "nt" and os.name != "nt":
 		return Path(value.replace("\\", "/"))
 	if platform_name != "nt" and os.name == "nt":
@@ -226,7 +223,7 @@ def _absolute_search_root(path: Path, cwd: Path) -> Path:
 
 
 def _is_windows_drive_relative(value: str) -> bool:
-	"""Reject Windows paths that depend on an ambient per-drive cwd."""
+	"""识别依赖 Windows 隐式分盘工作目录的相对路径。"""
 	drive, _tail = ntpath.splitdrive(value)
 	return bool(drive) and not ntpath.isabs(value)
 
@@ -235,7 +232,7 @@ def _windows_search_has_drive_relative_input(
 	candidate: str,
 	environment: Mapping[str, str],
 ) -> bool:
-	"""Classify unsafe Windows search inputs without touching the filesystem."""
+	"""仅从路径形式判定 Windows 搜索输入是否包含不安全的盘符相对形式。"""
 	if _is_windows_drive_relative(candidate):
 		return True
 	if ntpath.dirname(candidate):
@@ -262,7 +259,7 @@ def _path_list_separator(platform_name: str) -> str:
 def _windows_default_cwd_search_enabled(
 	environment: Mapping[str, str],
 ) -> bool:
-	"""Mirror Windows bare-command cwd suppression using the frozen environment."""
+	"""根据冻结环境判断 Windows 是否允许从当前工作目录搜索无路径命令。"""
 	return frozen_environment_value(
 		environment,
 		WINDOWS_NO_DEFAULT_CWD_ENV_VAR,
