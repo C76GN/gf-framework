@@ -9,20 +9,32 @@ const POINTS: Array[Vector2] = [
 ]
 
 @export var recipe: GFUIMotionRecipe
-
 var _scale_percent: int = 100
-
 @onready var _playback: GFUIMotionPlayer = $Playback
 @onready var _legend: Label = $Legend
 
 
 func _ready() -> void:
-	var graph: PackedFloat32Array = PackedFloat32Array([
-		0, 2, -1, -1,
-		2, 0, 3, 8,
-		-1, 3, 0, 1,
-		-1, 8, 1, 0,
-	])
+	var graph: PackedFloat32Array = PackedFloat32Array(
+		[
+			0,
+			2,
+			-1,
+			-1,
+			2,
+			0,
+			3,
+			8,
+			-1,
+			3,
+			0,
+			1,
+			-1,
+			8,
+			1,
+			0,
+		]
+	)
 	var status: Error = _playback.play(
 		recipe,
 		{ &"incoming": self, &"legend": _legend },
@@ -43,13 +55,20 @@ func prepare_ui_review(_options: Dictionary) -> void:
 func sample_ui_review(seconds: float) -> void:
 	if _playback.is_active():
 		var _positioned: bool = _playback.seek(
-			clampf(seconds, 0.0, _playback.get_duration_seconds())
+			clampf(
+				seconds,
+				0.0,
+				_playback.get_duration_seconds()
+			)
 		)
 
 
 func _verify_export(status: Error) -> void:
 	var sampled: bool = status == OK and _playback.seek(0.8)
-	var colors: PackedColorArray = get_meta(&"route_glow", PackedColorArray())
+	var colors: PackedColorArray = get_meta(
+		&"route_glow",
+		PackedColorArray()
+	)
 	if (
 		sampled
 		and colors.size() == POINTS.size()

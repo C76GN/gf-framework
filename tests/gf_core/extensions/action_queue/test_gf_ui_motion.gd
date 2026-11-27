@@ -168,10 +168,19 @@ func test_authored_route_scene_samples_the_map_and_legend() -> void:
 	view.call(&"sample_ui_review", 0.4)
 	var early_opacity: float = legend.modulate.a
 	view.call(&"sample_ui_review", 0.8)
-	var colors: PackedColorArray = view.get_meta(&"route_glow", PackedColorArray())
-	assert_eq(colors.size(), 4)
+	var colors: PackedColorArray = view.get_meta(
+		&"route_glow",
+		PackedColorArray()
+	)
+	assert_eq(
+		colors.size(),
+		4
+	)
 	if colors.size() == 4:
-		assert_gt(colors[0].a, colors[2].a)
+		assert_gt(
+			colors[0].a,
+			colors[2].a
+		)
 	assert_gt(legend.modulate.a, early_opacity)
 
 
