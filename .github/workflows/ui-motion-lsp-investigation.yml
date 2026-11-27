@@ -16,10 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scenario: [selected, baseline, independent, deferred]
+        scenario: [groups, early, late, scene, recipe, trace]
     env:
       SCENARIO: ${{ matrix.scenario }}
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,30 +32,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$SCENARIO" == baseline ]]; then
-            cp tools/gdscript_lsp_diagnostics.py "$RUNNER_TEMP/diagnostics.py"
-            git checkout --detach "$BASE_SHA"
-            cp "$RUNNER_TEMP/diagnostics.py" tools/gdscript_lsp_diagnostics.py
-          elif [[ "$SCENARIO" == deferred ]]; then
-            python - <<'PY'
+          python - <<'PY'
+          import os
           from pathlib import Path
-          path = Path("tests/gf_core/extensions/action_queue/test_gf_ui_motion.gd")
-          source = path.read_text()
-          old = 'const _AUTHORED: GFUIMotionRecipe = preload('
-          assert source.count(old) == 1
-          changed = source.replace(old, 'var _AUTHORED: GFUIMotionRecipe = load(')
-          path.write_text(changed)
+          scenario = os.environ["SCENARIO"]
+          if scenario in {"scene", "recipe"}:
+              path = Path("tests/gf_core/extensions/action_queue/fixtures/route_illumination.tscn")
+              identifier = "view" if scenario == "scene" else "recipe"
+              lines = path.read_text().splitlines(keepends=True)
+              keep = [s for s in lines if f'id="{identifier}"]' not in s and f'= ExtResource("{identifier}")' not in s]
+              assert len(keep) == len(lines)-2
+              path.write_text("".join(keep))
+          if scenario == "trace":
+              path = Path("tools/gdscript_lsp_diagnostics.py")
+              code = path.read_text()
+              needle = 'str(port),\n\t\t"--log-file",'
+              assert code.count(needle) == 1
+              path.write_text(code.replace(needle, 'str(port),\n\t\t"--verbose",\n\t\t"--log-file",'))
           PY
-          fi
           godot --headless --path . --editor --import --quit > "$RUNNER_TEMP/import.log" 2>&1
       - name: Compare normal editor scans
         shell: bash
         run: |
           set -euo pipefail
           folder=tests/gf_core/extensions/action_queue
-          visual="$folder/test_gf_visual_actions.gd"
-          motion="$folder/test_gf_ui_motion.gd"
-          full=(--include addons/gf --include tests/gf_core --exclude-prefix addons/gut)
+          tests=()
+          for path in "$folder"/test_*.gd; do tests+=(--file "$path"); done
           scan() {
             label="$1"
             shift
@@ -70,18 +71,22 @@ jobs:
             sed -n '/Last GDScript open request\|files_scanned=\|unavailable before\|^.*\.gd:[0-9]/p' "$RUNNER_TEMP/$label.out" | head -18
             printf '%s\n' "- $label exit=$result" >> "$GITHUB_STEP_SUMMARY"
           }
+          with_fixture() { scan "$1" --file "$folder/fixtures/$1.gd" "${tests[@]}"; }
           case "$SCENARIO" in
-            selected)
-              scan visual --file "$visual"
-              scan motion --file "$motion"
-              scan pair --file "$motion" --file "$visual"
+            groups)
+              scan tests_without_fixtures "${tests[@]}"
+              scan fixtures_only --include "$folder/fixtures"
+              scan without_view --include "$folder" --exclude-prefix "$folder/fixtures/route_illumination_view.gd"
+              ;;
+            early)
+              for fixture in cancel_during_sample decode_label live_meter material_pack_probe recorded_live_effect; do with_fixture "$fixture"; done
+              ;;
+            late)
+              for fixture in route_illumination route_illumination_playback route_illumination_view; do with_fixture "$fixture"; done
+              ;;
+            scene|recipe) scan queue --include "$folder" ;;
+            trace)
               scan queue --include "$folder"
-              scan tests --include tests/gf_core
+              grep -Ei 'loading resource|Last GDScript|crash|resource loader' "$RUNNER_TEMP/queue.log" | tail -55 || true
               ;;
-            baseline) scan all "${full[@]}" ;;
-            independent)
-              scan motion --file "$motion"
-              scan remaining "${full[@]}" --exclude-prefix "$motion"
-              ;;
-            deferred) scan all "${full[@]}" ;;
           esac
