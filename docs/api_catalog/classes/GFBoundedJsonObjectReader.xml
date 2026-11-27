@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFBoundedJsonObjectReader" path="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" module="kernel" extends="RefCounted" classDigest="36234baaadc7cdc89e657173de4196c817fe5af4de598ef185779d6939bac50f">
+<class name="GFBoundedJsonObjectReader" path="addons/gf/kernel/core/gf_bounded_json_object_reader.gd" module="kernel" extends="RefCounted" classDigest="6ddf9002f6672c3ef5b2f920661a09fe33caf70e0613a8e6ad8529b1adaf8858">
 	<description>GFBoundedJsonObjectReader: 有界 JSON object 读取器。
 在调用 JSON.parse() 前限制 UTF-8 字节数与对象/数组词法嵌套深度，
 适合项目运行时、编辑器工具和 headless 工具读取不可信 JSON object 输入。
@@ -50,7 +50,7 @@
 	<properties />
 	<methods>
 		<member kind="method" name="parse_object">
-			<signature>static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -&gt; Dictionary:</signature>
+			<signature>static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH, reject_duplicate_members: bool = false ) -&gt; Dictionary:</signature>
 			<description>解析有界 JSON object 文本。
 max_bytes 与 max_depth 只能收紧框架绝对上限；非正值恢复默认预算，
 超过绝对上限的值会被钳制。字节与词法深度检查发生在 JSON.parse() 前。
@@ -63,13 +63,14 @@ error_kind 非空。原始 NUL、解码为 U+0000 的字符串转义、数值溢
 				<tag name="param">text: 要解析的 JSON 文本。</tag>
 				<tag name="param">max_bytes: 调用方请求的最大 UTF-8 字节数。</tag>
 				<tag name="param">max_depth: 调用方请求的最大对象/数组词法嵌套深度。</tag>
+				<tag name="param">reject_duplicate_members: 为 true 时，同一对象内解码后相同的成员名返回 duplicate_member。</tag>
 				<tag name="return">JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。</tag>
-				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".</tag>
+				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", "invalid_root_type", or "duplicate_member".</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>
 		<member kind="method" name="read_object">
-			<signature>static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -&gt; Dictionary:</signature>
+			<signature>static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH, reject_duplicate_members: bool = false ) -&gt; Dictionary:</signature>
 			<description>读取并解析有界 JSON object 文件。
 入口规范化资源路径，最多读取实际字节预算加一字节，并使用同一份原始 bytes
 完成大小、UTF-8、词法深度和 JSON object 校验。支持 Godot FileAccess 可读取的
@@ -84,8 +85,9 @@ parse_failed 拒绝。</description>
 				<tag name="param">path: 要读取的 JSON 文件路径。</tag>
 				<tag name="param">max_bytes: 调用方请求的最大 UTF-8 字节数。</tag>
 				<tag name="param">max_depth: 调用方请求的最大对象/数组词法嵌套深度。</tag>
+				<tag name="param">reject_duplicate_members: 为 true 时，在本次实际读取的字节中按对象检查解码后的成员名。</tag>
 				<tag name="return">JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。</tag>
-				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".</tag>
+				<tag name="schema">return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", "invalid_root_type", or "duplicate_member".</tag>
 				<tag name="since">11.0.0</tag>
 			</tags>
 		</member>

@@ -55,6 +55,30 @@ if error == OK:
 
 `GFNetworkUtility`、`GFNetworkSession`、`GFNetworkChannel` 和内置后端返回的调试快照会经过 `GFNetworkDebugTools` 脱敏处理。常见 token、secret、password、authorization、cookie、session 等字段会替换为占位文本，endpoint 会保留协议与主机但隐藏路径、查询和片段。项目如果把额外敏感信息放进自定义 metadata，应在进入网络快照前先转换为可公开的诊断值。
 
+## 关闭一条远端连接
+
+房主可以通过 `GFNetworkBackend` 关闭一个远端传输连接。ENet 支持这项操作。在 `peer_connected` 时保存后端和 `get_peer_connection_token(peer_id)` 返回的不透明凭据，超时回调或异步任务应使用当时取得的这两项。相同编号重新连入会获得新凭据，即使先前的超时回调晚到，也只会尝试关闭它原先观察的连接。
+
+```gdscript
+func close_for_current_connection(backend: GFNetworkBackend, peer_id: int) -> Callable:
+	var connection: RefCounted = backend.get_peer_connection_token(peer_id)
+	if connection == null:
+		return Callable()
+	return backend.disconnect_peer.bind(peer_id, connection)
+```
+
+项目可为每次准备保存这个 Callable，通过准入时移除它。只有当该次准备仍在等待且已经超时，才调用保存的 Callable。
+
+`disconnect_peer(peer_id, connection)` 在 ENet 房主上成功后返回 `OK`，立即释放本地传输槽位，并为这次连接同步发出一次 `peer_disconnected`。已经排入接收队列但尚未派发的该连接数据会丢弃，已发往远端的数据也不保证送达。主机和其他连接继续收发。应用决定何时取消等待、拒绝接入或关闭连接。
+
+| 调用情况 | 返回值 |
+| --- | --- |
+| 后端没有实现单连接关闭 | `ERR_UNAVAILABLE` |
+| ENet 后端尚未启动 | `ERR_UNCONFIGURED` |
+| 从 ENet 客户端调用 | `ERR_UNAUTHORIZED` |
+| 目标为广播、本机或保留编号，或凭据为空 | `ERR_INVALID_PARAMETER` |
+| 远端未知、已关闭，或凭据与当前连接不匹配 | `ERR_DOES_NOT_EXIST` |
+
 ## 传输指标
 
 `GFNetworkBackend.get_transport_metrics()` 返回 `GFNetworkTransportMetrics`。基础 Backend 统一统计成功发送和已派发接收的 bytes/packet 数；具体实现可以补充 RTT、jitter、丢包率和队列。指标只有在 `has_metric()` 为 true 时才已知，未支持的 RTT 不会伪装成 `0`。单个快照最多包含 64 个指标，其中最多 48 个自定义指标，指标 ID 最多 64 个字符；达到上限后的新指标由 `set_metric()` 失败关闭，既有指标仍可更新。

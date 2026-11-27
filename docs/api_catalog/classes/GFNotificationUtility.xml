@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNotificationUtility" path="addons/gf/standard/utilities/ui/gf_notification_utility.gd" module="standard" extends="GFUtility" classDigest="9bfe6f7b5169e7b541dc38d1a0d62797575ff5fd98d94930fefcdee86d589e91">
+<class name="GFNotificationUtility" path="addons/gf/standard/utilities/ui/gf_notification_utility.gd" module="standard" extends="GFUtility" classDigest="90434dcc236ff9bdab4b9aebfde3e6a412859fae24940253a258b74c79ef0f17">
 	<description>GFNotificationUtility: 通用运行时通知队列。
 管理通知数据、队列、去重和生命周期信号。默认串行展示，可配置多个活动通知。
 单条活动通知接口面向最早开始展示且仍在活动的记录。项目决定展示布局和样式。</description>
@@ -25,6 +25,15 @@
 				<tag name="api">public</tag>
 				<tag name="param">notification: 通知副本。</tag>
 				<tag name="schema">notification: Dictionary，字段同 notification_queued 的 notification。</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="notification_updated">
+			<signature>signal notification_updated(notification_id: int)</signature>
+			<description>等待或活动通知的内容实际变更后发出一次。监听者按 ID 读取最新状态，其他监听者可以先更新或关闭它。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">notification_id: 发生变化的通知 ID，可传入 get_notification()。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="signal" name="notification_finished">
@@ -146,6 +155,19 @@
 				<tag name="since">3.17.0</tag>
 			</tags>
 		</member>
+		<member kind="method" name="update_notification">
+			<signature>func update_notification(notification_id: int, changes: Dictionary) -&gt; Error:</signature>
+			<description>按 ID 原地更新等待或活动通知。保留排队位置、计时、暂停状态及未指定的字段。
+省略显式 key 的通知随后按更新后的正文去重。内容相同时返回 OK，无需刷新展示。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">notification_id: push_notification() 返回的通知 ID。</tag>
+				<tag name="param">changes: 要替换的内容字段，空动作数组清除所有动作。</tag>
+				<tag name="return">已更新或内容相同返回 OK，记录已退役返回 ERR_DOES_NOT_EXIST，字段无效返回 ERR_INVALID_PARAMETER。</tag>
+				<tag name="schema">changes: Dictionary，可选 title、message（String）、level（Level）及 actions（同 push_notification 的动作数组）。标题与正文至少一项非空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
 		<member kind="method" name="dismiss_active">
 			<signature>func dismiss_active(reason: String = "dismissed") -&gt; void:</signature>
 			<description>结束当前通知。</description>
@@ -172,6 +194,17 @@
 				<tag name="api">public</tag>
 				<tag name="param">reason: 结束原因。</tag>
 				<tag name="since">3.17.0</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_notification">
+			<signature>func get_notification(notification_id: int) -&gt; Dictionary:</signature>
+			<description>按 ID 读取等待或活动通知的独立副本。观察者可在更新信号中检查其他回调执行后的当前状态。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">notification_id: push_notification() 返回的通知 ID。</tag>
+				<tag name="return">当前通知记录；记录已结束或不存在时返回空字典。</tag>
+				<tag name="schema">return: Dictionary，字段同 notification_queued 的 notification；找不到该 ID 时为空。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="get_active_notification">

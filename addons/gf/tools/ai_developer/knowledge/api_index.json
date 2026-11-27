@@ -2,7 +2,7 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "f04f71745a38756a4d353d0d0d8787761f5d885bdeca5ffe1336fac2fb41cabe",
+  "source_digest": "7ed324e5c1b35f68c6d1a44d4efa2290d38277b04463b09a1e2ac8b565d30d4c",
   "class_count": 927,
   "autoload_count": 1,
   "package_count": 63,
@@ -12580,14 +12580,14 @@
         {
           "kind": "func",
           "name": "parse_object",
-          "signature": "static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary",
+          "signature": "static func parse_object( text: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH, reject_duplicate_members: bool = false ) -> Dictionary",
           "summary": "解析有界 JSON object 文本。",
           "visibility": "public"
         },
         {
           "kind": "func",
           "name": "read_object",
-          "signature": "static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH ) -> Dictionary",
+          "signature": "static func read_object( path: String, max_bytes: int = DEFAULT_MAX_BYTES, max_depth: int = DEFAULT_MAX_DEPTH, reject_duplicate_members: bool = false ) -> Dictionary",
           "summary": "读取并解析有界 JSON object 文件。",
           "visibility": "public"
         }
@@ -30935,6 +30935,20 @@
           "name": "disconnect_backend",
           "signature": "func disconnect_backend() -> void",
           "summary": "断开 ENet 连接。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_peer_connection_token",
+          "signature": "func get_peer_connection_token(peer_id: int) -> RefCounted",
+          "summary": "查询当前房主已接纳的远端连接；在 peer_connected 回调内即可保存凭据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "disconnect_peer",
+          "signature": "func disconnect_peer(peer_id: int, connection_token: RefCounted) -> Error",
+          "summary": "关闭匹配凭据的远端连接并同步报告 peer_disconnected。原生入站队列中属于这次连接的余包将被丢弃。",
           "visibility": "public"
         },
         {
@@ -50891,6 +50905,20 @@
         },
         {
           "kind": "func",
+          "name": "get_peer_connection_token",
+          "signature": "func get_peer_connection_token(_peer_id: int) -> RefCounted",
+          "summary": "取得房主当前远端连接的不透明身份。调用方应在接纳连接时保存它，延迟关闭时使用原凭据。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "disconnect_peer",
+          "signature": "func disconnect_peer(_peer_id: int, _connection_token: RefCounted) -> Error",
+          "summary": "请求关闭一条匹配凭据的远端连接，保留主机及其他 peer。成功后撤销凭据，每条连接至多通知一次断开。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "send_bytes",
           "signature": "func send_bytes( _peer_id: int, _bytes: PackedByteArray, _options: Dictionary = {} ) -> Error",
           "summary": "发送 bytes。",
@@ -57910,6 +57938,13 @@
         },
         {
           "kind": "signal",
+          "name": "notification_updated",
+          "signature": "signal notification_updated(notification_id: int)",
+          "summary": "等待或活动通知的内容实际变更后发出一次。监听者按 ID 读取最新状态，其他监听者可以先更新或关闭它。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
           "name": "notification_finished",
           "signature": "signal notification_finished(notification: Dictionary, reason: String)",
           "summary": "通知结束时发出。",
@@ -57987,6 +58022,13 @@
         },
         {
           "kind": "func",
+          "name": "update_notification",
+          "signature": "func update_notification(notification_id: int, changes: Dictionary) -> Error",
+          "summary": "按 ID 原地更新等待或活动通知。保留排队位置、计时、暂停状态及未指定的字段。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
           "name": "dismiss_active",
           "signature": "func dismiss_active(reason: String = \"dismissed\") -> void",
           "summary": "结束当前通知。",
@@ -58004,6 +58046,13 @@
           "name": "clear_notifications",
           "signature": "func clear_notifications(reason: String = \"cleared\") -> void",
           "summary": "先撤下全部活动通知并清空等待队列，再为每条原先活动的通知发出结束信号。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_notification",
+          "signature": "func get_notification(notification_id: int) -> Dictionary",
+          "summary": "按 ID 读取等待或活动通知的独立副本。观察者可在更新信号中检查其他回调执行后的当前状态。",
           "visibility": "public"
         },
         {

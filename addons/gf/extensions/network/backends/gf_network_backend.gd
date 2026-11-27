@@ -135,6 +135,35 @@ func disconnect_backend() -> void:
 	pass
 
 
+## 取得房主当前远端连接的不透明身份。调用方应在接纳连接时保存它，延迟关闭时使用原凭据。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _peer_id: 已连接的单个远端 peer。
+## [br]
+## @return 对应本后端、本次连接的凭据。未连接、非房主或后端不支持时返回 null。
+func get_peer_connection_token(_peer_id: int) -> RefCounted:
+	return null
+
+
+## 请求关闭一条匹配凭据的远端连接，保留主机及其他 peer。成功后撤销凭据，每条连接至多通知一次断开。
+## 未交付的入站消息可丢弃，已发送的数据不保证送达。相同编号的新连接必须使用新凭据。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param _peer_id: 要关闭的单个远端 peer。
+## [br]
+## @param _connection_token: 接纳这次连接时由本后端签发的凭据。
+## [br]
+## @return 支持时返回 OK、ERR_UNCONFIGURED、ERR_UNAUTHORIZED、ERR_INVALID_PARAMETER 或 ERR_DOES_NOT_EXIST。后端未实现时返回 ERR_UNAVAILABLE。
+func disconnect_peer(_peer_id: int, _connection_token: RefCounted) -> Error:
+	return ERR_UNAVAILABLE
+
+
 ## 发送 bytes。
 ## [br]
 ## @api public

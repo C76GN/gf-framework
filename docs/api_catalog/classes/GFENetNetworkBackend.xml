@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFENetNetworkBackend" path="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="68652167f42868ea200bd58638f1f0055f203b365168a578606dff0bed03b7f0">
+<class name="GFENetNetworkBackend" path="addons/gf/extensions/network/backends/gf_enet_network_backend.gd" module="extensions/network" extends="GFNetworkBackend" classDigest="88d6b3c7120c9e657bad836e315c8b9589a01ea8142be622213a21bcf5c87416">
 	<description>GFENetNetworkBackend: 基于 Godot ENetMultiplayerPeer 的网络后端。
 该后端只实现 GFNetworkBackend 的 bytes 传输边界，不定义房间、同步、
 RPC 或任何项目消息语义。需要更复杂协议时可以继续继承 GFNetworkBackend。</description>
@@ -57,6 +57,27 @@ endpoint 可传 "host:port"，或通过 options.port 传端口。</description>
 			<description>断开 ENet 连接。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_peer_connection_token">
+			<signature>func get_peer_connection_token(peer_id: int) -&gt; RefCounted:</signature>
+			<description>查询当前房主已接纳的远端连接；在 peer_connected 回调内即可保存凭据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 单个远端 peer 的正整数标识。</tag>
+				<tag name="return">本次连接的不透明凭据；连接不存在或本端不是房主时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="disconnect_peer">
+			<signature>func disconnect_peer(peer_id: int, connection_token: RefCounted) -&gt; Error:</signature>
+			<description>关闭匹配凭据的远端连接并同步报告 peer_disconnected。原生入站队列中属于这次连接的余包将被丢弃。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">peer_id: 已连接的一个远端 peer；本机和广播标识无效。</tag>
+				<tag name="param">connection_token: 此次连接建立时取得的凭据。</tag>
+				<tag name="return">成功返回 OK；未启动返回 ERR_UNCONFIGURED，客户端返回 ERR_UNAUTHORIZED，非法参数返回 ERR_INVALID_PARAMETER。未知、已关闭或凭据不符均返回 ERR_DOES_NOT_EXIST。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_bytes">

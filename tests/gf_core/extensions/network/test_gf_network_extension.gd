@@ -5399,6 +5399,267 @@ func test_enet_close_preserves_host_started_by_peer_disconnect_callback() -> voi
 		backend.disconnect_backend()
 
 
+func test_host_disconnects_one_connection_and_rejects_its_token_after_id_reuse() -> void:
+	var host_backend: GFENetNetworkBackend = GFENetNetworkBackend.new()
+	host_backend.max_packets_per_poll = 1
+	var survivor: GFNetworkBackend = GFENetNetworkBackend.new()
+	var client: ENetConnection = ENetConnection.new()
+	var port_probe: PacketPeerUDP = PacketPeerUDP.new()
+	assert_eq(
+		port_probe.bind(0, "127.0.0.1"),
+		OK
+	)
+	var port: int = port_probe.get_local_port()
+	port_probe.close()
+	assert_eq(
+		host_backend.host({ "port": port, "max_clients": 2 }),
+		OK
+	)
+	var endpoint: String = "127.0.0.1:%d" % port
+	assert_eq(
+		survivor.connect_to_endpoint(endpoint),
+		OK
+	)
+	assert_eq(
+		client.create_host(1, 3),
+		OK
+	)
+	# 固定测试客户端的传输编号，使重新占用同一编号和同一容量槽可以真实复现。
+	var fixed_id: int = 27001
+	var remote: ENetPacketPeer = client.connect_to_host(
+		"127.0.0.1",
+		port,
+		3,
+		fixed_id
+	)
+	var joined: Array[int] = []
+	var departed: Array[int] = []
+	var receipts: Array[PackedByteArray] = []
+	var _join: int = host_backend.peer_connected.connect(
+		func(id: int) -> void:
+			joined.append(id)
+	)
+	var _leave: int = host_backend.peer_disconnected.connect(
+		func(id: int) -> void:
+			departed.append(id)
+	)
+	var _receive: int = survivor.message_received.connect(
+		func(_id: int, data: PackedByteArray) -> void:
+			receipts.append(data)
+	)
+	var both_connected: bool = _poll_enet_until(
+		host_backend,
+		survivor,
+		client,
+		func() -> bool:
+			return joined.size() == 2 and survivor.is_backend_connected()
+	)
+	assert_true(both_connected)
+	if both_connected:
+		var token: RefCounted = host_backend.get_peer_connection_token(fixed_id)
+		var other_id: int = joined[0] if joined[1] == fixed_id else joined[1]
+		var other_token: RefCounted = host_backend.get_peer_connection_token(other_id)
+		assert_not_null(token)
+		assert_null(survivor.get_peer_connection_token(1))
+		assert_eq(
+			survivor.disconnect_peer(fixed_id, token),
+			ERR_UNAUTHORIZED
+		)
+		assert_eq(
+			GFNetworkBackend.new().disconnect_peer(fixed_id, token),
+			ERR_UNAVAILABLE
+		)
+		assert_eq(
+			host_backend.disconnect_peer(other_id, token),
+			ERR_DOES_NOT_EXIST
+		)
+		assert_eq(
+			host_backend.disconnect_peer(-1, token),
+			ERR_INVALID_PARAMETER
+		)
+
+		var messages: Array[PackedByteArray] = []
+		var _close_on_first: int = host_backend.message_received.connect(
+			func(_id: int, data: PackedByteArray) -> void:
+				messages.append(data)
+				if messages.size() == 1:
+					# 两端各有尚未派发的包；关闭只能撤下指定连接的余包。
+					assert_eq(
+						GFVariantData.get_option_int(
+							host_backend.get_debug_snapshot(),
+							"available_packet_count"
+						),
+						4
+					)
+					assert_eq(
+						host_backend.disconnect_peer(fixed_id, token),
+						OK
+					)
+		)
+		for payload: String in [
+			"first",
+			"retired",
+			"retired",
+		]:
+			assert_eq(
+				remote.send(
+					1,
+					payload.to_utf8_buffer(),
+					ENetPacketPeer.FLAG_RELIABLE
+				),
+				OK
+			)
+		client.flush()
+		for queued_text: String in ["queued-1", "queued-2"]:
+			assert_eq(
+				survivor.send_bytes(
+					1,
+					queued_text.to_utf8_buffer()
+				),
+				OK
+			)
+		survivor.poll(0.0)
+		# 仅在夹具准备阶段单独推进原生接收，使两个端点的数据都已入队再经由 GF 派发。
+		var stage_deadline: int = Time.get_ticks_msec() + 3000
+		while Time.get_ticks_msec() < stage_deadline:
+			host_backend._peer.poll()
+			if host_backend._peer.get_available_packet_count() == 5:
+				break
+			OS.delay_msec(1)
+		var host_reported_close: Callable = func() -> bool:
+			return not departed.is_empty()
+		assert_true(
+			_poll_enet_until(
+				host_backend,
+				survivor,
+				client,
+				host_reported_close
+			)
+		)
+		assert_eq(
+			departed,
+			[fixed_id]
+		)
+		assert_null(host_backend.get_peer_connection_token(fixed_id))
+		assert_eq(
+			host_backend.disconnect_peer(fixed_id, token),
+			ERR_DOES_NOT_EXIST
+		)
+		assert_eq(
+			host_backend.send_bytes(
+				fixed_id,
+				"late".to_utf8_buffer()
+			),
+			ERR_INVALID_PARAMETER
+		)
+
+		# 旧客户端保持存活并停止轮询。满容量房主必须在它确认断开前接纳替代连接。
+		var rejoining_client: ENetConnection = ENetConnection.new()
+		assert_eq(
+			rejoining_client.create_host(1, 3),
+			OK
+		)
+		var replacement_remote: ENetPacketPeer = rejoining_client.connect_to_host(
+			"127.0.0.1",
+			port,
+			3,
+			fixed_id
+		)
+		var rejoined: Callable = func() -> bool:
+			return joined.size() == 3 and replacement_remote.get_state() == ENetPacketPeer.STATE_CONNECTED
+		assert_true(
+			_poll_enet_until(
+				host_backend,
+				survivor,
+				rejoining_client,
+				rejoined
+			)
+		)
+		var replacement: RefCounted = host_backend.get_peer_connection_token(fixed_id)
+		assert_not_null(replacement)
+		assert_ne(replacement, token)
+		assert_eq(
+			host_backend.disconnect_peer(fixed_id, token),
+			ERR_DOES_NOT_EXIST
+		)
+		assert_eq(
+			host_backend.get_peer_connection_token(other_id),
+			other_token
+		)
+		assert_eq(
+			replacement_remote.send(
+				1,
+				"new".to_utf8_buffer(),
+				ENetPacketPeer.FLAG_RELIABLE
+			),
+			OK
+		)
+		rejoining_client.flush()
+		assert_eq(
+			survivor.send_bytes(
+				1,
+				"survivor".to_utf8_buffer()
+			),
+			OK
+		)
+		assert_eq(
+			host_backend.send_bytes(
+				other_id,
+				"reply".to_utf8_buffer()
+			),
+			OK
+		)
+		var exchanged: Callable = func() -> bool:
+			return (
+				messages.has("new".to_utf8_buffer())
+				and messages.has("survivor".to_utf8_buffer())
+				and not receipts.is_empty()
+			)
+		assert_true(
+			_poll_enet_until(
+				host_backend,
+				survivor,
+				rejoining_client,
+				exchanged
+			)
+		)
+		assert_eq(
+			messages.count("retired".to_utf8_buffer()),
+			0
+		)
+		assert_true(messages.has("new".to_utf8_buffer()))
+		assert_true(messages.has("survivor".to_utf8_buffer()))
+		assert_true(messages.has("queued-1".to_utf8_buffer()))
+		assert_gt(
+			messages.find("queued-2".to_utf8_buffer()),
+			messages.find("queued-1".to_utf8_buffer())
+		)
+		assert_eq(
+			receipts,
+			["reply".to_utf8_buffer()]
+		)
+		assert_eq(
+			departed,
+			[fixed_id]
+		)
+		assert_true(host_backend.is_backend_connected())
+		var remote_reported_close: Callable = func() -> bool:
+			var event: Array = client.service(0)
+			return event[0] == ENetConnection.EVENT_DISCONNECT
+		assert_true(
+			_poll_enet_until(
+				host_backend,
+				survivor,
+				rejoining_client,
+				remote_reported_close
+			)
+		)
+		rejoining_client.destroy()
+	client.destroy()
+	survivor.disconnect_backend()
+	host_backend.disconnect_backend()
+
+
 func test_enet_close_emits_disconnect_for_each_tracked_peer() -> void:
 	var backend: GFENetNetworkBackend = GFENetNetworkBackend.new()
 	var disconnected_peer_ids: Array[int] = []
@@ -7592,6 +7853,23 @@ func _make_invalid_default_network_contract(contract_id: StringName) -> GFNetwor
 	contract.contract_id = contract_id
 	contract.messages = [message_contract]
 	return contract
+
+
+func _poll_enet_until(
+	host_backend: GFNetworkBackend,
+	survivor: GFNetworkBackend,
+	fixed_client: ENetConnection,
+	observed: Callable
+) -> bool:
+	var deadline: int = Time.get_ticks_msec() + 3000
+	while Time.get_ticks_msec() < deadline:
+		var _event: Array = fixed_client.service(0)
+		survivor.poll(0.0)
+		host_backend.poll(0.0)
+		if GFVariantData.to_bool(observed.call()):
+			return true
+		OS.delay_msec(1)
+	return false
 
 
 func _snapshot_from_dictionary(source: Dictionary, key: Variant) -> GFNetworkSnapshot:

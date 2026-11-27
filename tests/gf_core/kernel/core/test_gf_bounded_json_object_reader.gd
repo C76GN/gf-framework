@@ -108,6 +108,155 @@ func test_parse_object_returns_stable_json_safe_report() -> void:
 		)
 
 
+func test_unique_members_compare_decoded_names_in_each_object_across_entries() -> void:
+	var duplicate_offsets: Dictionary[String, int] = {
+		'{"label":1,"label":2}': 11,
+		'{"label":1,"\\u006cabel":2}': 11,
+		'{"rows":[{"a":0,"a":1}]}': 16,
+		'{"":0,"":1}': 6,
+		'{"🌙":0,"\\ud83c\\udf19":1}': 7,
+		'{"a\\"b":1,"a\\u0022b":2}': 10,
+		'{"group":{"id":1},"id":2,"other":{"id":3}}': -1,
+		'{"rows":[{"label":1},{"label":2}],"Label":3,"label":4}': -1,
+		'{"text":"escaped \\"key\\": and } {[","key":"ok"}': -1,
+	}
+	for source: String in duplicate_offsets:
+		var expected_offset: int = duplicate_offsets[source]
+		_write_text_fixture(USER_FIXTURE_PATH, source)
+		var digest: Dictionary = GFBoundedJsonObjectReader.read_object_with_content_sha256(
+			USER_FIXTURE_PATH,
+			4096,
+			16,
+			true
+		)
+		var reports: Array[Dictionary] = [
+			GFBoundedJsonObjectReader.parse_object(
+				source,
+				4096,
+				16,
+				true
+			),
+			GFBoundedJsonObjectReader.read_object(
+				USER_FIXTURE_PATH,
+				4096,
+				16,
+				true
+			),
+			digest,
+		]
+		var original: Dictionary = GFBoundedJsonObjectReader.parse_object(source)
+		assert_true(
+			_option_bool(original, "ok"),
+			source
+		)
+		assert_eq(
+			_option_string(digest, "content_sha256"),
+			source.sha256_text(),
+			source
+		)
+		for report: Dictionary in reports:
+			assert_true(
+				report.get("ok") is bool,
+				source
+			)
+			assert_true(
+				report.get("data") is Dictionary,
+				source
+			)
+			assert_eq(
+				_option_bool(report, "ok"),
+				expected_offset < 0,
+				source
+			)
+			if expected_offset < 0:
+				assert_eq(
+					_option_dictionary(report, "data"),
+					_option_dictionary(original, "data"),
+					source
+				)
+			else:
+				assert_eq(
+					_option_dictionary(report, "data"),
+					{},
+					source
+				)
+				assert_eq(
+					_option_string(report, "error_kind"),
+					"duplicate_member",
+					source
+				)
+				assert_eq(
+					_option_string(report, "error"),
+					"[GFBoundedJsonObjectReader][bounded_json_object_reader.duplicate_member] Repeated object member at character offset %d." % expected_offset,
+					source
+				)
+
+
+func test_unique_members_preserve_syntax_root_and_budget_failures() -> void:
+	var source: String = '{"a":{"b":1},"a":2}'
+	var ambiguous_nonfinite: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"a":0,"a":1,"value":1e309}',
+		128,
+		64,
+		true
+	)
+	assert_eq(
+		_option_string(ambiguous_nonfinite, "error_kind"),
+		"parse_failed"
+	)
+	assert_string_contains(
+		_option_string(ambiguous_nonfinite, "error"),
+		"bounded_json_object_reader.number_not_finite"
+	)
+	assert_eq(
+		_option_dictionary(
+			GFBoundedJsonObjectReader.parse_object(source),
+			"data"
+		),
+		{ "a": 2.0 }
+	)
+	var byte_limited: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		source,
+		1,
+		64,
+		true
+	)
+	var depth_limited: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		source,
+		128,
+		1,
+		true
+	)
+	var malformed: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'{"a":0,"a":}',
+		128,
+		64,
+		true
+	)
+	var array_root: Dictionary = GFBoundedJsonObjectReader.parse_object(
+		'[{"a":0,"a":1}]',
+		128,
+		64,
+		true
+	)
+	assert_eq(
+		_option_string(byte_limited, "error_kind"),
+		"payload_too_large"
+	)
+	assert_eq(
+		_option_string(depth_limited, "error_kind"),
+		"nesting_too_deep"
+	)
+	assert_eq(
+		_option_string(malformed, "error_kind"),
+		"parse_failed"
+	)
+	assert_eq(
+		_option_string(array_root, "error_kind"),
+		"invalid_root_type"
+	)
+
+
 func test_parse_object_enforces_ascii_and_utf8_byte_boundaries() -> void:
 	var ascii_text: String = '{"value":"ascii"}'
 	var utf8_text: String = '{"value":"汉字"}'

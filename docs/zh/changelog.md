@@ -6,6 +6,9 @@
 
 ### 🚀 新增特性 (Added)
 
+- 通知队列支持按 ID 更新等待或活动通知，保留队列位置、剩余时间和未指定的动作。展示器可订阅 `notification_updated`。[更新同一条通知](standard/utilities/runtime/debug-observability/support-notifications/notifications.md#更新同一条通知)
+- 有界 JSON 对象读取器可选择拒绝同一对象内解码后重复的成员名。默认继续保留最后一个值。[通用内核工具](kernel/index.md#通用内核工具)
+- 网络后端新增可选的房主单连接关闭接口。ENet 可立即释放指定远端的槽位，连接凭据能防止延迟关闭影响重连后的客户端。[关闭一条远端连接](extensions/network-turnbased/network-transport/backend-session.md#关闭一条远端连接)
 - Action Queue 支持组合旧页、新页与局部组件的动效，现有路由可交接旧页，多播放器可显式接管属性。[双页与组件动效](extensions/action-queue/ui-motion.md)
 - 新增可单独安装的界面动效素材包，提供原生网格翻片和信号失真材质，每个效果可独立取用和调参。[动效素材库](extensions/action-queue/ui-motion.md#ui-motion-assets)
 - GF 工作区新增独立的真实页面对照工具，可在多组尺寸、语言和缩放下比较项目保存的场景。[使用指南](editor/tools/ui-review.md)

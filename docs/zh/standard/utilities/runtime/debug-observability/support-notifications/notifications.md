@@ -17,6 +17,29 @@ notifications.push_notification("配置已保存", "设置", GFNotificationUtili
 
 `sticky = true` 的通知展示到显式关闭，适合需要玩家确认或等待外部事件的提示。`pause_active()` 和 `resume_active()` 控制当前通知的倒计时。`invoke_active_action(action_id)` 会广播 `notification_action_invoked`，动作配置 `dismiss = true` 时会关闭该通知。
 
+## 更新同一条通知
+
+保存 `push_notification()` 返回的 ID，即可在任务推进时调用 `update_notification(id, changes)`。等待和活动记录都能更新。通知保留 ID、去重 key、优先级、队列位置、剩余时间和暂停状态。显式 key 继续匹配原 key，按正文去重的记录则匹配更新后的正文。
+
+```gdscript
+var export_id: int = notifications.push_notification("准备导出", "导出", GFNotificationUtility.Level.INFO, {
+	"key": "export",
+	"sticky": true,
+	"actions": [{"id": "cancel", "label": "取消"}],
+})
+notifications.update_notification(export_id, {"message": "正在写入文件"})
+# 进入终态后撤下取消按钮。项目可以在用户确认后按 ID 关闭这条常驻通知。
+notifications.update_notification(export_id, {
+	"message": "导出完成",
+	"level": GFNotificationUtility.Level.SUCCESS,
+	"actions": [],
+})
+```
+
+`changes` 可包含 `title`、`message`、`level` 和 `actions`。省略的字段保留原值，传入 `actions` 会替换整组动作。标题和正文至少有一项非空。无效字段或值返回 `ERR_INVALID_PARAMETER`，整次更新作废。已经结束或被丢弃的 ID 返回 `ERR_DOES_NOT_EXIST`。
+
+成功返回 `OK`。内容发生变化时，`notification_updated(id)` 发出通知 ID。展示器可用 `get_notification(id)` 取得当前记录的副本，刷新已创建的视图。如果较早执行的监听器又更新了内容，这次读取会拿到最新值。如果它已关闭通知，读取会返回空字典。等待记录在之后的 `notification_started` 中直接带上最新内容。重复写入相同内容不会再次发出信号。
+
 ## 并发通知
 
 默认每次展示一条通知。把 `max_active_notifications` 设为大于 1 的整数即可启用并发，取值会限制在 1 至 32。提高上限会立即用等待队列补位。降低上限时，已有通知按各自生命周期继续展示，腾出名额后再补位。
