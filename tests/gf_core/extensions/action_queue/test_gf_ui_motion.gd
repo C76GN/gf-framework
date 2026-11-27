@@ -161,6 +161,20 @@ func test_external_typed_effect_seek_and_independent_sessions() -> void:
 	assert_true(b.is_active())
 
 
+func test_authored_route_scene_samples_the_map_and_legend() -> void:
+	var scene: PackedScene = load("res://tests/gf_core/extensions/action_queue/fixtures/route_illumination.tscn")
+	var view: Node2D = add_child_autofree(scene.instantiate())
+	var legend: Label = view.get_node(^"Legend")
+	view.call(&"sample_ui_review", 0.4)
+	var early_opacity: float = legend.modulate.a
+	view.call(&"sample_ui_review", 0.8)
+	var colors: PackedColorArray = view.get_meta(&"route_glow", PackedColorArray())
+	assert_eq(colors.size(), 4)
+	if colors.size() == 4:
+		assert_gt(colors[0].a, colors[2].a)
+	assert_gt(legend.modulate.a, early_opacity)
+
+
 func test_one_recipe_combines_arbitrary_displacement_with_fade() -> void:
 	var player: GFUIMotionPlayer = add_child_autofree(GFUIMotionPlayer.new())
 	var page: Control = add_child_autofree(Control.new())
