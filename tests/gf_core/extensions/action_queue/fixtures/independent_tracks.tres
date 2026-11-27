@@ -1,0 +1,103 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_recipe.gd" id="recipe"]
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_track.gd" id="track"]
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_property_motion.gd" id="property"]
+
+[sub_resource type="Resource" id="old"]
+script = ExtResource("property")
+property = NodePath("position")
+start_value = Vector2(0,0)
+end_value = Vector2(-1,0)
+relative = true
+in_parent_units = true
+
+[sub_resource type="Resource" id="new"]
+script = ExtResource("property")
+property = NodePath("position")
+start_value = Vector2(0,1)
+end_value = Vector2(0,0)
+relative = true
+in_parent_units = true
+
+[sub_resource type="Resource" id="rows"]
+script = ExtResource("property")
+property = NodePath("position")
+start_value = Vector2(-0.23,0)
+end_value = Vector2(0,0)
+relative = true
+in_parent_units = true
+
+[sub_resource type="Resource" id="bar"]
+script = ExtResource("property")
+property = NodePath("value")
+start_value = 0.0
+end_value = 100.0
+
+[sub_resource type="Resource" id="text"]
+script = ExtResource("property")
+property = NodePath("visible_ratio")
+start_value = 0.0
+end_value = 1.0
+
+[sub_resource type="Resource" id="old_lane"]
+script = ExtResource("track")
+target = &"outgoing"
+clock = 1
+at = 0
+duration = 1
+relative_duration = true
+stagger_seconds = 0
+cue = &"outgoing"
+effect = SubResource("old")
+
+[sub_resource type="Resource" id="new_lane"]
+script = ExtResource("track")
+target = &"incoming"
+clock = 0
+at = 0
+duration = 1
+relative_duration = true
+stagger_seconds = 0
+cue = &"incoming"
+effect = SubResource("new")
+
+[sub_resource type="Resource" id="rows_lane"]
+script = ExtResource("track")
+target = &"rows"
+clock = 0
+at = 0
+duration = 0.36
+relative_duration = false
+stagger_seconds = 0.06
+cue = &"rows"
+effect = SubResource("rows")
+
+[sub_resource type="Resource" id="bar_lane"]
+script = ExtResource("track")
+target = &"meter"
+clock = 0
+at = 0.5
+duration = 0.65
+relative_duration = false
+stagger_seconds = 0
+cue = &"meter"
+effect = SubResource("bar")
+
+[sub_resource type="Resource" id="text_lane"]
+script = ExtResource("track")
+target = &"title"
+clock = 0
+at = 1
+duration = 0.38
+relative_duration = false
+stagger_seconds = 0
+cue = &"title"
+effect = SubResource("text")
+
+[resource]
+resource_name = "双页与独立组件"
+script = ExtResource("recipe")
+enter_seconds = 0.4
+exit_seconds = 0.3
+tracks = Array[ExtResource("track")]([SubResource("old_lane"), SubResource("new_lane"), SubResource("rows_lane"), SubResource("bar_lane"), SubResource("text_lane")])

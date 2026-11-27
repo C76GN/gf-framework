@@ -47,6 +47,7 @@
 | 方法 | [`replace_layer_instance`](#member-gfuiutility-methods-replace_layer_instance) | `func replace_layer_instance( panel_instance: Node, layer: int = Layer.POPUP, config_callback: Callable = Callable() ) -> void:` |
 | 方法 | [`replace_layer_instance_with_options`](#member-gfuiutility-methods-replace_layer_instance_with_options) | `func replace_layer_instance_with_options( panel_instance: Node, layer: int = Layer.POPUP, options: Dictionary = {}, config_callback: Callable = Callable() ) -> void:` |
 | 方法 | [`pop_panel`](#member-gfuiutility-methods-pop_panel) | `func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:` |
+| 方法 | [`navigate_with_presentation`](#member-gfuiutility-methods-navigate_with_presentation) | `func navigate_with_presentation( layer: int, navigate: Callable, present: Callable ) -> Error:` |
 | 方法 | [`pop_to_panel`](#member-gfuiutility-methods-pop_to_panel) | `func pop_to_panel( panel: Node, layer: int = Layer.POPUP, do_free: bool = true ) -> bool:` |
 | 方法 | [`clear_layer`](#member-gfuiutility-methods-clear_layer) | `func clear_layer(layer: int) -> void:` |
 | 方法 | [`clear_all`](#member-gfuiutility-methods-clear_all) | `func clear_all() -> void:` |
@@ -752,6 +753,29 @@ func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:
 |---|---|
 | `layer` | 目标层级。 |
 | `do_free` | 是否在弹出后释放面板。 |
+
+<a id="member-gfuiutility-methods-navigate_with_presentation"></a>
+
+### `navigate_with_presentation`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func navigate_with_presentation( layer: int, navigate: Callable, present: Callable ) -> Error:
+```
+
+在当前层执行同步导航，把仍在树内的旧页、新页和一次性释放回调交给表现层。 路由立即提交历史和焦点。表现层在旧页最后一次采样或中断时调用释放回调。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `layer` | 当前导航的逻辑层。 |
+| `navigate` | 无参数的同步入栈、返回或替换操作。成功清空当前层时返回 true。 |
+| `present` | 接收两个 Control 和一个 Callable，返回启动表现的 Error。 |
+
+返回：OK 表示已开始表现或已完成单页导航，失败的表现不撤销已提交的导航。
 
 <a id="member-gfuiutility-methods-pop_to_panel"></a>
 

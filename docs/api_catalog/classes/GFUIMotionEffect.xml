@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIMotionEffect" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_effect.gd" module="extensions/action_queue" extends="Resource" classDigest="e661bc6b83c92765d40f8ab1f3891946b78f7d568b46f5b51f3c06314517258d">
+	<description>GFUIMotionEffect: 可由项目资源实现的界面动效。配置资源共享，所有播放状态由 bind_target 返回的实例持有。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">protocol</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties />
+	<methods>
+		<member kind="method" name="input_types">
+			<signature>func input_types() -&gt; Dictionary:</signature>
+			<description>声明从项目具名输入读取的类型，供播放器在替换旧会话前检查。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">输入名到 Godot 类型的映射。</tag>
+				<tag name="schema">return: Dictionary，StringName 输入名映射到 typeof 常量、原生类或项目 Script。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="written_properties">
+			<signature>func written_properties() -&gt; Array[NodePath]:</signature>
+			<description>返回该效果在一个目标上写入的属性，用于定位冲突。空集合适合独占自绘子节点的效果。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">相对目标的属性路径。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="binding_error">
+			<signature>func binding_error(_target: Object, _inputs: Dictionary) -&gt; String:</signature>
+			<description>检查目标和输入的额外约束，无副作用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_target: 绑定目标。</tag>
+				<tag name="param">_inputs: 调用方提供的输入。</tag>
+				<tag name="return">空串表示有效，其他值是诊断。</tag>
+				<tag name="schema">_inputs: Dictionary，以 StringName 映射到声明的运行时输入。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_target">
+			<signature>func bind_target(_target: Object, _inputs: Dictionary) -&gt; GFUIMotionBinding:</signature>
+			<description>创建本次播放的操作。准备阶段只捕获基线，首次采样才向目标写入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_target: 已验证的目标。</tag>
+				<tag name="param">_inputs: 已验证的项目输入。</tag>
+				<tag name="return">新建的绑定，null 表示无法准备。</tag>
+				<tag name="schema">_inputs: Dictionary，以 StringName 映射到运行时输入。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

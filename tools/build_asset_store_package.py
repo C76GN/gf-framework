@@ -131,16 +131,17 @@ def build_package(output: Path) -> None:
 		raise
 
 
-def iter_package_files() -> list[Path]:
+def iter_package_files(source_root: Path | None = None) -> list[Path]:
 	"""返回相对仓库路径排序的分发文件，遇到缺失、越界或链接形式的源码根时拒绝继续。"""
+	source_root = ADDON_ROOT if source_root is None else source_root
 	if (
-		not gf_path_security.path_is_inside_lexical(ROOT, ADDON_ROOT)
-		or gf_path_security.path_has_reparse_component(ADDON_ROOT)
-		or not ADDON_ROOT.is_dir()
+		not gf_path_security.path_is_inside_lexical(ROOT, source_root)
+		or gf_path_security.path_has_reparse_component(source_root)
+		or not source_root.is_dir()
 	):
 		raise OSError("Asset Store source root is missing, linked, or outside the repository root.")
 	files: list[Path] = []
-	for path in ADDON_ROOT.rglob("*"):
+	for path in source_root.rglob("*"):
 		if gf_path_security.path_has_reparse_component(path):
 			raise OSError(
 				"Asset Store source crosses a symlink, junction, or reparse point: "
@@ -163,8 +164,9 @@ def is_blocked_path(path: Path) -> bool:
 	return path.suffix in BLOCKED_SUFFIXES
 
 
-def write_file(archive: zipfile.ZipFile, path: Path) -> None:
-	archive_path = path.relative_to(ROOT).as_posix()
+def write_file(archive: zipfile.ZipFile, path: Path, archive_path: str | None = None) -> None:
+	if archive_path is None:
+		archive_path = path.relative_to(ROOT).as_posix()
 	info = zipfile.ZipInfo(archive_path, ZIP_TIMESTAMP)
 	info.compress_type = zipfile.ZIP_DEFLATED
 	info.external_attr = 0o644 << 16

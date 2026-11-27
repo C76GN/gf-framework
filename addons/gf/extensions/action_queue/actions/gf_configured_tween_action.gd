@@ -625,6 +625,17 @@ func write_bound_property(
 	_native_call_depth -= 1
 
 
+# --- 层内方法 ---
+
+## 释放当前受控执行，将已经采样的姿态交给下一位写入者。
+## [br]
+## @api layer_internal
+## [br]
+## @layer extensions/action_queue
+func stop_at_current_pose() -> void:
+	_end_run(_generation, false)
+
+
 # --- 私有/辅助方法 ---
 
 ## 优先返回有效的显式宿主，否则在目标本身为树内 Node 时将其作为宿主。

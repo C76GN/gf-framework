@@ -1188,6 +1188,7 @@ func test_builtin_tool_contribution_catalog_keeps_tool_identity_in_root_composit
 		"gf.tool.code_quality": "res://addons/gf/tools/code_quality/editor/gf_editor_contributions.json",
 		"gf.tool.project_layout": GF_PROJECT_LAYOUT_EDITOR_CONTRIBUTIONS_PATH,
 		"gf.tool.scene_groups": GF_SCENE_GROUP_EDITOR_CONTRIBUTIONS_PATH,
+		"gf.tool.ui_review": "res://addons/gf/tools/ui_review/editor/gf_editor_contributions.json",
 		"gf.tool.scene_placement": "res://addons/gf/tools/scene_placement/editor/gf_editor_contributions.json",
 		"gf.tool.asset_browser": "res://addons/gf/tools/asset_browser/editor/gf_editor_contributions.json",
 		"gf.tool.config_pipeline": "res://addons/gf/tools/config_pipeline/editor/gf_editor_contributions.json",

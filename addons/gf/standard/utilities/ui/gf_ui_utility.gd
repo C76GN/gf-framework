@@ -281,6 +281,11 @@ var _host_mount_ref: WeakRef = null
 ## @api private
 var _host_root: Node = null
 
+## 正在交给表现层的旧面板，键为实例 ID。只保留本次导航涉及的面板。
+## [br]
+## @api private
+var _presentations: Dictionary[int, _Presentation] = {}
+
 
 # --- GF 生命周期方法 ---
 
@@ -319,6 +324,8 @@ func dispose() -> void:
 	_lifecycle_generation += 1
 	_is_active = false
 	_cancel_all_pending_async_panel_requests()
+	for presentation: _Presentation in _presentations.values():
+		_release_presentation(presentation)
 	for canvas: CanvasLayer in _layer_roots.values():
 		if is_instance_valid(canvas):
 			_detach_node_from_tree(canvas)
@@ -1089,14 +1096,73 @@ func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void:
 
 	var top_panel: Node = _get_valid_panel_from_variant(stack.pop_back())
 	if top_panel != null:
-		_detach_node_from_tree(top_panel)
+		_remove_panel_presentation(top_panel, do_free)
+	_sync_layer_visibility(layer)
+	if top_panel != null:
 		_handle_panel_closed(top_panel)
-		if do_free:
-			top_panel.queue_free()
 		panel_closed.emit(top_panel, layer)
 
-	_sync_layer_visibility(layer)
 	_emit_navigation_changed(layer)
+
+
+## 在当前层执行同步导航，把仍在树内的旧页、新页和一次性释放回调交给表现层。
+## 路由立即提交历史和焦点。表现层在旧页最后一次采样或中断时调用释放回调。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param layer: 当前导航的逻辑层。
+## [br]
+## @param navigate: 无参数的同步入栈、返回或替换操作。成功清空当前层时返回 true。
+## [br]
+## @param present: 接收两个 Control 和一个 Callable，返回启动表现的 Error。
+## [br]
+## @return: OK 表示已开始表现或已完成单页导航，失败的表现不撤销已提交的导航。
+func navigate_with_presentation(
+	layer: int,
+	navigate: Callable,
+	present: Callable
+) -> Error:
+	if (
+		not navigate.is_valid()
+		or not present.is_valid()
+		or not _is_active
+	):
+		return ERR_INVALID_PARAMETER
+	var outgoing: Control = get_top_panel(layer) as Control
+	var hold: _Presentation
+	if outgoing != null:
+		if _presentations.has(outgoing.get_instance_id()):
+			return ERR_BUSY
+		hold = _Presentation.new()
+		hold._panel = weakref(outgoing)
+		hold._layer = layer
+		hold._id = outgoing.get_instance_id()
+		_presentations[hold._id] = hold
+	var result: Variant = navigate.call()
+	var incoming: Node = get_top_panel(layer)
+	var failed: bool = result is bool and not result
+	if hold == null:
+		return OK if incoming != null and not failed else FAILED
+	var release: Callable = _release_presentation.bind(hold)
+	if incoming == outgoing or failed:
+		release.call()
+		return FAILED
+	if not is_instance_valid(outgoing) or not incoming is Control:
+		release.call()
+		if incoming == null:
+			return OK if result is bool and result else FAILED
+		return ERR_INVALID_DATA
+	var started: Variant = present.call(
+		outgoing,
+		incoming,
+		release
+	)
+	if typeof(started) != TYPE_INT or started != OK:
+		release.call()
+		return started if typeof(started) == TYPE_INT else ERR_INVALID_DATA
+	return OK
 
 
 ## 弹出面板直到指定面板成为栈顶。
@@ -1550,11 +1616,45 @@ func _clear_layer_without_invalidating_requests(layer: int, async_request_key: S
 			break
 		var panel: Node = _get_valid_panel_from_variant(stack.pop_back())
 		if panel != null:
-			_detach_node_from_tree(panel)
+			_remove_panel_presentation(panel, true)
 			_handle_panel_closed(panel)
-			panel.queue_free()
 			panel_closed.emit(panel, layer)
 	_emit_navigation_changed(layer)
+
+
+## 已交接的面板只退出逻辑栈，普通关闭仍立即移出场景树。
+## [br]
+## @api private
+func _remove_panel_presentation(panel: Node, do_free: bool) -> void:
+	var hold: _Presentation = _presentations.get(panel.get_instance_id())
+	if hold == null:
+		_detach_node_from_tree(panel)
+		if do_free:
+			panel.queue_free()
+		return
+	hold._removed = true
+	hold._free_on_release = do_free
+	hold._disable_input(panel as Control)
+
+
+## 精确释放一次表现交接，恢复留在历史中的面板或完成推迟的移除。
+## [br]
+## @api private
+func _release_presentation(hold: _Presentation) -> void:
+	if _presentations.get(hold._id) != hold:
+		return
+	var _removed: bool = _presentations.erase(hold._id)
+	var panel: Control = _get_live_control_from_ref(hold._panel)
+	if not is_instance_valid(panel):
+		hold._restore_input()
+		return
+	if hold._removed:
+		_detach_node_from_tree(panel)
+		if hold._free_on_release:
+			panel.queue_free()
+	hold._restore_input()
+	if not hold._removed:
+		_sync_layer_visibility(hold._layer)
 
 
 ## 若节点仍有父节点且场景树未处于退出阶段，则将其移出父节点。
@@ -2165,8 +2265,18 @@ func _add_panel_instance(
 		normalized_options,
 		canvas.get_viewport()
 	)
-	if panel.get_parent() != null and panel.get_parent() != canvas:
-		panel.get_parent().remove_child(panel)
+	var hold: _Presentation = _presentations.get(panel.get_instance_id())
+	var reopening: bool = hold != null and hold._removed
+	if reopening and hold._free_on_release:
+		return false
+	var previous_parent: Node = panel.get_parent()
+	var must_detach: bool = previous_parent != null and previous_parent != canvas
+	if reopening or must_detach:
+		if reopening:
+			# 先结束旧的物理退场，旧回调随该次打开身份失效。
+			_release_presentation(hold)
+		else:
+			previous_parent.remove_child(panel)
 		if (
 			not _is_panel_request_active(async_request_key)
 			or _get_valid_panel_from_variant(panel) == null
@@ -2270,11 +2380,11 @@ func _prune_layer_stack(layer: int) -> void:
 			removed_any = true
 			stack.remove_at(index)
 			queued_panels.append(panel)
+	if removed_any:
+		_sync_layer_visibility(layer)
 	for panel: Node in queued_panels:
 		_handle_panel_closed(panel)
 		panel_closed.emit(panel, layer)
-	if removed_any:
-		_sync_layer_visibility(layer)
 
 
 ## 检查面板实例是否已经出现在任一逻辑层栈中。
@@ -2302,7 +2412,14 @@ func _sync_layer_visibility(layer: int) -> void:
 		var canvas_item: CanvasItem = _get_canvas_item(panel)
 		if canvas_item == null:
 			continue
-		canvas_item.visible = not hidden_by_upper_panel
+		var hold: _Presentation = _presentations.get(panel.get_instance_id())
+		if hold != null and index < stack.size() - 1:
+			hold._disable_input(panel as Control)
+			canvas_item.visible = true
+		else:
+			if hold != null:
+				hold._restore_input()
+			canvas_item.visible = not hidden_by_upper_panel
 		if not hidden_by_upper_panel:
 			var options: Dictionary = _get_panel_options_for_id(panel.get_instance_id())
 			if GFVariantData.get_option_bool(
@@ -2463,7 +2580,7 @@ func _restore_previous_focus(panel_id: int) -> void:
 	if previous_ref == null:
 		return
 	var previous: Control = _get_live_control_from_ref(previous_ref)
-	if is_instance_valid(previous) and previous.is_inside_tree():
+	if _can_focus_control(previous):
 		previous.grab_focus()
 
 
@@ -2833,7 +2950,134 @@ func _on_panel_tree_exited(panel: Node, layer: int) -> void:
 		return
 
 	stack.erase(panel)
+	_sync_layer_visibility(layer)
 	_handle_panel_closed(panel)
 	panel_closed.emit(panel, layer)
-	_sync_layer_visibility(layer)
 	_emit_navigation_changed(layer)
+
+
+# --- 内部类 ---
+
+## 保存一个同步导航的物理面板及其原始输入策略。
+## [br]
+## @api private
+class _Presentation extends RefCounted:
+
+
+	# --- 私有变量 ---
+
+	## 仍在画布上展示的旧页面。
+	## [br]
+	## @api private
+	var _panel: WeakRef
+
+	## 路由操作所在的逻辑层。
+	## [br]
+	## @api private
+	var _layer: int
+
+	## 校验释放身份的面板实例 ID。
+	## [br]
+	## @api private
+	var _id: int
+
+	## 面板已从逻辑栈移除。
+	## [br]
+	## @api private
+	var _removed: bool = false
+
+	## 归还旧页时是否按原路由策略释放实例。
+	## [br]
+	## @api private
+	var _free_on_release: bool = false
+
+	## 已临时屏蔽旧页输入。
+	## [br]
+	## @api private
+	var _disabled: bool = false
+
+	## 只记录需要临时改写的根节点或显式覆盖继承策略的后代，不延长节点寿命。
+	## [br]
+	## @api private
+	var _input_overrides: Dictionary[int, Dictionary] = {}
+
+	## 仅在退场期间监听新入树的子控件。
+	## [br]
+	## @api private
+	var _tree: SceneTree
+
+
+	# --- 私有/辅助方法 ---
+
+	## 在路由捕获前序焦点后将旧页切为只显示。
+	## [br]
+	## @api private
+	func _disable_input(panel: Control) -> void:
+		if _disabled:
+			return
+		_disabled = true
+		_tree = panel.get_tree()
+		var _connected: int = _tree.node_added.connect(_on_node_added)
+		_suspend_node(panel, true)
+		for node: Node in panel.find_children(
+			"*",
+			"",
+			true,
+			false
+		):
+			_suspend_node(node, false)
+
+
+	## 显式启用输入的后代可覆盖父级限制，只为实际变化的属性保存原值。
+	## [br]
+	## @api private
+	func _suspend_node(node: Node, root: bool) -> void:
+		var saved: Dictionary = {}
+		var owns_process: bool = root or node.process_mode != Node.PROCESS_MODE_INHERIT
+		if owns_process and node.process_mode != Node.PROCESS_MODE_DISABLED:
+			saved[&"process_mode"] = node.process_mode
+			node.process_mode = Node.PROCESS_MODE_DISABLED
+		if node is Control:
+			var control: Control = node
+			if root or control.mouse_behavior_recursive == Control.MOUSE_BEHAVIOR_ENABLED:
+				saved[&"mouse_behavior_recursive"] = control.mouse_behavior_recursive
+				control.mouse_behavior_recursive = Control.MOUSE_BEHAVIOR_DISABLED
+			if root or control.focus_behavior_recursive == Control.FOCUS_BEHAVIOR_ENABLED:
+				saved[&"focus_behavior_recursive"] = control.focus_behavior_recursive
+				control.focus_behavior_recursive = Control.FOCUS_BEHAVIOR_DISABLED
+		if not saved.is_empty():
+			_input_overrides[node.get_instance_id()] = saved
+
+
+	## 历史面板或保留的实例重新获得原来的输入策略。
+	## [br]
+	## @api private
+	func _restore_input() -> void:
+		if not _disabled:
+			return
+		_disabled = false
+		if is_instance_valid(_tree):
+			_tree.node_added.disconnect(_on_node_added)
+		_tree = null
+		for id: int in _input_overrides:
+			if not is_instance_id_valid(id):
+				continue
+			var node: Object = instance_from_id(id)
+			var saved: Dictionary = _input_overrides[id]
+			for property: StringName in saved:
+				node.set(
+					property,
+					saved[property]
+				)
+		_input_overrides.clear()
+
+
+	# --- 信号处理函数 ---
+
+	## 处理交接后才创建、且在旧页内显式启用输入的控件。
+	## [br]
+	## @api private
+	func _on_node_added(node: Node) -> void:
+		var panel: Control = _panel.get_ref()
+		if is_instance_valid(panel) and panel.is_ancestor_of(node):
+			_suspend_node(node, false)

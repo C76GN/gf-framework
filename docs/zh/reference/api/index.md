@@ -5,10 +5,10 @@
 ## 范围
 
 - 源码根目录：`addons/gf`
-- 公开类：`943`
+- 公开类：`952`
 - 公开 AutoLoad：`1`
-- 公开成员：`13294`
-- 公开方法：`8393`
+- 公开成员：`13365`
+- 公开方法：`8426`
 - AutoLoad 公开方法：`65`
 
 ## 模块
@@ -16,8 +16,8 @@
 | 模块 | 类 | AutoLoad | 成员 | 方法 | 页面 |
 |---|---:|---:|---:|---:|---|
 | Kernel | 79 | 1 | 1226 | 909 | [kernel.md](kernel.md) |
-| Standard | 518 | 0 | 7926 | 5118 | [standard.md](standard.md) |
-| Action Queue | 21 | 0 | 243 | 160 | [extensions-action-queue.md](extensions-action-queue.md) |
+| Standard | 518 | 0 | 7927 | 5119 | [standard.md](standard.md) |
+| Action Queue | 30 | 0 | 313 | 192 | [extensions-action-queue.md](extensions-action-queue.md) |
 | Asset Metadata | 4 | 0 | 33 | 24 | [extensions-asset-metadata.md](extensions-asset-metadata.md) |
 | Behavior Tree | 23 | 0 | 101 | 77 | [extensions-behavior-tree.md](extensions-behavior-tree.md) |
 | Camera | 8 | 0 | 138 | 46 | [extensions-camera.md](extensions-camera.md) |

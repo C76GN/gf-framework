@@ -1,0 +1,30 @@
+{
+  "schema_version": 5,
+  "package_id": "gf.tool.ui_review",
+  "dock_records": [
+    {
+      "owner_package_id": "gf.tool.ui_review",
+      "source_id": "ui_review.dock.compare",
+      "path": "res://addons/gf/tools/ui_review/editor/gf_ui_review_dock.gd",
+      "label": "GF 真实页面对照",
+      "short_label": "页面对照",
+      "order": 96
+    }
+  ],
+  "task_records": [
+    {
+      "source_id": "ui_review.task.compare",
+      "title": "真实页面对照",
+      "description": "用多种窗口、语言和缩放采样同一项目场景。",
+      "keywords": [
+        "页面",
+        "布局",
+        "对照",
+        "截图"
+      ],
+      "group": "开始制作",
+      "page_path": "res://addons/gf/tools/ui_review/editor/gf_ui_review_dock.gd",
+      "action_id": "compare"
+    }
+  ]
+}

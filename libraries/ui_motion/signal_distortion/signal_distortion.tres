@@ -1,0 +1,7 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://beads40bgth1r"]
+
+[ext_resource type="Shader" uid="uid://b721euf0rp7xp" path="signal_distortion.gdshader" id="1"]
+
+[resource]
+resource_name = "Signal Distortion"
+shader = ExtResource("1")

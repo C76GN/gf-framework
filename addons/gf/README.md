@@ -14,6 +14,8 @@ The official Godot Asset Store/Asset Library download and the GitHub Release ass
 
 For Linux x86_64 (glibc 2.34+), Android arm64-v8a/x86_64 (API 24+) and iOS arm64 (15+), add the matching `gf-native-multiplatform-<version>.zip` to a portable GF installation. For Windows x64, extract `gf-framework-windows-x86_64-<version>.zip` beside `project.godot` to install GF with its prebuilt native capabilities. An existing installation can add the same-version `gf-native-windows-x86_64-<version>.zip`. Keep both addon directories at the same version. Enable Data Batch to use native integer gather from ordinary GDScript.
 
+For tile flip or signal distortion, extract `gf-ui-motion-assets-<version>.zip` beside `project.godot`. The editable ShaderMaterials appear in `addons/gf_ui_motion_assets`. Each effect can also be installed individually with its license.
+
 For Godot 4.7.2 on an Apple Silicon iOS simulator, select the `ios.zip` from the `godot-ios-simulator-template` CI artifact for both Debug and Release in the iOS export preset. [Rebuild the template if the download has expired][ios-simulator-template]
 
 The optional GF AI Developer Kit provides project intent, version-bound API discovery, managed agent instructions, and approval-gated GF feedback tooling without affecting the Godot runtime or exported game. See the [AI Developer Kit guide](https://github.com/C76GN/gf-framework/blob/main/docs/zh/editor/tools/ai-developer.md).
@@ -39,6 +41,8 @@ Bundled GF extensions are atomic and disabled by default: they depend only on th
 Godot Asset Store / Asset Library 官方页面和 GitHub Release 中的 `gf-framework-<version>.zip` 都提供完整插件。可选内置扩展随包存在，但只有项目在本地显式启用后才会参与装配。
 
 Linux x86_64（glibc 2.34+）、Android arm64-v8a/x86_64（API 24+）与 iOS arm64（15+）项目可在通用 GF 上安装同版本 `gf-native-multiplatform-<version>.zip`。Windows x64 项目可将 `gf-framework-windows-x86_64-<version>.zip` 解压到 `project.godot` 旁，同时安装 GF 和预编译原生库。已有 GF 的项目可添加同版本 `gf-native-windows-x86_64-<version>.zip`。启用 Data Batch 后，普通 GDScript 就能调用原生整型行筛选。升级时同步替换两份插件目录。
+
+需要网格翻片或信号失真时，把 `gf-ui-motion-assets-<version>.zip` 解压到 `project.godot` 旁，即可从 `addons/gf_ui_motion_assets` 取用原生材质。也可只取单个效果目录和许可证。
 
 使用 Godot 4.7.2 在 Apple Silicon 模拟器上运行时，从 CI 产物 `godot-ios-simulator-template` 中取出 `ios.zip`，将 iOS 导出预设的 Debug 和 Release 模板都设为这个文件。[下载过期后重建模板（英文）][ios-simulator-template]
 

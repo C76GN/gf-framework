@@ -1,0 +1,35 @@
+[gd_resource type="Resource" format=3]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_recipe.gd" id="recipe"]
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_track.gd" id="track"]
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_property_motion.gd" id="property"]
+[ext_resource type="Script" path="res://tests/gf_core/extensions/action_queue/fixtures/route_illumination.gd" id="routes"]
+
+[sub_resource type="Resource" id="route_effect"]
+script = ExtResource("routes")
+wave_width = 0.28
+color = Color(0.5, 0.87, 0.80, 1)
+
+[sub_resource type="Resource" id="fade_effect"]
+script = ExtResource("property")
+property = NodePath("modulate:a")
+start_value = 0.0
+end_value = 1.0
+
+[sub_resource type="Resource" id="route_track"]
+script = ExtResource("track")
+at = 0.35
+effect = SubResource("route_effect")
+
+[sub_resource type="Resource" id="legend_track"]
+script = ExtResource("track")
+target = &"legend"
+at = 0.1
+duration = 0.75
+effect = SubResource("fade_effect")
+
+[resource]
+resource_name = "Survey routes"
+script = ExtResource("recipe")
+enter_seconds = 1.0
+tracks = Array[ExtResource("track")]([SubResource("route_track"), SubResource("legend_track")])

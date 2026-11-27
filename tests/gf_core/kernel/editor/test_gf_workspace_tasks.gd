@@ -689,6 +689,12 @@ func test_builtin_authoring_records_route_to_their_own_contributed_pages() -> vo
 	assert_true(
 		tasks.any(
 			func(record: Dictionary) -> bool:
+				return record.get("source_id") == "gf.tool.ui_review:ui_review.task.compare" and record.get("page_path") == "res://addons/gf/tools/ui_review/editor/gf_ui_review_dock.gd",
+		)
+	)
+	assert_true(
+		tasks.any(
+			func(record: Dictionary) -> bool:
 				return record.get("source_id") == "gf.tool.asset_browser:asset_browser.task.browse",
 		)
 	)
@@ -731,11 +737,22 @@ func test_builtin_authoring_records_route_to_their_own_contributed_pages() -> vo
 		)
 		var data: Dictionary = parsed.get("data", {})
 		var extension_tasks: Array = data.get("task_records", [])
-		assert_eq(
-			extension_tasks.size(),
-			1,
-			path
-		)
+		if extension == "action_queue":
+			var actions_on_page: Array[String] = []
+			for task: Dictionary in extension_tasks:
+				actions_on_page.append(str(task.get("action_id", "")))
+			actions_on_page.sort()
+			assert_eq(
+				actions_on_page,
+				["new_resource", "ui_motion"],
+				path
+			)
+		else:
+			assert_eq(
+				extension_tasks.size(),
+				1,
+				path
+			)
 
 
 # --- 私有/辅助方法 ---

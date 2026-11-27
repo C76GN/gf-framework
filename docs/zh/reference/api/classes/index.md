@@ -7,8 +7,8 @@
 | 模块 | 类 | 成员 | 页面内索引 |
 |---|---:|---:|---|
 | Kernel | 79 | 1157 | [Kernel](#module-kernel) |
-| Standard | 518 | 7926 | [Standard](#module-standard) |
-| Action Queue | 21 | 243 | [Action Queue](#module-extensions-action_queue) |
+| Standard | 518 | 7927 | [Standard](#module-standard) |
+| Action Queue | 30 | 313 | [Action Queue](#module-extensions-action_queue) |
 | Asset Metadata | 4 | 33 | [Asset Metadata](#module-extensions-asset_metadata) |
 | Behavior Tree | 23 | 101 | [Behavior Tree](#module-extensions-behavior_tree) |
 | Camera | 8 | 138 | [Camera](#module-extensions-camera) |
@@ -307,7 +307,7 @@
 | [`GFUILoadingUtility`](GFUILoadingUtility.md#gfuiloadingutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 7 | `addons/gf/standard/utilities/ui/gf_ui_loading_utility.gd` |
 | [`GFUIRoutePreloadUtility`](GFUIRoutePreloadUtility.md#gfuiroutepreloadutility) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/utilities/ui/gf_ui_route_preload_utility.gd` |
 | [`GFUIRouterUtility`](GFUIRouterUtility.md#gfuirouterutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 33 | `addons/gf/standard/utilities/ui/gf_ui_router_utility.gd` |
-| [`GFUIUtility`](GFUIUtility.md#gfuiutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 50 | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
+| [`GFUIUtility`](GFUIUtility.md#gfuiutility) | 运行时服务 (`runtime_service`) | `GFUtility` | 51 | `addons/gf/standard/utilities/ui/gf_ui_utility.gd` |
 | [`GFValidationDiagnosticAdapter`](GFValidationDiagnosticAdapter.md#gfvalidationdiagnosticadapter) | 运行时服务 (`runtime_service`) | `RefCounted` | 6 | `addons/gf/standard/foundation/validation/gf_validation_diagnostic_adapter.gd` |
 | [`GFValidationJUnitExporter`](GFValidationJUnitExporter.md#gfvalidationjunitexporter) | 运行时服务 (`runtime_service`) | `RefCounted` | 2 | `addons/gf/standard/foundation/validation/gf_validation_junit_exporter.gd` |
 | [`GFValidationReportDictionary`](GFValidationReportDictionary.md#gfvalidationreportdictionary) | 运行时服务 (`runtime_service`) | `RefCounted` | 12 | `addons/gf/standard/foundation/validation/gf_validation_report_dictionary.gd` |
@@ -650,11 +650,19 @@
 |---|---|---|---:|---|
 | [`GFAction`](GFAction.md#gfaction) | 运行时服务 (`runtime_service`) | `RefCounted` | 24 | `addons/gf/extensions/action_queue/core/gf_action.gd` |
 | [`GFActionQueueSystem`](GFActionQueueSystem.md#gfactionqueuesystem) | 运行时服务 (`runtime_service`) | `GFSystem` | 35 | `addons/gf/extensions/action_queue/core/gf_action_queue_system.gd` |
+| [`GFUIMotionPlayer`](GFUIMotionPlayer.md#gfuimotionplayer) | 运行时服务 (`runtime_service`) | `Node` | 17 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_player.gd` |
 | [`GFActionInterceptor`](GFActionInterceptor.md#gfactioninterceptor) | 协议与扩展点 (`protocol`) | `RefCounted` | 4 | `addons/gf/extensions/action_queue/core/gf_action_interceptor.gd` |
 | [`GFTweenPreviewAdapter`](GFTweenPreviewAdapter.md#gftweenpreviewadapter) | 协议与扩展点 (`protocol`) | `RefCounted` | 2 | `addons/gf/extensions/action_queue/editor/gf_tween_preview_adapter.gd` |
+| [`GFUIMotionEffect`](GFUIMotionEffect.md#gfuimotioneffect) | 协议与扩展点 (`protocol`) | `Resource` | 4 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_effect.gd` |
 | [`GFVisualAction`](GFVisualAction.md#gfvisualaction) | 协议与扩展点 (`protocol`) | `RefCounted` | 17 | `addons/gf/extensions/action_queue/actions/gf_visual_action.gd` |
 | [`GFTweenActionConfig`](GFTweenActionConfig.md#gftweenactionconfig) | 资源定义 (`resource_definition`) | `Resource` | 19 | `addons/gf/extensions/action_queue/tween/gf_tween_action_config.gd` |
 | [`GFTweenActionStep`](GFTweenActionStep.md#gftweenactionstep) | 资源定义 (`resource_definition`) | `Resource` | 16 | `addons/gf/extensions/action_queue/tween/gf_tween_action_step.gd` |
+| [`GFUILayoutMotion`](GFUILayoutMotion.md#gfuilayoutmotion) | 资源定义 (`resource_definition`) | `GFUIMotionEffect` | 6 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_layout_motion.gd` |
+| [`GFUIMaterialMotion`](GFUIMaterialMotion.md#gfuimaterialmotion) | 资源定义 (`resource_definition`) | `GFUIMotionEffect` | 8 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_material_motion.gd` |
+| [`GFUIMotionRecipe`](GFUIMotionRecipe.md#gfuimotionrecipe) | 资源定义 (`resource_definition`) | `Resource` | 6 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_recipe.gd` |
+| [`GFUIMotionTrack`](GFUIMotionTrack.md#gfuimotiontrack) | 资源定义 (`resource_definition`) | `Resource` | 13 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_track.gd` |
+| [`GFUIPropertyMotion`](GFUIPropertyMotion.md#gfuipropertymotion) | 资源定义 (`resource_definition`) | `GFUIMotionEffect` | 8 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_property_motion.gd` |
+| [`GFUITweenMotion`](GFUITweenMotion.md#gfuitweenmotion) | 资源定义 (`resource_definition`) | `GFUIMotionEffect` | 4 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_tween_motion.gd` |
 | [`GFAudioAction`](GFAudioAction.md#gfaudioaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 5 | `addons/gf/extensions/action_queue/actions/gf_audio_action.gd` |
 | [`GFCallableAction`](GFCallableAction.md#gfcallableaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 3 | `addons/gf/extensions/action_queue/actions/gf_callable_action.gd` |
 | [`GFConfiguredTweenAction`](GFConfiguredTweenAction.md#gfconfiguredtweenaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 17 | `addons/gf/extensions/action_queue/actions/gf_configured_tween_action.gd` |
@@ -664,6 +672,7 @@
 | [`GFShaderParameterAction`](GFShaderParameterAction.md#gfshaderparameteraction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 17 | `addons/gf/extensions/action_queue/actions/gf_shader_parameter_action.gd` |
 | [`GFTweenPreviewRegistration`](GFTweenPreviewRegistration.md#gftweenpreviewregistration) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 2 | `addons/gf/extensions/action_queue/editor/gf_tween_preview_registration.gd` |
 | [`GFTweenReplacementScope`](GFTweenReplacementScope.md#gftweenreplacementscope) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 3 | `addons/gf/extensions/action_queue/tween/gf_tween_replacement_scope.gd` |
+| [`GFUIMotionBinding`](GFUIMotionBinding.md#gfuimotionbinding) | 运行时句柄 (`runtime_handle`) | `RefCounted` | 4 | `addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_binding.gd` |
 | [`GFVisualActionGroup`](GFVisualActionGroup.md#gfvisualactiongroup) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 11 | `addons/gf/extensions/action_queue/actions/gf_visual_action_group.gd` |
 | [`GFWaitAction`](GFWaitAction.md#gfwaitaction) | 运行时句柄 (`runtime_handle`) | `GFVisualAction` | 12 | `addons/gf/extensions/action_queue/actions/gf_wait_action.gd` |
 | [`GFActionInterceptionResult`](GFActionInterceptionResult.md#gfactioninterceptionresult) | 值对象 (`value_object`) | `RefCounted` | 12 | `addons/gf/extensions/action_queue/core/gf_action_interception_result.gd` |

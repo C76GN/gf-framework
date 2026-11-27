@@ -1,0 +1,7 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cbfyh44l0tahp"]
+
+[ext_resource type="Shader" uid="uid://d04l2uyfg7weg" path="tile_flip.gdshader" id="1"]
+
+[resource]
+resource_name = "Tile Flip"
+shader = ExtResource("1")

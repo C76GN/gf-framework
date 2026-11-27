@@ -4,6 +4,8 @@ GF 制作期工具用于编辑、导入、构建或 CI 流程。工具可以依�
 
 ## 阅读入口
 
+- [真实页面对照](ui-review.md)可在多种窗口尺寸、语言和 UI 缩放下运行同一场景并比较画面。
+
 - [项目初始化](project-bootstrap.md)：为新项目创建 Boot、空 Main 和可选 Installer；已有项目保留主场景与装配顺序，通过可复制片段接入。
 - [Config Pipeline 导表工具包](config-pipeline.md)：把通用 CSV / JSON / XLSX 表来源或批量 Profile 构建为 `GFConfigTableResource` / `GFConfigDatabaseResource`，并保存为 Godot `.tres/.res` 或 JSON 导出；嵌套字段和多行集合见[结构化表格布局](config-pipeline-layout.md)。
 - [配置消费目标与稳定身份](config-pipeline-targets.md)：声明字段授权和引用闭包，维护稳定 ID 与墓碑，比较两代作者输入并核对导出凭据。

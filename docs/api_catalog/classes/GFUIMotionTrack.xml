@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIMotionTrack" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_track.gd" module="extensions/action_queue" extends="Resource" classDigest="d200657c2791e785f0708fc8c25f1243dd830bc436dcda58411888475a11efe2">
+	<description>GFUIMotionTrack: 在页面进入、退出或会话时钟上安排效果与标记。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums>
+		<member kind="enum" name="Clock">
+			<signature>enum Clock {
+	## 以新页入场区间为基准。
+	ENTER,
+	## 以旧页退出区间为基准。
+	EXIT,
+	## 以会话起点、以秒为单位安排动作。
+	SESSION,
+}</signature>
+			<description>定义时刻和相对时长的参考区间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</enums>
+	<constants />
+	<properties>
+		<member kind="property" name="cue" decorators="@export">
+			<signature>var cue: StringName</signature>
+			<description>轨道开始时发送的标识。单独填写可通知页面播放自己的原生动画。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="target" decorators="@export">
+			<signature>var target: StringName = &amp;"incoming"</signature>
+			<description>从播放调用的绑定表中查找此目标；目标数组依次错峰。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="clock" decorators="@export">
+			<signature>var clock: Clock = Clock.ENTER</signature>
+			<description>选择时间参考系。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="at" decorators="@export_range(0, 1, 0.001)">
+			<signature>var at: float = 0.0</signature>
+			<description>页时钟下为 0 到 1 的起始比例，会话时钟下直接使用 delay_seconds。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="delay_seconds" decorators="@export_range(0, 60, 0.001, &quot;or_greater&quot;)">
+			<signature>var delay_seconds: float = 0.0</signature>
+			<description>相对触发点的额外延迟，单位秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="duration" decorators="@export_range(0, 60, 0.001, &quot;or_greater&quot;)">
+			<signature>var duration: float = 1.0</signature>
+			<description>局部时长，可按参考区间比例或秒解释。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="relative_duration" decorators="@export">
+			<signature>var relative_duration: bool = true</signature>
+			<description>在页时钟中用参考页时长乘 duration。会话时钟始终使用秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="stagger_seconds" decorators="@export_range(0, 5, 0.001, &quot;or_greater&quot;)">
+			<signature>var stagger_seconds: float = 0.0</signature>
+			<description>对目标数组每个后继元素增加的时间偏移，单位秒。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="transition" decorators="@export">
+			<signature>var transition: Tween.TransitionType = Tween.TRANS_LINEAR</signature>
+			<description>插值使用的 Godot 曲线类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="easing" decorators="@export">
+			<signature>var easing: Tween.EaseType = Tween.EASE_IN_OUT</signature>
+			<description>插值曲线的缓入缓出方向。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="curve" decorators="@export">
+			<signature>var curve: Curve</signature>
+			<description>可选进度曲线，存在时覆盖原生缓动并允许中途超调。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="effect" decorators="@export">
+			<signature>var effect: GFUIMotionEffect</signature>
+			<description>可复用的效果。留空并填写 cue 时只发送瞬时标记，目标及错峰照常生效。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods />
+	<innerClasses />
+</class>

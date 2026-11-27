@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIMotionPlayer" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_player.gd" module="extensions/action_queue" extends="Node" classDigest="021cbf9cc0c17fb01bdeacb6b4c6a21a846f2b81ce5349a56099a37219999ce5">
+	<description>GFUIMotionPlayer: 在一个宿主中播放双页与组件轨道，逐次绑定，并隔离各次运行、取消和定位。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">runtime_service</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals>
+		<member kind="signal" name="cue_reached">
+			<signature>signal cue_reached(cue: StringName, target: Object)</signature>
+			<description>轨道对一个元素开始，仅正向播放跨过触点时发送。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">cue: 作者设置的轨道标记。</tag>
+				<tag name="param">target: 此次触发的目标。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="page_entered">
+			<signature>signal page_entered</signature>
+			<description>新页的入场时间已结束，页内轨道可继续播放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="signal" name="ended">
+			<signature>signal ended(reason: GFUIMotionBinding.EndReason)</signature>
+			<description>本次会话已经释放绑定。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">reason: 自然、立即完成或取消。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</signals>
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="take_over_properties" decorators="@export">
+			<signature>var take_over_properties: bool = false</signature>
+			<description>允许本播放器接管其他界面播放器已经拥有的属性。默认在修改任何目标前报告冲突。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="play">
+			<signature>func play( recipe: GFUIMotionRecipe, targets: Dictionary, inputs: Dictionary = {}, paused: bool = false ) -&gt; Error:</signature>
+			<description>先检查完整配方和具名绑定，再替换本宿主的会话。配置的时间及曲线在本次播放开始时冻结。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">recipe: 双页与独立局部轨道。</tag>
+				<tag name="param">targets: 单一目标或同一轨道的有序目标数组。</tag>
+				<tag name="param">inputs: 共用的显式项目输入。</tag>
+				<tag name="param">paused: 从可定位的初始画面开始，仅实播动作等待恢复。</tag>
+				<tag name="return">OK 或错误码，细节可由 get_diagnostic 获取。</tag>
+				<tag name="schema">targets: Dictionary，StringName 映射到 Object 或有序 Array[Object]。</tag>
+				<tag name="schema">inputs: Dictionary，StringName 映射到效果声明的输入类型。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="play_transition">
+			<signature>func play_transition( outgoing: Control, incoming: Control, release: Callable, recipe: GFUIMotionRecipe, bind_roles: Callable, inputs: Dictionary = {} ) -&gt; Error:</signature>
+			<description>接受 GFUIUtility.navigate_with_presentation 的同步交接。普通页面切换直接播放原有控件。
+项目按实际节点提供角色；旧页使用完毕时恢复其姿态并交还路由，页内动画继续。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">outgoing: 路由保留的旧页。</tag>
+				<tag name="param">incoming: 已经接管导航和焦点的新页。</tag>
+				<tag name="param">release: 路由提供的幂等释放回调。</tag>
+				<tag name="param">recipe: 可在不同页面之间复用的时序。</tag>
+				<tag name="param">bind_roles: 接收旧页和新页，返回角色到目标或有序目标列表的字典。</tag>
+				<tag name="param">inputs: 项目提供的额外输入。</tag>
+				<tag name="return">播放是否已启动。</tag>
+				<tag name="schema">inputs: Dictionary，StringName 映射到效果声明的输入。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="pause">
+			<signature>func pause() -&gt; void:</signature>
+			<description>停止时间推进，同时暂停当前正在播放的外部动作。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="resume">
+			<signature>func resume() -&gt; void:</signature>
+			<description>从当前时间继续前进。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="seek">
+			<signature>func seek(seconds: float) -&gt; bool:</signature>
+			<description>暂停并直接重建指定时间的姿态，不触发标记或结束会话。实播动作拒绝定位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">seconds: 闭区间内的会话秒数。</tag>
+				<tag name="return">是否成功重建。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="finish">
+			<signature>func finish() -&gt; void:</signature>
+			<description>应用采样动作的终点，结束已经启动的实播动作，跳过尚未触发的事件。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="cancel">
+			<signature>func cancel() -&gt; void:</signature>
+			<description>取消本次播放并释放拥有的临时资源。采样时发起的取消会在当前钩子返回后处理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="is_active">
+			<signature>func is_active() -&gt; bool:</signature>
+			<description>判断会话仍可控制。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">已准备且未释放时为 true。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="can_seek">
+			<signature>func can_seek() -&gt; bool:</signature>
+			<description>当前会话是否所有轨道均可任意定位。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">有实播动作、已经交还目标或路由正在交接时为 false。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_duration_seconds">
+			<signature>func get_duration_seconds() -&gt; float:</signature>
+			<description>读取最近一次有效会话的总长。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">以秒计的有限端点。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_time_seconds">
+			<signature>func get_time_seconds() -&gt; float:</signature>
+			<description>读取当前的时间。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">会话开始后的秒数。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_diagnostic">
+			<signature>func get_diagnostic() -&gt; String:</signature>
+			<description>取得最近一次准备错误以定位轨道和输入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">成功时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_track_intervals">
+			<signature>func get_track_intervals() -&gt; Array[Dictionary]:</signature>
+			<description>获取当前会话已绑定的各目标区间，按实际触发时刻排列。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">每次调用返回独立快照；空闲时为空。</tag>
+				<tag name="schema">return: Array[Dictionary]，每项含 track_index(int)、start_seconds(float)、end_seconds(float)，区间以会话起点为零。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

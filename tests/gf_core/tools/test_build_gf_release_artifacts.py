@@ -288,6 +288,37 @@ class ReleaseBuilderProcessAuthorityTests(unittest.TestCase):
 		print_result.assert_not_called()
 
 class ReleaseArtifactTests(unittest.TestCase):
+	def test_motion_assets_are_reproducible_and_match_installed_paths(self) -> None:
+		assets = release_builder.build_gf_ui_motion_assets
+		sources = assets.archive_sources()
+		with tempfile.TemporaryDirectory() as directory:
+			output = Path(directory) / assets.archive_name(VERSION)
+			assets.build_archive(output)
+			digest = release_builder.sha256_file(output)
+			assets.build_archive(output)
+			self.assertEqual(release_builder.sha256_file(output), digest)
+			with zipfile.ZipFile(output) as archive:
+				self.assertEqual(set(archive.namelist()), set(sources))
+				self.assertTrue(all(name.startswith("addons/gf_ui_motion_assets/") for name in archive.namelist()))
+				for effect in ("tile_flip", "signal_distortion"):
+					stem = f"addons/gf_ui_motion_assets/{effect}/{effect}"
+					self.assertIn(f'path="{effect}.gdshader"', archive.read(stem + ".tres").decode())
+					self.assertIn(stem + ".gdshader.uid", sources)
+					self.assertIn(stem + ".gdshader", sources)
+			self.assertEqual(release_builder.audit_zip_matches_source(output, sources, "assets"), [])
+			with zipfile.ZipFile(output, "a") as archive:
+				archive.writestr("addons/", b"")
+			self.assertEqual(release_builder.audit_zip_matches_source(output, sources, "assets"), [])
+			with zipfile.ZipFile(output, "w") as archive:
+				for name, path in sources.items():
+					archive.writestr(name, b"changed" if name.endswith(".tres") else path.read_bytes())
+				archive.writestr("addons/gf/unrelated.gd", "")
+				archive.writestr("other/", b"")
+			issues = release_builder.audit_zip_matches_source(output, sources, "assets")
+			self.assertTrue(any("content differs from source" in issue for issue in issues), issues)
+			self.assertTrue(any("undeclared source file" in issue for issue in issues), issues)
+			self.assertTrue(any("undeclared directory" in issue for issue in issues), issues)
+
 	def test_standalone_archive_rejects_noncanonical_paths_before_payload_reads(self) -> None:
 		builder = release_builder.build_asset_store_package
 		for entry in ("addons/gf/../escape.txt", "addons/gf/./same.txt", "addons/gf//empty.txt", "addons/gf/back\\slash.txt", "addons/gf/../outside/"):
@@ -401,7 +432,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 						actual_version = ""
 				self.assertEqual(actual_version, expected_version)
 
-	def test_build_publishes_only_five_archives_and_manifest(self) -> None:
+	def test_build_publishes_only_declared_archives_and_manifest(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
 			build_root = Path(temporary_directory) / "build"
 			output_dir = build_root / "release"
@@ -442,11 +473,6 @@ class ReleaseArtifactTests(unittest.TestCase):
 					release_builder.build_asset_store_package,
 					"audit_package",
 					return_value={"ok": True, "issues": []},
-				),
-				mock.patch.object(
-					release_builder.build_asset_store_package,
-					"iter_package_files",
-					return_value=[],
 				),
 				mock.patch.object(
 					release_builder,
@@ -494,6 +520,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					f"gf-framework-windows-x86_64-{VERSION}.zip",
 					f"gf-native-windows-x86_64-{VERSION}.zip",
 					f"gf-native-multiplatform-{VERSION}.zip",
+					f"gf-ui-motion-assets-{VERSION}.zip",
 					f"gf-release-artifacts-{VERSION}.json",
 				},
 			)
@@ -502,11 +529,11 @@ class ReleaseArtifactTests(unittest.TestCase):
 					encoding="utf-8"
 				)
 			)
-			self.assertEqual(manifest["schema_version"], 5)
-			self.assertEqual(manifest["artifact_count"], 5)
+			self.assertEqual(manifest["schema_version"], 6)
+			self.assertEqual(manifest["artifact_count"], 6)
 			self.assertEqual(
 				{entry["role"] for entry in manifest["artifacts"]},
-				{"framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64", "native_multiplatform"},
+				{"framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64", "native_multiplatform", "ui_motion_assets"},
 			)
 			self.assertEqual(manifest["source_revision"], REVISION)
 			self.assertEqual(
@@ -550,7 +577,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					REVISION,
 				)
 			self.assertFalse(result["ok"])
-			self.assertTrue(any("only the five archives" in issue for issue in result["issues"]))
+			self.assertTrue(any("only the declared archives" in issue for issue in result["issues"]))
 
 	def test_audit_rejects_extra_release_directory(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -564,7 +591,7 @@ class ReleaseArtifactTests(unittest.TestCase):
 					REVISION,
 				)
 			self.assertFalse(result["ok"])
-			self.assertTrue(any("only the five archives" in issue for issue in result["issues"]))
+			self.assertTrue(any("only the declared archives" in issue for issue in result["issues"]))
 
 	def test_audit_rejects_boolean_integer_fields(self) -> None:
 		with tempfile.TemporaryDirectory() as temporary_directory:
@@ -862,6 +889,7 @@ def _write_valid_release_fixture(root: Path) -> Path:
 	_write_framework_archive(framework)
 	_write_ai_archive(ai_kit, VERSION)
 	archives = {role: root / name for role, name in release_builder.archive_names(VERSION).items()}
+	release_builder.build_gf_ui_motion_assets.build_archive(archives["ui_motion_assets"])
 	_qualify_test_archives(framework, archives["native_windows_x86_64"], archives["framework_windows_x86_64"],
 		VERSION, REVISION, export=True)
 	platforms = release_builder.gf_native_platforms
