@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="292e758343291b3cad0313ec5e5799914875a414a0f7178fadc21398c1f79566">
+<class name="GFNetworkBackend" path="addons/gf/extensions/network/backends/gf_network_backend.gd" module="extensions/network" extends="RefCounted" classDigest="6e20d2092396606b9d7bd1bb2e9c67470bc2488780a1245cf7ff7912a27237bc">
 	<description>GFNetworkBackend: 网络后端抽象基类。
 后端负责具体传输协议，框架层只依赖该统一接口与信号。</description>
 	<tags>
@@ -88,6 +88,28 @@
 			<description>断开连接。</description>
 			<tags>
 				<tag name="api">public</tag>
+			</tags>
+		</member>
+		<member kind="method" name="get_peer_connection_token">
+			<signature>func get_peer_connection_token(_peer_id: int) -&gt; RefCounted:</signature>
+			<description>取得房主当前远端连接的不透明身份。调用方应在接纳连接时保存它，延迟关闭时使用原凭据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_peer_id: 已连接的单个远端 peer。</tag>
+				<tag name="return">对应本后端、本次连接的凭据。未连接、非房主或后端不支持时返回 null。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="disconnect_peer">
+			<signature>func disconnect_peer(_peer_id: int, _connection_token: RefCounted) -&gt; Error:</signature>
+			<description>请求关闭一条匹配凭据的远端连接，保留主机及其他 peer。成功后撤销凭据，每条连接至多通知一次断开。
+未交付的入站消息可丢弃，已发送的数据不保证送达。相同编号的新连接必须使用新凭据。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">_peer_id: 要关闭的单个远端 peer。</tag>
+				<tag name="param">_connection_token: 接纳这次连接时由本后端签发的凭据。</tag>
+				<tag name="return">支持时返回 OK、ERR_UNCONFIGURED、ERR_UNAUTHORIZED、ERR_INVALID_PARAMETER 或 ERR_DOES_NOT_EXIST。后端未实现时返回 ERR_UNAVAILABLE。</tag>
+				<tag name="since">unreleased</tag>
 			</tags>
 		</member>
 		<member kind="method" name="send_bytes">

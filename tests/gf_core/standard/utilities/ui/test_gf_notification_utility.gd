@@ -2,6 +2,16 @@
 extends GutTest
 
 
+# --- 内部类 ---
+
+class _ActionLabel extends RefCounted:
+	var on_format: Callable
+
+	func _to_string() -> String:
+		var _result: Variant = on_format.call()
+		return "Cancel"
+
+
 # --- 测试方法 ---
 
 ## 清空和释放都先结束活动通知，再交付回调，避免嵌套 dismiss 重复完成。
@@ -113,6 +123,241 @@ func test_notification_suppresses_duplicates() -> void:
 		0,
 		"重复通知不应进入等待队列。"
 	)
+
+
+## 更新展示内容时保留活动计时、等待顺序和通知身份。
+func test_update_preserves_queue_order_identity_and_active_timer() -> void:
+	var notices: GFNotificationUtility = GFNotificationUtility.new()
+	var active_id: int = notices.push_notification(
+		"Reading",
+		"",
+		GFNotificationUtility.Level.INFO,
+		{ "duration_seconds": 5.0 }
+	)
+	var queued_id: int = notices.push_notification(
+		"Waiting",
+		"",
+		GFNotificationUtility.Level.INFO,
+		{
+			"key": "export",
+			"sticky": true,
+			"actions": ["cancel"],
+		}
+	)
+	var next_id: int = notices.push_notification("Later")
+	var updates: Array[int] = []
+	var observe: Callable = func(changed_id: int) -> void:
+		updates.append(changed_id)
+		var record: Dictionary = notices.get_notification(changed_id)
+		record["message"] = "observer copy"
+	var _updated: int = notices.notification_updated.connect(observe)
+	notices.tick(2.0)
+	notices.pause_active()
+	assert_eq(
+		notices.update_notification(
+			active_id,
+			{ &"message": "Read" }
+		),
+		OK
+	)
+	assert_eq(
+		notices.push_notification("Read"),
+		active_id
+	)
+	assert_eq(
+		notices.update_notification(
+			queued_id,
+			{ "message": "Writing", "title": "Export" }
+		),
+		OK
+	)
+	assert_eq(
+		_notification_ids(notices.get_queue()),
+		[queued_id, next_id]
+	)
+	var queued_record: Dictionary = notices.get_queue()[0]
+	assert_true(queued_record.get("message") is String)
+	assert_eq(
+		GFVariantData.get_option_string(queued_record, "message"),
+		"Writing"
+	)
+	assert_eq(
+		notices.push_notification(
+			"Duplicate",
+			"",
+			GFNotificationUtility.Level.INFO,
+			{ "key": "export" }
+		),
+		queued_id
+	)
+	assert_eq(
+		notices.update_notification(
+			queued_id,
+			{ "message": "Writing" }
+		),
+		OK
+	)
+	assert_eq(
+		updates,
+		[active_id, queued_id]
+	)
+	notices.tick(8.0)
+	assert_true(notices.is_active_paused())
+	notices.resume_active()
+	notices.tick(3.0)
+	var promoted_record: Dictionary = notices.get_active_notification()
+	assert_true(promoted_record.get("id") is int)
+	assert_eq(
+		GFVariantData.get_option_int(promoted_record, "id"),
+		queued_id
+	)
+	assert_true(notices.invoke_active_action(&"cancel"))
+	notices.tick(8.0)
+	assert_eq(
+		notices.update_notification(
+			queued_id,
+			{ "actions": [], "level": GFNotificationUtility.Level.SUCCESS }
+		),
+		OK
+	)
+	assert_false(notices.invoke_active_action(&"cancel"))
+	assert_eq(
+		notices.update_notification(
+			active_id,
+			{ "message": "Late" }
+		),
+		ERR_DOES_NOT_EXIST
+	)
+	assert_eq(
+		updates,
+		[
+			active_id,
+			queued_id,
+			queued_id,
+		]
+	)
+	notices.notification_updated.disconnect(observe)
+
+
+func test_update_validates_atomically_and_can_be_dismissed_by_observer() -> void:
+	var notices: GFNotificationUtility = GFNotificationUtility.new()
+	var id: int = notices.push_notification("Initial")
+	var original: Dictionary = notices.get_active_notification()
+	var dismiss: Callable = func(changed_id: int) -> void:
+		assert_true(notices.dismiss_notification(changed_id))
+	var _updated: int = notices.notification_updated.connect(dismiss)
+	for patch: Dictionary in [
+		{ "title": "partial", "priority": 1 },
+		{ "level": 20 },
+		{
+			"actions": [2],
+		},
+		{ "message": "" },
+	]:
+		assert_eq(
+			notices.update_notification(id, patch),
+			ERR_INVALID_PARAMETER
+		)
+		assert_eq(
+			notices.get_active_notification(),
+			original
+		)
+	assert_eq(
+		notices.update_notification(
+			id,
+			{ "message": "Done" }
+		),
+		OK
+	)
+	assert_true(notices.get_active_notifications().is_empty())
+	assert_eq(
+		notices.update_notification(id, {}),
+		ERR_DOES_NOT_EXIST
+	)
+	notices.notification_updated.disconnect(dismiss)
+
+
+func test_observers_read_current_state_after_another_observer_updates_or_closes() -> void:
+	var notices: GFNotificationUtility = GFNotificationUtility.new()
+	var id: int = notices.push_notification("Start")
+	var observed: Array[String] = []
+	var on_change: Callable = func(changed_id: int) -> void:
+		match notices.get_notification(changed_id)["message"]:
+			"Writing":
+				assert_eq(
+					notices.update_notification(
+						changed_id,
+						{ "message": "Done" }
+					),
+					OK
+				)
+			"Closing":
+				assert_true(notices.dismiss_notification(changed_id))
+	var observe: Callable = func(changed_id: int) -> void:
+		observed.append(
+			GFVariantData.get_option_string(
+				notices.get_notification(changed_id),
+				"message",
+				"retired"
+			)
+		)
+	var _changed: int = notices.notification_updated.connect(on_change)
+	var _observed: int = notices.notification_updated.connect(observe)
+	assert_eq(
+		notices.update_notification(
+			id,
+			{ "message": "Writing" }
+		),
+		OK
+	)
+	assert_eq(
+		notices.update_notification(
+			id,
+			{ "message": "Closing" }
+		),
+		OK
+	)
+	assert_eq(
+		observed,
+		[
+			"Done",
+			"Done",
+			"retired",
+		]
+	)
+	notices.notification_updated.disconnect(on_change)
+	notices.notification_updated.disconnect(observe)
+
+
+func test_action_normalization_commits_only_to_the_current_notification() -> void:
+	var notices: GFNotificationUtility = GFNotificationUtility.new()
+	var id: int = notices.push_notification("Export")
+	var action_label: _ActionLabel = _ActionLabel.new()
+	var patch: Dictionary = {
+		"actions": [
+			{ "id": "cancel", "label": action_label },
+		],
+	}
+	action_label.on_format = notices.update_notification.bind(
+		id,
+		{ "title": "Writing" }
+	)
+	assert_eq(
+		notices.update_notification(id, patch),
+		OK
+	)
+	var updated_record: Dictionary = notices.get_notification(id)
+	assert_true(updated_record.get("title") is String)
+	assert_eq(
+		GFVariantData.get_option_string(updated_record, "title"),
+		"Writing"
+	)
+	action_label.on_format = notices.dismiss_notification.bind(id)
+	assert_eq(
+		notices.update_notification(id, patch),
+		ERR_DOES_NOT_EXIST
+	)
+	assert_true(notices.get_notification(id).is_empty())
 
 
 ## 验证显式 key 不会因为正文相同而误去重。

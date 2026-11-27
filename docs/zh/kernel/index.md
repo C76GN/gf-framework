@@ -32,7 +32,9 @@ if not report["ok"]:
 var config: Dictionary = report["data"]
 ```
 
-默认值和框架绝对上限都是 1 MiB、64 层：正数参数只能进一步收紧，非正值恢复默认值，超过绝对上限的值会被钳制，不能借此关闭保护。返回报告始终是 JSON-safe 的 8 字段 Dictionary：`ok`、`data`、`source_path`、`size_bytes`、`error_kind`、`error`、`max_bytes` 和 `max_depth`；后两个字段记录实际生效预算。成功时 `error_kind` 和 `error` 为空；失败类型稳定为 `open_failed`、`read_failed`、`payload_too_large`、`nesting_too_deep`、`parse_failed` 或 `invalid_root_type`，且 `data` 为空。文本入口的 `source_path` 为空；文件入口返回规范化路径。
+默认值和框架绝对上限都是 1 MiB、64 层。正数参数只能进一步收紧，非正值恢复默认值，超过绝对上限的值会被钳制。读取报告始终包含八个 JSON-safe 字段，分别为 `ok`、`data`、`source_path`、`size_bytes`、`error_kind`、`error`、`max_bytes` 和 `max_depth`。后两个字段记录实际生效预算。成功时 `error_kind` 和 `error` 为空。失败时 `data` 为空，`error_kind` 为 `open_failed`、`read_failed`、`payload_too_large`、`nesting_too_deep`、`parse_failed`、`invalid_root_type` 或 `duplicate_member`。文本入口的 `source_path` 为空，文件入口返回规范化路径。
+
+默认情况下，同一对象重复声明成员时保留最后一个值。配置编辑器或清单工具可以向 `parse_object()` 或 `read_object()` 的第四个参数 `reject_duplicate_members` 传入 `true`。严格模式按同一对象内解码后的成员名判重，例如 `"label"` 和 `"\u006cabel"` 相同。大小写不同的成员名、兄弟对象和数组中不同对象的同名成员均可共存。发现重复时，`error_kind` 为 `duplicate_member`，`error` 给出第二次出现处从零开始的字符偏移。
 
 读取器会在调用 Godot JSON 解析器前拒绝原始 NUL、解码为 U+0000 的字符串转义，以及会触发数值转换溢出或非有限结果的数字文本；这类输入以及解析后仍出现非有限数字的输入统一报告为 `parse_failed`，不会静默截断输入，也不会把 `INF` 或 `NaN` 暴露到 JSON-safe 报告中。数字预检保持线性扫描，不会因长指数产生二次方复制成本。
 

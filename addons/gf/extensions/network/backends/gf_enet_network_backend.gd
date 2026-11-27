@@ -54,11 +54,21 @@ var _endpoint: String = ""
 ## [br]
 var _is_server: bool = false
 
-## 当前仍处于连接状态的远端 peer ID 集合。
+## 每次连接拥有独立凭据，表内对象身份只在当前连接有效。
 ## [br]
 ## @api private
 ## [br]
-var _connected_peer_ids: Dictionary = {}
+var _connected_peer_ids: Dictionary[int, RefCounted] = {}
+
+## 已读取的入站包序号；配合原生队列长度标记关闭瞬间已经排队的前缀。
+## [br]
+## @api private
+var _packets_consumed: int = 0
+
+## 每个已关闭 peer 最后一个可能属于旧连接的排队序号；前缀排空后删除。
+## [br]
+## @api private
+var _discard_through: Dictionary[int, int] = {}
 
 ## 当前 Peer 的生命周期代次；回调建立新连接后，旧关闭立即停止。
 ## [br]
@@ -160,6 +170,53 @@ func disconnect_backend() -> void:
 	var _closed_current_peer: bool = _close_peer(true)
 
 
+## 查询当前房主已接纳的远端连接；在 peer_connected 回调内即可保存凭据。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param peer_id: 单个远端 peer 的正整数标识。
+## [br]
+## @return 本次连接的不透明凭据；连接不存在或本端不是房主时返回 null。
+func get_peer_connection_token(peer_id: int) -> RefCounted:
+	if not _is_server or not _connected_peer_ids.has(peer_id):
+		return null
+	return _connected_peer_ids[peer_id]
+
+
+## 关闭匹配凭据的远端连接并同步报告 peer_disconnected。原生入站队列中属于这次连接的余包将被丢弃。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param peer_id: 已连接的一个远端 peer；本机和广播标识无效。
+## [br]
+## @param connection_token: 此次连接建立时取得的凭据。
+## [br]
+## @return 成功返回 OK；未启动返回 ERR_UNCONFIGURED，客户端返回 ERR_UNAUTHORIZED，非法参数返回 ERR_INVALID_PARAMETER。未知、已关闭或凭据不符均返回 ERR_DOES_NOT_EXIST。
+func disconnect_peer(peer_id: int, connection_token: RefCounted) -> Error:
+	if _peer == null:
+		return ERR_UNCONFIGURED
+	if not _is_server:
+		return ERR_UNAUTHORIZED
+	if peer_id <= MultiplayerPeer.TARGET_PEER_SERVER or connection_token == null:
+		return ERR_INVALID_PARAMETER
+	if get_peer_connection_token(peer_id) != connection_token:
+		return ERR_DOES_NOT_EXIST
+
+	var remote: ENetPacketPeer = _peer.get_peer(peer_id)
+	var queued: int = _peer.get_available_packet_count()
+	if queued > 0:
+		_discard_through[peer_id] = _packets_consumed + queued
+	# force 从 Godot 的编号表移除并发送断开请求；reset 立即归还本地主机槽位。
+	_peer.disconnect_peer(peer_id, true)
+	remote.reset()
+	_on_peer_disconnected(peer_id)
+	return OK
+
+
 ## 发送 bytes。
 ## options 支持 reliable, transfer_mode, channel。
 ## [br]
@@ -185,6 +242,12 @@ func send_bytes(
 		return ERR_UNCONFIGURED
 	if bytes.is_empty():
 		return ERR_INVALID_DATA
+	if (
+		_is_server
+		and peer_id > 0
+		and not _connected_peer_ids.has(peer_id)
+	):
+		return ERR_INVALID_PARAMETER
 
 	_peer.set_target_peer(_map_target_peer(peer_id))
 	_peer.transfer_channel = GFVariantData.get_option_int(options, "channel")
@@ -205,21 +268,30 @@ func poll(_delta: float) -> void:
 	if _peer == null:
 		return
 
-	_peer.poll()
+	var polled_peer: ENetMultiplayerPeer = _peer
+	polled_peer.poll()
+	if _peer != polled_peer:
+		return
 	_update_connection_status()
 	var processed_packets: int = 0
 	while (
-		_peer != null
-		and _peer.get_available_packet_count() > 0
+		_peer == polled_peer
+		and polled_peer.get_available_packet_count() > 0
 		and (
 			max_packets_per_poll <= 0
 			or processed_packets < max_packets_per_poll
 		)
 	):
-		var peer_id: int = _peer.get_packet_peer()
-		var bytes: PackedByteArray = _peer.get_packet()
-		_emit_message_received(peer_id, bytes)
+		var peer_id: int = polled_peer.get_packet_peer()
+		var bytes: PackedByteArray = polled_peer.get_packet()
+		_packets_consumed += 1
 		processed_packets += 1
+		if _packets_consumed > _discard_through.get(peer_id, 0):
+			_emit_message_received(peer_id, bytes)
+	if _peer == polled_peer and not _discard_through.is_empty():
+		for retired_id: int in _discard_through.keys():
+			if _discard_through[retired_id] <= _packets_consumed:
+				var _removed: bool = _discard_through.erase(retired_id)
 
 
 ## 获取后端调试快照。
@@ -286,6 +358,8 @@ func _close_peer(should_emit_signal: bool) -> bool:
 	_last_status = MultiplayerPeer.CONNECTION_DISCONNECTED
 	_endpoint = ""
 	_is_server = false
+	_packets_consumed = 0
+	_discard_through.clear()
 	_reset_transport_connection()
 	if previous_peer != null:
 		previous_peer.close()
@@ -429,7 +503,7 @@ func _emit_tracked_peer_disconnections(closing_generation: int) -> void:
 ## @api private
 ## [br]
 func _on_peer_connected(peer_id: int) -> void:
-	_connected_peer_ids[peer_id] = true
+	_connected_peer_ids[peer_id] = RefCounted.new()
 	_emit_peer_connected(peer_id)
 
 
@@ -438,5 +512,5 @@ func _on_peer_connected(peer_id: int) -> void:
 ## @api private
 ## [br]
 func _on_peer_disconnected(peer_id: int) -> void:
-	var _erased_peer: bool = _connected_peer_ids.erase(peer_id)
-	_emit_peer_disconnected(peer_id)
+	if _connected_peer_ids.erase(peer_id):
+		_emit_peer_disconnected(peer_id)

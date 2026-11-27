@@ -20,6 +20,8 @@
 | 方法 | [`host`](#member-gfenetnetworkbackend-methods-host) | `func host(options: Dictionary = {}) -> Error:` |
 | 方法 | [`connect_to_endpoint`](#member-gfenetnetworkbackend-methods-connect_to_endpoint) | `func connect_to_endpoint(endpoint: String, options: Dictionary = {}) -> Error:` |
 | 方法 | [`disconnect_backend`](#member-gfenetnetworkbackend-methods-disconnect_backend) | `func disconnect_backend() -> void:` |
+| 方法 | [`get_peer_connection_token`](#member-gfenetnetworkbackend-methods-get_peer_connection_token) | `func get_peer_connection_token(peer_id: int) -> RefCounted:` |
+| 方法 | [`disconnect_peer`](#member-gfenetnetworkbackend-methods-disconnect_peer) | `func disconnect_peer(peer_id: int, connection_token: RefCounted) -> Error:` |
 | 方法 | [`send_bytes`](#member-gfenetnetworkbackend-methods-send_bytes) | `func send_bytes( peer_id: int, bytes: PackedByteArray, options: Dictionary = {} ) -> Error:` |
 | 方法 | [`poll`](#member-gfenetnetworkbackend-methods-poll) | `func poll(_delta: float) -> void:` |
 | 方法 | [`get_debug_snapshot`](#member-gfenetnetworkbackend-methods-get_debug_snapshot) | `func get_debug_snapshot() -> Dictionary:` |
@@ -114,6 +116,49 @@ func disconnect_backend() -> void:
 ```
 
 断开 ENet 连接。
+
+<a id="member-gfenetnetworkbackend-methods-get_peer_connection_token"></a>
+
+### `get_peer_connection_token`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_peer_connection_token(peer_id: int) -> RefCounted:
+```
+
+查询当前房主已接纳的远端连接；在 peer_connected 回调内即可保存凭据。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `peer_id` | 单个远端 peer 的正整数标识。 |
+
+返回：本次连接的不透明凭据；连接不存在或本端不是房主时返回 null。
+
+<a id="member-gfenetnetworkbackend-methods-disconnect_peer"></a>
+
+### `disconnect_peer`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func disconnect_peer(peer_id: int, connection_token: RefCounted) -> Error:
+```
+
+关闭匹配凭据的远端连接并同步报告 peer_disconnected。原生入站队列中属于这次连接的余包将被丢弃。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `peer_id` | 已连接的一个远端 peer；本机和广播标识无效。 |
+| `connection_token` | 此次连接建立时取得的凭据。 |
+
+返回：成功返回 OK；未启动返回 ERR_UNCONFIGURED，客户端返回 ERR_UNAUTHORIZED，非法参数返回 ERR_INVALID_PARAMETER。未知、已关闭或凭据不符均返回 ERR_DOES_NOT_EXIST。
 
 <a id="member-gfenetnetworkbackend-methods-send_bytes"></a>
 

@@ -17,6 +17,7 @@
 |---|---|---|
 | 信号 | [`notification_queued`](#member-gfnotificationutility-signals-notification_queued) | `signal notification_queued(notification: Dictionary)` |
 | 信号 | [`notification_started`](#member-gfnotificationutility-signals-notification_started) | `signal notification_started(notification: Dictionary)` |
+| 信号 | [`notification_updated`](#member-gfnotificationutility-signals-notification_updated) | `signal notification_updated(notification_id: int)` |
 | 信号 | [`notification_finished`](#member-gfnotificationutility-signals-notification_finished) | `signal notification_finished(notification: Dictionary, reason: String)` |
 | 信号 | [`notification_action_invoked`](#member-gfnotificationutility-signals-notification_action_invoked) | `signal notification_action_invoked(notification: Dictionary, action_id: StringName)` |
 | 枚举 | [`Level`](#member-gfnotificationutility-enums-level) | `enum Level` |
@@ -28,9 +29,11 @@
 | 方法 | [`tick`](#member-gfnotificationutility-methods-tick) | `func tick(delta: float) -> void:` |
 | 方法 | [`dispose`](#member-gfnotificationutility-methods-dispose) | `func dispose() -> void:` |
 | 方法 | [`push_notification`](#member-gfnotificationutility-methods-push_notification) | `func push_notification( message: String, title: String = "", level: Level = Level.INFO, options: Dictionary = {} ) -> int:` |
+| 方法 | [`update_notification`](#member-gfnotificationutility-methods-update_notification) | `func update_notification(notification_id: int, changes: Dictionary) -> Error:` |
 | 方法 | [`dismiss_active`](#member-gfnotificationutility-methods-dismiss_active) | `func dismiss_active(reason: String = "dismissed") -> void:` |
 | 方法 | [`dismiss_notification`](#member-gfnotificationutility-methods-dismiss_notification) | `func dismiss_notification(notification_id: int, reason: String = "dismissed") -> bool:` |
 | 方法 | [`clear_notifications`](#member-gfnotificationutility-methods-clear_notifications) | `func clear_notifications(reason: String = "cleared") -> void:` |
+| 方法 | [`get_notification`](#member-gfnotificationutility-methods-get_notification) | `func get_notification(notification_id: int) -> Dictionary:` |
 | 方法 | [`get_active_notification`](#member-gfnotificationutility-methods-get_active_notification) | `func get_active_notification() -> Dictionary:` |
 | 方法 | [`get_active_notifications`](#member-gfnotificationutility-methods-get_active_notifications) | `func get_active_notifications() -> Array[Dictionary]:` |
 | 方法 | [`pause_active`](#member-gfnotificationutility-methods-pause_active) | `func pause_active() -> void:` |
@@ -86,6 +89,25 @@ signal notification_started(notification: Dictionary)
 结构：
 
 - `notification`: Dictionary，字段同 notification_queued 的 notification。
+
+<a id="member-gfnotificationutility-signals-notification_updated"></a>
+
+### `notification_updated`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+signal notification_updated(notification_id: int)
+```
+
+等待或活动通知的内容实际变更后发出一次。监听者按 ID 读取最新状态，其他监听者可以先更新或关闭它。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `notification_id` | 发生变化的通知 ID，可传入 get_notification()。 |
 
 <a id="member-gfnotificationutility-signals-notification_finished"></a>
 
@@ -290,6 +312,32 @@ func push_notification( message: String, title: String = "", level: Level = Leve
 
 - `options`: Dictionary，支持 duration_seconds、key、metadata、priority、sticky 和 actions。actions 为 Array[StringName|String|Dictionary]，Dictionary action 包含 id、可选 label、dismiss 和 metadata；label 为空时由项目 UI 决定展示文案。
 
+<a id="member-gfnotificationutility-methods-update_notification"></a>
+
+### `update_notification`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func update_notification(notification_id: int, changes: Dictionary) -> Error:
+```
+
+按 ID 原地更新等待或活动通知。保留排队位置、计时、暂停状态及未指定的字段。 省略显式 key 的通知随后按更新后的正文去重。内容相同时返回 OK，无需刷新展示。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `notification_id` | push_notification() 返回的通知 ID。 |
+| `changes` | 要替换的内容字段，空动作数组清除所有动作。 |
+
+返回：已更新或内容相同返回 OK，记录已退役返回 ERR_DOES_NOT_EXIST，字段无效返回 ERR_INVALID_PARAMETER。
+
+结构：
+
+- `changes`: Dictionary，可选 title、message（String）、level（Level）及 actions（同 push_notification 的动作数组）。标题与正文至少一项非空。
+
 <a id="member-gfnotificationutility-methods-dismiss_active"></a>
 
 ### `dismiss_active`
@@ -348,6 +396,31 @@ func clear_notifications(reason: String = "cleared") -> void:
 | 名称 | 说明 |
 |---|---|
 | `reason` | 结束原因。 |
+
+<a id="member-gfnotificationutility-methods-get_notification"></a>
+
+### `get_notification`
+
+- API：`public`
+- 首次版本：`unreleased`
+
+```gdscript
+func get_notification(notification_id: int) -> Dictionary:
+```
+
+按 ID 读取等待或活动通知的独立副本。观察者可在更新信号中检查其他回调执行后的当前状态。
+
+参数：
+
+| 名称 | 说明 |
+|---|---|
+| `notification_id` | push_notification() 返回的通知 ID。 |
+
+返回：当前通知记录；记录已结束或不存在时返回空字典。
+
+结构：
+
+- `return`: Dictionary，字段同 notification_queued 的 notification；找不到该 ID 时为空。
 
 <a id="member-gfnotificationutility-methods-get_active_notification"></a>
 

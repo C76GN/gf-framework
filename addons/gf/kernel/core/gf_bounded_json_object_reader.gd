@@ -68,6 +68,8 @@ const ABSOLUTE_MAX_DEPTH: int = 64
 ## [br]
 ## @param max_depth: 调用方请求的最大对象/数组词法嵌套深度。
 ## [br]
+## @param reject_duplicate_members: 为 true 时，同一对象内解码后相同的成员名返回 duplicate_member。
+## [br]
 ## @return JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。
 ## [br]
 ## 成功时 data 为解析后的 object，error_kind 与 error 为空；失败时 data 为空且
@@ -75,11 +77,12 @@ const ABSOLUTE_MAX_DEPTH: int = 64
 ## 出现非有限数字时以 parse_failed 拒绝。
 ## 文本入口的 source_path 为空，size_bytes 是 UTF-8 输入字节数。
 ## [br]
-## @schema return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".
+## @schema return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", "invalid_root_type", or "duplicate_member".
 static func parse_object(
 	text: String,
 	max_bytes: int = DEFAULT_MAX_BYTES,
-	max_depth: int = DEFAULT_MAX_DEPTH
+	max_depth: int = DEFAULT_MAX_DEPTH,
+	reject_duplicate_members: bool = false
 ) -> Dictionary:
 	var effective_max_bytes: int = _effective_limit(
 		max_bytes,
@@ -95,7 +98,8 @@ static func parse_object(
 		text.to_utf8_buffer(),
 		"",
 		effective_max_bytes,
-		effective_max_depth
+		effective_max_depth,
+		reject_duplicate_members
 	)
 
 
@@ -115,6 +119,8 @@ static func parse_object(
 ## [br]
 ## @param max_depth: 调用方请求的最大对象/数组词法嵌套深度。
 ## [br]
+## @param reject_duplicate_members: 为 true 时，在本次实际读取的字节中按对象检查解码后的成员名。
+## [br]
 ## @return JSON-safe 读取报告；max_bytes 与 max_depth 为实际生效预算。
 ## [br]
 ## 成功时 data 为解析后的 object，error_kind 与 error 为空；失败时 data 为空且
@@ -123,16 +129,18 @@ static func parse_object(
 ## 解码为 U+0000 的字符串转义、数值溢出或解析后出现非有限数字时以
 ## parse_failed 拒绝。
 ## [br]
-## @schema return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", or "invalid_root_type".
+## @schema return: Dictionary containing ok: bool, data: Dictionary, source_path: String, size_bytes: int, error_kind: String, error: String, max_bytes: int, and max_depth: int. error_kind is one of "", "open_failed", "payload_too_large", "read_failed", "nesting_too_deep", "parse_failed", "invalid_root_type", or "duplicate_member".
 static func read_object(
 	path: String,
 	max_bytes: int = DEFAULT_MAX_BYTES,
-	max_depth: int = DEFAULT_MAX_DEPTH
+	max_depth: int = DEFAULT_MAX_DEPTH,
+	reject_duplicate_members: bool = false
 ) -> Dictionary:
 	var report: Dictionary = read_object_with_content_sha256(
 		path,
 		max_bytes,
-		max_depth
+		max_depth,
+		reject_duplicate_members
 	)
 	var _digest_removed: bool = report.erase("content_sha256")
 	return report
@@ -155,18 +163,22 @@ static func read_object(
 ## [br]
 ## @param max_depth: 调用方请求的最大对象/数组词法嵌套深度。
 ## [br]
+## @param reject_duplicate_members: 同一对象内是否拒绝重复成员，摘要仍取自同一份完整原始字节。
+## [br]
 ## @return: 有界读取报告；content_sha256 仅在取得完整原始 bytes 后非空。
 ## [br]
 ## @schema return: Dictionary containing the public read_object fields plus content_sha256: String.
 static func read_object_with_content_sha256(
 	path: String,
 	max_bytes: int = DEFAULT_MAX_BYTES,
-	max_depth: int = DEFAULT_MAX_DEPTH
+	max_depth: int = DEFAULT_MAX_DEPTH,
+	reject_duplicate_members: bool = false
 ) -> Dictionary:
 	var report: Dictionary = _read_object_report(
 		path,
 		max_bytes,
-		max_depth
+		max_depth,
+		reject_duplicate_members
 	)
 	if not report.has("content_sha256"):
 		report["content_sha256"] = ""
@@ -181,7 +193,8 @@ static func read_object_with_content_sha256(
 static func _read_object_report(
 	path: String,
 	max_bytes: int,
-	max_depth: int
+	max_depth: int,
+	reject_duplicate_members: bool
 ) -> Dictionary:
 	var effective_max_bytes: int = _effective_limit(
 		max_bytes,
@@ -269,7 +282,8 @@ static func _read_object_report(
 		bytes,
 		normalized_path,
 		effective_max_bytes,
-		effective_max_depth
+		effective_max_depth,
+		reject_duplicate_members
 	)
 
 
@@ -280,13 +294,15 @@ static func _parse_object_bytes(
 	bytes: PackedByteArray,
 	source_path: String,
 	max_bytes: int,
-	max_depth: int
+	max_depth: int,
+	reject_duplicate_members: bool
 ) -> Dictionary:
 	var report: Dictionary = _parse_object_bytes_without_digest(
 		bytes,
 		source_path,
 		max_bytes,
-		max_depth
+		max_depth,
+		reject_duplicate_members
 	)
 	report["content_sha256"] = _content_sha256(bytes)
 	return report
@@ -299,7 +315,8 @@ static func _parse_object_bytes_without_digest(
 	bytes: PackedByteArray,
 	source_path: String,
 	max_bytes: int,
-	max_depth: int
+	max_depth: int,
+	reject_duplicate_members: bool
 ) -> Dictionary:
 	var size_bytes: int = bytes.size()
 	if size_bytes > max_bytes:
@@ -411,6 +428,19 @@ static func _parse_object_bytes_without_digest(
 			max_bytes,
 			max_depth
 		)
+	if reject_duplicate_members:
+		var duplicate_offset: int = _find_duplicate_member(text)
+		if duplicate_offset >= 0:
+			return _make_report(
+				false,
+				{},
+				source_path,
+				size_bytes,
+				"duplicate_member",
+				"[GFBoundedJsonObjectReader][bounded_json_object_reader.duplicate_member] Repeated object member at character offset %d." % duplicate_offset,
+				max_bytes,
+				max_depth
+			)
 	return _make_report(
 		true,
 		data,
@@ -421,6 +451,53 @@ static func _parse_object_bytes_without_digest(
 		max_bytes,
 		max_depth
 	)
+
+
+## 在已通过语法与深度检查的对象文本中返回第二次出现的键的字符偏移。冒号前的字符串才是成员名。
+## 每个对象只保留自己的键，普通键直接取子串，带转义的键使用与整份文档相同的 Godot 解码器。
+## [br]
+## @api private
+static func _find_duplicate_member(text: String) -> int:
+	var objects: Array[Dictionary] = []
+	var string_start: int = 0
+	var string_end: int = 0
+	var has_escape: bool = false
+	var index: int = 0
+	while index < text.length():
+		match text.unicode_at(index):
+			123: # {
+				objects.append({})
+			125: # }
+				var _completed: Variant = objects.pop_back()
+			34: # "
+				string_start = index
+				has_escape = false
+				index += 1
+				while text.unicode_at(index) != 34:
+					if text.unicode_at(index) == 92:
+						has_escape = true
+						index += 1
+					index += 1
+				string_end = index
+			58: # :
+				var member_name: String
+				if has_escape:
+					var token: String = text.substr(
+						string_start,
+						string_end - string_start + 1
+					)
+					member_name = str(JSON.parse_string(token))
+				else:
+					member_name = text.substr(
+						string_start + 1,
+						string_end - string_start - 1
+					)
+				var members: Dictionary = objects[-1]
+				if members.has(member_name):
+					return string_start
+				members[member_name] = true
+		index += 1
+	return -1
 
 
 ## 使用 HashingContext 计算 SHA-256；初始化、更新或摘要长度异常时返回空字符串。

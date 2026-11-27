@@ -32,6 +32,15 @@ signal notification_queued(notification: Dictionary)
 ## @schema notification: Dictionary，字段同 notification_queued 的 notification。
 signal notification_started(notification: Dictionary)
 
+## 等待或活动通知的内容实际变更后发出一次。监听者按 ID 读取最新状态，其他监听者可以先更新或关闭它。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param notification_id: 发生变化的通知 ID，可传入 get_notification()。
+signal notification_updated(notification_id: int)
+
 ## 通知结束时发出。
 ## [br]
 ## @api public
@@ -240,6 +249,59 @@ func push_notification(
 	return GFVariantData.to_int(notification_record["id"])
 
 
+## 按 ID 原地更新等待或活动通知。保留排队位置、计时、暂停状态及未指定的字段。
+## 省略显式 key 的通知随后按更新后的正文去重。内容相同时返回 OK，无需刷新展示。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param notification_id: push_notification() 返回的通知 ID。
+## [br]
+## @param changes: 要替换的内容字段，空动作数组清除所有动作。
+## [br]
+## @return 已更新或内容相同返回 OK，记录已退役返回 ERR_DOES_NOT_EXIST，字段无效返回 ERR_INVALID_PARAMETER。
+## [br]
+## @schema changes: Dictionary，可选 title、message（String）、level（Level）及 actions（同 push_notification 的动作数组）。标题与正文至少一项非空。
+func update_notification(notification_id: int, changes: Dictionary) -> Error:
+	var record: Dictionary = _find_notification_record(notification_id)
+	if record.is_empty():
+		return ERR_DOES_NOT_EXIST
+	var patch: Dictionary = {}
+	for field: Variant in changes:
+		var value: Variant = changes[field]
+		match field:
+			"title", "message":
+				if not value is String:
+					return ERR_INVALID_PARAMETER
+			"level":
+				if not value is int or not Level.values().has(value):
+					return ERR_INVALID_PARAMETER
+			"actions":
+				if not value is Array:
+					return ERR_INVALID_PARAMETER
+				var supplied: Array = value
+				var actions: Array[Dictionary] = _normalize_actions(supplied)
+				# 动作规范化可能调用项目对象的文本转换，提交前确认记录仍然有效。
+				record = _find_notification_record(notification_id)
+				if record.is_empty():
+					return ERR_DOES_NOT_EXIST
+				if actions.size() != supplied.size():
+					return ERR_INVALID_PARAMETER
+				value = actions
+			_:
+				return ERR_INVALID_PARAMETER
+		patch[field] = value
+
+	var candidate: Dictionary = record.merged(patch, true)
+	if candidate["title"] == "" and candidate["message"] == "":
+		return ERR_INVALID_PARAMETER
+	if candidate != record:
+		record.merge(patch, true)
+		notification_updated.emit(notification_id)
+	return OK
+
+
 ## 结束当前通知。
 ## [br]
 ## @api public
@@ -286,6 +348,21 @@ func clear_notifications(reason: String = "cleared") -> void:
 	finished_ids.assign(_active_notifications.keys())
 	_finish_active_notifications(finished_ids, reason)
 	_clearing_notifications = false
+
+
+## 按 ID 读取等待或活动通知的独立副本。观察者可在更新信号中检查其他回调执行后的当前状态。
+## [br]
+## @api public
+## [br]
+## @since unreleased
+## [br]
+## @param notification_id: push_notification() 返回的通知 ID。
+## [br]
+## @return 当前通知记录；记录已结束或不存在时返回空字典。
+## [br]
+## @schema return: Dictionary，字段同 notification_queued 的 notification；找不到该 ID 时为空。
+func get_notification(notification_id: int) -> Dictionary:
+	return _find_notification_record(notification_id).duplicate(true)
 
 
 ## 获取当前通知。
@@ -587,6 +664,18 @@ func _find_duplicate_notification_id(message: String, options: Dictionary) -> in
 		):
 			return GFVariantData.get_option_int(notification_record, "id")
 	return 0
+
+
+## 定位当前持有该 ID 的记录，供内部提交或生成只读副本。
+## [br]
+## @api private
+func _find_notification_record(notification_id: int) -> Dictionary:
+	if _active_notifications.has(notification_id):
+		return _active_notifications[notification_id]._record
+	for queued: Dictionary in _queue:
+		if queued["id"] == notification_id:
+			return queued
+	return {}
 
 
 ## 显式 key 只匹配相同去重 key；未提供 key 时仅匹配同样没有显式 key 且消息相同的记录。
