@@ -9389,6 +9389,7 @@ class LspFramingBoundaryTests(unittest.TestCase):
 				}}
 				argv = ["lsp", "--project-root", str(project), "--spawn-lsp", "--port", "0",
 					"--include", "fixture.gd", "--log-file", str(log), "--format", "json"]
+				stderr = io.StringIO()
 				with (
 					mock.patch.object(sys, "argv", argv),
 					mock.patch.object(gdscript_lsp_diagnostics, "_reserve_local_port", return_value=49152),
@@ -9396,11 +9397,19 @@ class LspFramingBoundaryTests(unittest.TestCase):
 					mock.patch.object(gdscript_lsp_diagnostics, "_connect_verified_owned_lsp_client", return_value=(client, 4321, 4321)),
 					mock.patch.object(gdscript_lsp_diagnostics, "_initialize_lsp"),
 					mock.patch.object(gdscript_lsp_diagnostics, "_verify_lsp_workspace", return_value=fixture.as_uri()),
-					mock.patch.object(gdscript_lsp_diagnostics, "_scan_files", side_effect=RuntimeError("scan failure") if outcome == "operation_error" else None, return_value=([], [])),
+					mock.patch.object(
+						gdscript_lsp_diagnostics, "_wait_for_file_diagnostics",
+						side_effect=RuntimeError("scan failure") if outcome == "operation_error" else None,
+						return_value=[],
+					),
 					mock.patch.object(gdscript_lsp_diagnostics, "_make_report", return_value=report),
-					contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()),
+					contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(stderr),
 				):
 					code = gdscript_lsp_diagnostics.main()
+				self.assertEqual(
+					"Last GDScript open request: fixture.gd" in stderr.getvalue(),
+					outcome == "operation_error",
+				)
 				self.assertEqual(code == 0, outcome == "success")
 				self.assertEqual(log.exists(), outcome != "success")
 				owned.stop.assert_called_once_with()

@@ -214,6 +214,7 @@ class _LspOperationBoundary:
 
 	def __init__(self, owned_process: _OwnedLspProcess | None = None) -> None:
 		self._owned_process = owned_process
+		self.last_scan_path: pathlib.Path | None = None
 
 	@property
 	def deadline(self) -> float | None:
@@ -701,6 +702,11 @@ def main() -> int:
 				args.timeout_retries,
 				boundary=operation_boundary,
 			)
+		except Exception:
+			if operation_boundary.last_scan_path is not None:
+				name = _relative_path(project_root, operation_boundary.last_scan_path)
+				print(f"Last GDScript open request: {name}", file=sys.stderr, flush=True)
+			raise
 		finally:
 			client.close()
 
@@ -1293,6 +1299,7 @@ def _scan_file_pass(
 		file_deadline = boundary.deadline_after(file_timeout)
 		file_text = _read_text(path)
 		boundary.checkpoint()
+		boundary.last_scan_path = path
 		client.notify("textDocument/didOpen", {
 			"textDocument": {
 				"uri": uri,
