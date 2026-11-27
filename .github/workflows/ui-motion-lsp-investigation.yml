@@ -1,0 +1,87 @@
+name: Inspect Action Queue LSP on Linux
+
+on:
+  pull_request:
+    types: [synchronize]
+    paths: [".github/workflows/ui-motion-lsp-investigation.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.head_ref == 'feat/composable-ui-motion'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [selected, baseline, independent, deferred]
+    env:
+      SCENARIO: ${{ matrix.scenario }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: ./.github/actions/setup-godot
+      - name: Prepare disposable project
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$SCENARIO" == baseline ]]; then
+            cp tools/gdscript_lsp_diagnostics.py "$RUNNER_TEMP/diagnostics.py"
+            git checkout --detach "$BASE_SHA"
+            cp "$RUNNER_TEMP/diagnostics.py" tools/gdscript_lsp_diagnostics.py
+          elif [[ "$SCENARIO" == deferred ]]; then
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("tests/gf_core/extensions/action_queue/test_gf_ui_motion.gd")
+          source = path.read_text()
+          old = 'const _AUTHORED: GFUIMotionRecipe = preload('
+          assert source.count(old) == 1
+          changed = source.replace(old, 'var _AUTHORED: GFUIMotionRecipe = load(')
+          path.write_text(changed)
+          PY
+          fi
+          godot --headless --path . --editor --import --quit > "$RUNNER_TEMP/import.log" 2>&1
+      - name: Compare normal editor scans
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder=tests/gf_core/extensions/action_queue
+          visual="$folder/test_gf_visual_actions.gd"
+          motion="$folder/test_gf_ui_motion.gd"
+          full=(--include addons/gf --include tests/gf_core --exclude-prefix addons/gut)
+          scan() {
+            label="$1"
+            shift
+            result=0
+            python tools/gdscript_lsp_diagnostics.py --spawn-lsp --port 0 \
+              --startup-timeout 120 --lsp-process-timeout 600 --request-timeout 120 \
+              --per-file-timeout 3 --max-file-timeout 12 --timeout-retries 2 \
+              --fail-severity error,warning --log-file "$RUNNER_TEMP/$label.log" --keep-log \
+              "$@" > "$RUNNER_TEMP/$label.out" 2>&1 || result=$?
+            echo "Inspection case $SCENARIO/$label exit=$result"
+            sed -n '/Last GDScript open request\|files_scanned=\|unavailable before\|^.*\.gd:[0-9]/p' "$RUNNER_TEMP/$label.out" | head -18
+            printf '%s\n' "- $label exit=$result" >> "$GITHUB_STEP_SUMMARY"
+          }
+          case "$SCENARIO" in
+            selected)
+              scan visual --file "$visual"
+              scan motion --file "$motion"
+              scan pair --file "$motion" --file "$visual"
+              scan queue --include "$folder"
+              scan tests --include tests/gf_core
+              ;;
+            baseline) scan all "${full[@]}" ;;
+            independent)
+              scan motion --file "$motion"
+              scan remaining "${full[@]}" --exclude-prefix "$motion"
+              ;;
+            deferred) scan all "${full[@]}" ;;
+          esac
