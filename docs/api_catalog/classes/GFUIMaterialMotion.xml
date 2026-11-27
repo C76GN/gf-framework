@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIMaterialMotion" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_material_motion.gd" module="extensions/action_queue" extends="GFUIMotionEffect" classDigest="6d1bffd1bc4b19d59c8be960ff3eb515c387f63ee97da0166aa5370e8671c4bf">
+	<description>GFUIMaterialMotion: 将独立材质装到表现节点，显式绑定纹理输入并随轨道驱动一个 uniform。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="material" decorators="@export">
+			<signature>var material: ShaderMaterial</signature>
+			<description>各运行会话复制的材质模板。可使用项目自己的 canvas_item shader。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="progress_parameter" decorators="@export">
+			<signature>var progress_parameter: StringName = &amp;"progress"</signature>
+			<description>接受局部进度的浮点 uniform。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="textures" decorators="@export">
+			<signature>var textures: Dictionary[StringName, StringName] = {}</signature>
+			<description>把项目提供的具名纹理绑定到独立的 sampler2D。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">textures: Dictionary[StringName, StringName]，键是 shader uniform，值是输入槽。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="hide_on_end" decorators="@export">
+			<signature>var hide_on_end: bool = true</signature>
+			<description>在自然或立即完成后隐藏临时合成面，暴露宿主提供的目标页面。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="input_types">
+			<signature>func input_types() -&gt; Dictionary:</signature>
+			<description>声明材质要用到的独立二维纹理。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">需要绑定的纹理类型。</tag>
+				<tag name="schema">return: Dictionary，输入名映射到 Texture2D。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="written_properties">
+			<signature>func written_properties() -&gt; Array[NodePath]:</signature>
+			<description>一个表现节点在会话内只装配一套合成材质。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">独占的材质和局部可见性属性。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="binding_error">
+			<signature>func binding_error(target: Object, _inputs: Dictionary) -&gt; String:</signature>
+			<description>验证材质进度及纹理 uniform 的实际类型。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 材质的宿主。</tag>
+				<tag name="param">_inputs: 项目纹理。</tag>
+				<tag name="return">失败原因或空串。</tag>
+				<tag name="schema">_inputs: Dictionary，名称对应已验证的 Texture2D。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_target">
+			<signature>func bind_target(target: Object, inputs: Dictionary) -&gt; GFUIMotionBinding:</signature>
+			<description>绑定纹理并持有本实例的材质，结束时恢复先前材质。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 画面宿主。</tag>
+				<tag name="param">inputs: 项目纹理输入。</tag>
+				<tag name="return">可定位的进度采样操作。</tag>
+				<tag name="schema">inputs: Dictionary，具名 Texture2D，可包含实时 ViewportTexture。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUILayoutMotion" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_layout_motion.gd" module="extensions/action_queue" extends="GFUIMotionEffect" classDigest="abee744e72d66cf98875aab94c7b89c0b7282d86c3bb3156952cc0df0cf28e0e">
+	<description>GFUILayoutMotion: 在项目提供的两份实测矩形之间移动和缩放表现节点，适用于共享元素及列表重排。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="from_layout" decorators="@export">
+			<signature>var from_layout: StringName = &amp;"from_rects"</signature>
+			<description>起始布局表的具名输入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="to_layout" decorators="@export">
+			<signature>var to_layout: StringName = &amp;"to_rects"</signature>
+			<description>目标布局表的具名输入。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="input_types">
+			<signature>func input_types() -&gt; Dictionary:</signature>
+			<description>布局表以实际节点为键，矩形与表现节点使用同一父坐标系。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">两份布局表的类型。</tag>
+				<tag name="schema">return: Dictionary，输入名映射到 TYPE_DICTIONARY。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="written_properties">
+			<signature>func written_properties() -&gt; Array[NodePath]:</signature>
+			<description>占有布局表现节点的矩形。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">位置和尺寸。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="binding_error">
+			<signature>func binding_error(target: Object, inputs: Dictionary) -&gt; String:</signature>
+			<description>确认两次布局均包含同一目标。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 位于同一父坐标空间的表现节点。</tag>
+				<tag name="param">inputs: 捕获的前后布局。</tag>
+				<tag name="return">错误或空串。</tag>
+				<tag name="schema">inputs: Dictionary，两个具名布局表分别从 Object 映射到 Rect2。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_target">
+			<signature>func bind_target(target: Object, inputs: Dictionary) -&gt; GFUIMotionBinding:</signature>
+			<description>取得两个矩形后直接驱动专用表现节点。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标控件。</tag>
+				<tag name="param">inputs: 起止布局。</tag>
+				<tag name="return">基于实际布局的可定位操作。</tag>
+				<tag name="schema">inputs: Dictionary，包含 from_layout 与 to_layout 所指的布局表。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

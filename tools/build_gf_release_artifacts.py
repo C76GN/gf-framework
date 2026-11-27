@@ -13,11 +13,12 @@ import shutil
 import sys
 import time
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import build_asset_store_package
 import build_gf_ai_developer_kit
+import build_gf_ui_motion_assets
 import gf_native_acceptance
 import gf_native_distribution
 import gf_native_platforms
@@ -37,10 +38,9 @@ from gf_process_supervisor import SupervisedProcessCleanupError
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD_ROOT = ROOT / "build"
-MANIFEST_SCHEMA_VERSION = 5
+MANIFEST_SCHEMA_VERSION = 6
 MANIFEST_MAX_BYTES = 1024 * 1024
 FULL_GIT_OBJECT_ID_RE = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})")
-RELEASE_ARTIFACT_ROLES = ("framework", "ai_developer_kit", "framework_windows_x86_64", "native_windows_x86_64", "native_multiplatform")
 
 
 def archive_names(version: str) -> dict[str, str]:
@@ -51,6 +51,7 @@ def archive_names(version: str) -> dict[str, str]:
 		"framework_windows_x86_64": f"gf-framework-{gf_native_distribution.TARGET}-{version}.zip",
 		"native_windows_x86_64": f"gf-native-{gf_native_distribution.TARGET}-{version}.zip",
 		"native_multiplatform": f"gf-native-multiplatform-{version}.zip",
+		"ui_motion_assets": build_gf_ui_motion_assets.archive_name(version),
 	}
 
 
@@ -194,6 +195,7 @@ def build_release_artifacts(
 				list(ai_kit_audit.get("issues", [])),
 			)
 
+		build_gf_ui_motion_assets.build_archive(archives["ui_motion_assets"])
 		overlay, qualified_digest = gf_native_platform_acceptance.verify_delivery(
 			BUILD_ROOT / "native-delivery", version, source_revision)
 		shutil.copyfile(overlay, archives["native_multiplatform"])
@@ -205,8 +207,11 @@ def build_release_artifacts(
 			framework_path, archives["native_windows_x86_64"], archives["framework_windows_x86_64"],
 			version, source_revision, export=True, candidate_library=windows_dll,
 		)
-		artifacts = [artifact_record(archives[role], role) for role in RELEASE_ARTIFACT_ROLES]
-		qualified = {entry["name"]: entry["sha256"] for entry in artifacts if entry["role"] not in ("ai_developer_kit", "native_multiplatform")}
+		artifacts = [artifact_record(path, role) for role, path in archives.items()]
+		qualified = {
+			entry["name"]: entry["sha256"] for entry in artifacts
+			if entry["role"] in ("framework", "native_windows_x86_64", "framework_windows_x86_64")
+		}
 		if qualified != native_result["archives_sha256"]:
 			raise ValueError("Release ZIPs changed after native acceptance.")
 		manifest_path = candidate / f"gf-release-artifacts-{version}.json"
@@ -394,7 +399,7 @@ def audit_artifact_entries(
 			issues.append("Release artifact entries must use the exact manifest field set.")
 		role = artifact.get("role", "")
 		relative_path = artifact.get("path", "")
-		if not isinstance(role, str) or role not in RELEASE_ARTIFACT_ROLES:
+		if not isinstance(role, str) or role not in expected_paths:
 			issues.append(f"Release artifact role is unsupported: {role!r}.")
 			continue
 		if role in seen_roles:
@@ -431,10 +436,10 @@ def audit_artifact_entries(
 			issues.append(f"Release artifact size mismatch: {relative_path}.")
 		if artifact.get("sha256") != sha256_file(path):
 			issues.append(f"Release artifact SHA-256 mismatch: {relative_path}.")
-	for role in RELEASE_ARTIFACT_ROLES:
+	for role in expected_paths:
 		if role not in seen_roles:
 			issues.append(f"Release artifact role is missing: {role}.")
-	if issues or set(paths_by_role) != set(RELEASE_ARTIFACT_ROLES):
+	if issues or paths_by_role.keys() != expected_paths.keys():
 		return issues
 	framework_path = paths_by_role["framework"]
 	framework_audit = build_asset_store_package.audit_package(framework_path)
@@ -444,8 +449,13 @@ def audit_artifact_entries(
 	)
 	issues.extend(audit_zip_matches_source(
 		framework_path,
-		list(build_asset_store_package.iter_package_files()),
+		{path.relative_to(ROOT).as_posix(): path for path in build_asset_store_package.iter_package_files()},
 		"GF Framework artifact",
+	))
+	issues.extend(audit_zip_matches_source(
+		paths_by_role["ui_motion_assets"],
+		build_gf_ui_motion_assets.archive_sources(),
+		"GF UI motion assets",
 	))
 	try:
 		gf_native_distribution.verify(
@@ -478,7 +488,7 @@ def audit_artifact_entries(
 	else:
 		if actual_entries != expected_files:
 			issues.append(
-				"Release directory must contain only the five archives and their manifest."
+				"Release directory must contain only the declared archives and their manifest."
 			)
 	return issues
 
@@ -518,24 +528,25 @@ def make_audit_result(
 
 def audit_zip_matches_source(
 	zip_path: Path,
-	expected_files: list[Path],
+	expected_by_name: dict[str, Path],
 	label: str,
 ) -> list[str]:
 	"""逐项比较归档成员与给定源码文件集，返回差异说明。"""
 	issues: list[str] = []
-	expected_by_name = {
-		path.relative_to(ROOT).as_posix(): path
-		for path in expected_files
-	}
 	try:
 		with zipfile.ZipFile(zip_path, "r") as archive:
-			names = [
-				name
-				for name in archive.namelist()
-				if name and not name.endswith("/")
-			]
-			if len(names) != len(set(names)):
+			entries = archive.infolist()
+			names = [entry.orig_filename for entry in entries if not entry.is_dir()]
+			directories = {entry.orig_filename for entry in entries if entry.is_dir()}
+			if len(entries) != len(set(names)) + len(directories):
 				issues.append(f"{label} contains duplicate ZIP entries.")
+			if directories:
+				parents = {
+					f"{parent}/" for name in expected_by_name
+					for parent in PurePosixPath(name).parents if parent.parts
+				}
+				for name in sorted(directories - parents)[:20]:
+					issues.append(f"{label} contains undeclared directory: {name}")
 			for name in sorted(set(expected_by_name) - set(names))[:20]:
 				issues.append(f"{label} is missing source file: {name}")
 			for name in sorted(set(names) - set(expected_by_name))[:20]:
@@ -544,7 +555,7 @@ def audit_zip_matches_source(
 				try:
 					expected_payload = read_pinned_regular_file(
 						ROOT,
-						name,
+						expected_by_name[name].relative_to(ROOT).as_posix(),
 						max_bytes=(1 << 63) - 1,
 					)
 				except PinnedReadError as error:

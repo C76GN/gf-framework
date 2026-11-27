@@ -1,0 +1,25 @@
+@tool
+# 复制到项目后，在 GFUIMotionTrack 的 effect 选择这个脚本生成的资源。
+extends GFUIMotionEffect
+
+@export var amplitude: float = 0.12
+
+
+func written_properties() -> Array[NodePath]:
+	return [^"rotation"]
+
+
+func binding_error(target: Object, _inputs: Dictionary) -> String:
+	return "" if target is Control else "需要 Control"
+
+
+func bind_target(target: Object, _inputs: Dictionary) -> GFUIMotionBinding:
+	var control: Control = target as Control
+	var baseline: float = control.rotation
+	var strength: float = amplitude
+	var sample: Callable = func(progress: float) -> void:
+		control.rotation = baseline + sin(TAU * progress) * strength
+	var release: Callable = func(reason: int) -> void:
+		if reason == GFUIMotionBinding.EndReason.CANCELLED and is_instance_valid(control):
+			control.rotation = baseline
+	return GFUIMotionBinding.new(sample, release)

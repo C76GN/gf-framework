@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIMotionRecipe" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_recipe.gd" module="extensions/action_queue" extends="Resource" classDigest="2518d4e17b63bd0465a709ce6d709d0fba53f6b8638ad1243d55b531f3284ed7">
+	<description>GFUIMotionRecipe: 描述同一宿主的双页与局部动效，引用目标由每次播放调用显式提供。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="enter_delay" decorators="@export_range(0, 60, 0.001, &quot;or_greater&quot;)">
+			<signature>var enter_delay: float = 0.0</signature>
+			<description>新页开始进入前的等待秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="enter_seconds" decorators="@export_range(0, 60, 0.001, &quot;or_greater&quot;)">
+			<signature>var enter_seconds: float = 0.4</signature>
+			<description>新页入场时长，独立于页内轨道和旧页。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="exit_delay" decorators="@export_range(0, 60, 0.001, &quot;or_greater&quot;)">
+			<signature>var exit_delay: float = 0.0</signature>
+			<description>旧页开始退出前的等待秒数。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="exit_seconds" decorators="@export_range(0, 60, 0.001, &quot;or_greater&quot;)">
+			<signature>var exit_seconds: float = 0.3</signature>
+			<description>旧页退出时长，独立于新页。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="tracks" decorators="@export">
+			<signature>var tracks: Array[GFUIMotionTrack] = []</signature>
+			<description>同一时刻按声明顺序触发，各目标的局部持续时间可超过页时钟。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="duplicate_recipe">
+			<signature>func duplicate_recipe() -&gt; GFUIMotionRecipe:</signature>
+			<description>深复制配方内嵌的轨道和效果，对外部资源保留显式引用。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">可独立调整的配方副本；资源复制失败时为空。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

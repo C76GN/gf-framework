@@ -1,0 +1,114 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_recipe.gd" id="recipe"]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_track.gd" id="track"]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_property_motion.gd" id="prop"]
+
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_material_motion.gd" id="mat"]
+
+[sub_resource type="Curve" id="cover_envelope_0"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="property_1"]
+script = ExtResource("prop")
+property = NodePath("modulate:a")
+start_value = 0
+end_value = 1
+
+[sub_resource type="Resource" id="lane_2"]
+script = ExtResource("track")
+target = &"incoming"
+at = 0.5
+duration = 0
+effect = SubResource("property_1")
+
+[sub_resource type="Resource" id="property_6"]
+script = ExtResource("prop")
+property = NodePath("color")
+start_value = Color(0.014, 0.023, 0.035, 0)
+end_value = Color(0.014, 0.023, 0.035, 1)
+
+[sub_resource type="Resource" id="lane_7"]
+script = ExtResource("track")
+target = &"cover"
+curve = SubResource("cover_envelope_0")
+effect = SubResource("property_6")
+
+[sub_resource type="Resource" id="black_8"]
+script = ExtResource("recipe")
+resource_name = "黑场淡出 / 淡入"
+enter_seconds = 0.55
+exit_seconds = 0.55
+tracks = Array[ExtResource("track")]([SubResource("lane_2"), SubResource("lane_7")])
+
+[sub_resource type="Resource" id="property_35"]
+script = ExtResource("prop")
+property = NodePath("position")
+start_value = Vector2(0, 0)
+end_value = Vector2(-1, 0)
+relative = true
+in_parent_units = true
+
+[sub_resource type="Resource" id="lane_36"]
+script = ExtResource("track")
+target = &"outgoing"
+clock = 1
+effect = SubResource("property_35")
+
+[sub_resource type="Resource" id="property_37"]
+script = ExtResource("prop")
+property = NodePath("position")
+start_value = Vector2(1, 0)
+end_value = Vector2(0, 0)
+relative = true
+in_parent_units = true
+
+[sub_resource type="Resource" id="lane_38"]
+script = ExtResource("track")
+target = &"incoming"
+effect = SubResource("property_37")
+
+[sub_resource type="Resource" id="pushx_39"]
+script = ExtResource("recipe")
+resource_name = "横向推入"
+enter_seconds = 0.3
+exit_seconds = 0.3
+tracks = Array[ExtResource("track")]([SubResource("lane_36"), SubResource("lane_38")])
+
+[sub_resource type="Shader" id="project_shader"]
+code = "shader_type canvas_item;
+render_mode unshaded;
+uniform sampler2D source_image : source_color, repeat_disable, filter_linear;
+uniform sampler2D destination_image : source_color, repeat_disable, filter_linear;
+uniform float phase = 0.0;
+
+void fragment() {
+	COLOR = mix(texture(source_image, UV), texture(destination_image, UV), phase);
+}"
+
+[sub_resource type="ShaderMaterial" id="project_material"]
+shader = SubResource("project_shader")
+
+[sub_resource type="Resource" id="material_effect"]
+script = ExtResource("mat")
+material = SubResource("project_material")
+progress_parameter = &"phase"
+textures = { &"source_image": &"old_texture", &"destination_image": &"new_texture" }
+
+[sub_resource type="Resource" id="material_track"]
+script = ExtResource("track")
+target = &"composite"
+effect = SubResource("material_effect")
+
+[sub_resource type="Resource" id="surface_recipe"]
+script = ExtResource("recipe")
+resource_name = "项目双纹理材质"
+enter_seconds = 0.5
+exit_seconds = 0.5
+tracks = Array[ExtResource("track")]([SubResource("material_track")])
+
+[node name="RenderInputs" type="ResourcePreloader"]
+resources = [PackedStringArray("cover", "surface", "movement"), [SubResource("black_8"), SubResource("surface_recipe"), SubResource("pushx_39")]]

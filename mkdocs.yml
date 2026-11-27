@@ -19,6 +19,7 @@ not_in_nav: |
   editor/tools/project-layout.md
   editor/tools/code-quality.md
   editor/tools/project-bootstrap.md
+  editor/tools/ui-review.md
   editor/tools/scene-groups.md
   editor/tools/scene-placement.md
   editor/tools/ai-developer.md
@@ -97,6 +98,7 @@ nav:
       - ActionQueue:
           - 总览: extensions/action-queue/index.md
           - 配置化 Tween: extensions/action-queue/tween-config.md
+          - 双页与组件动效: extensions/action-queue/ui-motion.md
           - Tween 表现配方: extensions/action-queue/tween-recipes.md
           - 数值时间轴与预览样机: extensions/action-queue/tween-numeric-preview.md
           - 多目标错峰动画: extensions/action-queue/visual-actions/staggered-targets.md

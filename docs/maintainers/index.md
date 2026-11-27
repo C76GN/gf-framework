@@ -211,6 +211,15 @@ python tools\build_gf_release_artifacts.py --version 3.19.0 --output-dir build\r
 python tools\gf_maintenance.py release-status --version 3.19.0 --artifact-manifest build\release\gf-release-artifacts-3.19.0.json
 ```
 
+可选界面动效素材在 `libraries/ui_motion/<效果名>/` 中维护。一个目录对应一种可跨项目复用的画面算法，带齐材质及依赖，使用同目录相对引用。方向、配色和时序变体由材质参数或项目配方表达，主题美术由项目维护。预览图随使用文档维护。运行 `python tools/build_gf_ui_motion_assets.py` 即可单独生成可安装的 ZIP，正式发布由现有清单统一校验。
+
+在空项目中解压基础包与素材包，启用 GF Framework 并完成首次导入。在源码仓库根目录运行下面的图形测试，核对已安装文件的首尾画面、中段变化、透明度叠加及取消回收。
+
+```powershell
+$probe = (Resolve-Path tests/gf_core/extensions/action_queue/fixtures/material_pack_probe.gd).Path
+godot --path "<消费项目目录>" --script $probe -- res://addons/gf_ui_motion_assets/tile_flip/tile_flip.tres res://addons/gf_ui_motion_assets/signal_distortion/signal_distortion.tres
+```
+
 `quick` 面向本地开发内环，不包含维护工具自身的契约自测；修改 `tools/gf_maintenance*.py`、CI 或 release workflow 时，需另外运行 `python tools\gf_maintenance.py maintenance-self-test`。正式 `framework` / `full` 质量门仍会执行该自测。
 
 无业务参数、以 `ok` 决定退出码的普通进程内命令由 `tools/gf_maintenance_commands.py` 的只读 `CommandDescriptor` 统一名称、帮助和 JSON 调用参数。CLI 解析与 Catalog 命令投影读取同一描述；处理器仍从受控 runtime registry 绑定，文本 renderer 按精确集合注册。描述本身不含 callable，也不能改变检查准入、依赖、suite 或执行器类型。带报告/严格模式差异、额外参数或外部进程所有权的命令保留显式适配器；Catalog 的数据闭包与执行注册表的精确匹配检查仍独立生效。

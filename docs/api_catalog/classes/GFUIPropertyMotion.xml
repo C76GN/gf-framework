@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<class name="GFUIPropertyMotion" path="addons/gf/extensions/action_queue/ui_motion/gf_ui_property_motion.gd" module="extensions/action_queue" extends="GFUIMotionEffect" classDigest="8f7ca709bd0a70597b2dccca51fdb16ca8fa9d303de28161d54cbdf6aba39255">
+	<description>GFUIPropertyMotion: 在绑定对象上插值一个属性，支持按父级布局大小计算的位移和相对初始姿态。</description>
+	<tags>
+		<tag name="api">public</tag>
+		<tag name="category">resource_definition</tag>
+		<tag name="since">unreleased</tag>
+	</tags>
+	<signals />
+	<enums />
+	<constants />
+	<properties>
+		<member kind="property" name="property" decorators="@export">
+			<signature>var property: NodePath = ^"modulate:a"</signature>
+			<description>Godot 索引属性路径，例如 position 或 modulate:a。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="start_value" decorators="@export">
+			<signature>var start_value: Variant = 0.0</signature>
+			<description>局部进度为零时的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">start_value: Variant，可为 float、int、Vector2、Vector3、Rect2 或 Color。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="end_value" decorators="@export">
+			<signature>var end_value: Variant = 1.0</signature>
+			<description>局部进度为一时的值。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="schema">end_value: Variant，必须与起始值相容。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="relative" decorators="@export">
+			<signature>var relative: bool = false</signature>
+			<description>把端点解释为相对于开始时真实属性的增量。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="property" name="in_parent_units" decorators="@export">
+			<signature>var in_parent_units: bool = false</signature>
+			<description>将 Vector2 起止值按 Control 所在父区域的当前尺寸缩放。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</properties>
+	<methods>
+		<member kind="method" name="written_properties">
+			<signature>func written_properties() -&gt; Array[NodePath]:</signature>
+			<description>声明本次会话独占的属性路径。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="return">用于冲突检查的单一属性。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="binding_error">
+			<signature>func binding_error(target: Object, _inputs: Dictionary) -&gt; String:</signature>
+			<description>检查属性存在、类型相容和布局坐标要求。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 目标对象。</tag>
+				<tag name="param">_inputs: 保留给项目输入。</tag>
+				<tag name="return">失败原因或空串。</tag>
+				<tag name="schema">_inputs: Dictionary，属性动作不需要额外输入。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+		<member kind="method" name="bind_target">
+			<signature>func bind_target(target: Object, _inputs: Dictionary) -&gt; GFUIMotionBinding:</signature>
+			<description>冻结端点及基线，窗口改变时重新读取父区域大小。</description>
+			<tags>
+				<tag name="api">public</tag>
+				<tag name="param">target: 已确认兼容的对象。</tag>
+				<tag name="param">_inputs: 保留给项目输入。</tag>
+				<tag name="return">每次播放独立的属性写入与回滚操作。</tag>
+				<tag name="schema">_inputs: Dictionary，属性动作不读取此映射。</tag>
+				<tag name="since">unreleased</tag>
+			</tags>
+		</member>
+	</methods>
+	<innerClasses />
+</class>

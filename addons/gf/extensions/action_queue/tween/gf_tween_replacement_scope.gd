@@ -75,6 +75,48 @@ func get_active_count() -> int:
 
 # --- 层内方法 ---
 
+## 统一原生旋转属性的弧度和角度别名。
+## [br]
+## @api layer_internal
+## [br]
+## @layer extensions/action_queue
+## [br]
+## @param target: 属性所属目标。
+## [br]
+## @param path: 目标上的属性路径。
+## [br]
+## @return: 用于比较的规范路径。
+static func normalized_property(target: Object, path: NodePath) -> String:
+	var key: String = str(path)
+	if (
+		target is Control
+		or target is Node2D
+		or target is Node3D
+	):
+		if key.get_slice(":", 0) == "rotation_degrees":
+			return "rotation" + key.trim_prefix("rotation_degrees")
+	return key
+
+
+## 检查相同路径及父属性与分量的交集。
+## [br]
+## @api layer_internal
+## [br]
+## @layer extensions/action_queue
+## [br]
+## @param left: 已规范化路径。
+## [br]
+## @param right: 已规范化路径。
+## [br]
+## @return: 两个属性写入是否重叠。
+static func paths_overlap(left: String, right: String) -> bool:
+	return (
+		left == right
+		or left.begins_with(right + ":")
+		or right.begins_with(left + ":")
+	)
+
+
 ## 读取当前登记的租约，供 claim 通知尚未返回时精确取消或重新执行。
 ## 必须在任何可重入通知之前捕获返回值，后续释放仍使用精确租约。
 ## [br]
@@ -91,6 +133,37 @@ func find_lease(action: Object) -> int:
 		if _get_object(entry._action_ref) == action:
 			return entry._lease
 	return 0
+
+
+## 列出会被此申请替换的当前持有者，用于多目标播放开始前统一检查。
+## [br]
+## @api layer_internal
+## [br]
+## @layer extensions/action_queue
+## [br]
+## @param target: 此次写入的实际目标。
+## [br]
+## @param property_names: 属性路径。
+## [br]
+## @param components: true 表示实际按分量写入。
+## [br]
+## @return: 当前占用相交路径的动作。
+func conflicting_actions(
+	target: Object,
+	property_names: Array[NodePath],
+	components: bool
+) -> Array[Object]:
+	var result: Array[Object] = []
+	var roots: Array[StringName] = _get_property_roots(
+		target,
+		property_names,
+		components
+	)
+	_prune_invalid_entries()
+	for entry: _Registration in _entries:
+		if _get_object(entry._target_ref) == target and _roots_overlap(entry._roots, roots):
+			result.append(_get_object(entry._action_ref))
+	return result
 
 
 ## 为动作申请属性租约，并通过两阶段协议结束冲突的旧动作。
@@ -110,11 +183,14 @@ func find_lease(action: Object) -> int:
 ## [br]
 ## @param property_names: 已验证步骤使用的非空属性路径集合。
 ## [br]
+## @param components: true 表示写入独立属性分量，受控 Tween 默认占有整个根。
+## [br]
 ## @return: 仍持有的正整数租约；无效输入、作用域关闭或重入失权时返回 0。
 func claim(
 	action: Object,
 	target: Object,
-	property_names: Array[NodePath]
+	property_names: Array[NodePath],
+	components: bool = false
 ) -> int:
 	if (
 		_disposed
@@ -126,7 +202,11 @@ func claim(
 		return 0
 	if not _accepts_integer_argument(action, &"notify_replaced"):
 		return 0
-	var roots: Array[StringName] = _get_property_roots(target, property_names)
+	var roots: Array[StringName] = _get_property_roots(
+		target,
+		property_names,
+		components
+	)
 	if roots.is_empty():
 		return 0
 	_prune_invalid_entries()
@@ -244,32 +324,31 @@ func _prune_invalid_entries() -> void:
 ## 从属性路径提取去重根名，并规范化 Node 旋转属性别名。
 ## [br]
 ## @api private
-func _get_property_roots(target: Object, property_names: Array[NodePath]) -> Array[StringName]:
+func _get_property_roots(
+	target: Object,
+	property_names: Array[NodePath],
+	components: bool
+) -> Array[StringName]:
 	var roots: Array[StringName] = []
 	for property_name: NodePath in property_names:
-		var root: StringName = StringName(String(property_name).get_slice(":", 0))
-		if root == &"":
+		var key: String = normalized_property(target, property_name)
+		if not components:
+			key = key.get_slice(":", 0)
+		if key.is_empty():
 			return []
-		if (
-			root == &"rotation_degrees"
-			and (
-				target is Node2D
-				or target is Node3D
-			)
-		):
-			root = &"rotation"
-		if not roots.has(root):
-			roots.append(root)
+		if not roots.has(key):
+			roots.append(key)
 	return roots
 
 
-## 判断两组根属性名是否包含相同项。
+## 判断两组标准化路径是否写入同一个属性或其分量。
 ## [br]
 ## @api private
 func _roots_overlap(first: Array[StringName], second: Array[StringName]) -> bool:
-	for root: StringName in first:
-		if second.has(root):
-			return true
+	for left: StringName in first:
+		for right: StringName in second:
+			if paths_overlap(left, right):
+				return true
 	return false
 
 

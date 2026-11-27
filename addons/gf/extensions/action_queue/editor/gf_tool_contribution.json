@@ -19,6 +19,15 @@
       "group": "开始制作",
       "page_path": "res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd",
       "action_id": "new_resource"
+    },
+    {
+      "source_id": "tween.task.ui_motion",
+      "title": "界面动效",
+      "description": "组合双页和组件轨道，在样机上预览当前配方。",
+      "keywords": ["界面", "转场", "组件", "预览"],
+      "group": "开始制作",
+      "page_path": "res://addons/gf/extensions/action_queue/editor/gf_tween_authoring_dock.gd",
+      "action_id": "ui_motion"
     }
   ]
 }

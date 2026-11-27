@@ -2,10 +2,10 @@
   "schema_version": 2,
   "catalog_version": "2.0.0",
   "framework_version": "13.0.0-dev.0",
-  "source_digest": "f2cedfe38b21d48ed00acc477fa4a7931931ae94f58dec8a8c04bbb5994bb921",
-  "class_count": 918,
+  "source_digest": "f04f71745a38756a4d353d0d0d8787761f5d885bdeca5ffe1336fac2fb41cabe",
+  "class_count": 927,
   "autoload_count": 1,
-  "package_count": 62,
+  "package_count": 63,
   "packages": [
     {
       "id": "gf.extension.action_queue",
@@ -609,6 +609,14 @@
         "gf.standard.spatial"
       ],
       "representative_path": "addons/gf/tools/scene_placement/editor/gf_scene_placement_launcher.gd"
+    },
+    {
+      "id": "gf.tool.ui_review",
+      "kind": "tool",
+      "dependencies": [
+        "gf.kernel"
+      ],
+      "representative_path": "addons/gf/tools/ui_review/editor/gf_ui_review_coordinator.gd"
     }
   ],
   "classes": {
@@ -98054,6 +98062,61 @@
         }
       ]
     },
+    "GFUILayoutMotion": {
+      "owner_kind": "class",
+      "extends": "GFUIMotionEffect",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_layout_motion.gd",
+      "summary": "GFUILayoutMotion: 在项目提供的两份实测矩形之间移动和缩放表现节点，适用于共享元素及列表重排。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "from_layout",
+          "signature": "var from_layout: StringName = &\"from_rects\"",
+          "summary": "起始布局表的具名输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "to_layout",
+          "signature": "var to_layout: StringName = &\"to_rects\"",
+          "summary": "目标布局表的具名输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "input_types",
+          "signature": "func input_types() -> Dictionary",
+          "summary": "布局表以实际节点为键，矩形与表现节点使用同一父坐标系。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "written_properties",
+          "signature": "func written_properties() -> Array[NodePath]",
+          "summary": "占有布局表现节点的矩形。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "binding_error",
+          "signature": "func binding_error(target: Object, inputs: Dictionary) -> String",
+          "summary": "确认两次布局均包含同一目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_target",
+          "signature": "func bind_target(target: Object, inputs: Dictionary) -> GFUIMotionBinding",
+          "summary": "取得两个矩形后直接驱动专用表现节点。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFUILoadingLease": {
       "owner_kind": "class",
       "extends": "RefCounted",
@@ -98153,6 +98216,448 @@
           "name": "get_state",
           "signature": "func get_state() -> Dictionary",
           "summary": "获取最近发布的显示状态；进度与过期生命周期在 tick 时采样。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIMaterialMotion": {
+      "owner_kind": "class",
+      "extends": "GFUIMotionEffect",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_material_motion.gd",
+      "summary": "GFUIMaterialMotion: 将独立材质装到表现节点，显式绑定纹理输入并随轨道驱动一个 uniform。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "material",
+          "signature": "var material: ShaderMaterial",
+          "summary": "各运行会话复制的材质模板。可使用项目自己的 canvas_item shader。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "progress_parameter",
+          "signature": "var progress_parameter: StringName = &\"progress\"",
+          "summary": "接受局部进度的浮点 uniform。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "textures",
+          "signature": "var textures: Dictionary[StringName, StringName] = {}",
+          "summary": "把项目提供的具名纹理绑定到独立的 sampler2D。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "hide_on_end",
+          "signature": "var hide_on_end: bool = true",
+          "summary": "在自然或立即完成后隐藏临时合成面，暴露宿主提供的目标页面。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "input_types",
+          "signature": "func input_types() -> Dictionary",
+          "summary": "声明材质要用到的独立二维纹理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "written_properties",
+          "signature": "func written_properties() -> Array[NodePath]",
+          "summary": "一个表现节点在会话内只装配一套合成材质。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "binding_error",
+          "signature": "func binding_error(target: Object, _inputs: Dictionary) -> String",
+          "summary": "验证材质进度及纹理 uniform 的实际类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_target",
+          "signature": "func bind_target(target: Object, inputs: Dictionary) -> GFUIMotionBinding",
+          "summary": "绑定纹理并持有本实例的材质，结束时恢复先前材质。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIMotionBinding": {
+      "owner_kind": "class",
+      "extends": "RefCounted",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_binding.gd",
+      "summary": "GFUIMotionBinding: 一次目标绑定的采样和回收操作。每个目标及播放会话有独立实例。",
+      "visibility": "public",
+      "category": "runtime_handle",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "EndReason",
+          "signature": "enum EndReason {\n\t## 自然走到最后一条轨道的末端。\n\tCOMPLETED,\n\t## 调用方直接提交终态。\n\tFINISHED,\n\t## 会话中断，或旧页交还路由历史，恢复本绑定的初始姿态。\n\tCANCELLED,\n\t## 另一播放器已接管属性。释放临时资源并保留当前姿态。\n\tREPLACED,\n}",
+          "summary": "会话结束原因。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "sample",
+          "signature": "var sample: Callable",
+          "summary": "接受一个经缓动的局部进度。按相同进度重采样时应得到相同姿态。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "release",
+          "signature": "var release: Callable",
+          "summary": "可选结束钩子，接受 EndReason，释放本实例占有的资源。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "action",
+          "signature": "var action: GFVisualAction",
+          "summary": "可选的实播动作。按轨道开始时执行一次，结束时释放；含实播动作的配方不接受拖动定位。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIMotionEffect": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_effect.gd",
+      "summary": "GFUIMotionEffect: 可由项目资源实现的界面动效。配置资源共享，所有播放状态由 bind_target 返回的实例持有。",
+      "visibility": "public",
+      "category": "protocol",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "func",
+          "name": "input_types",
+          "signature": "func input_types() -> Dictionary",
+          "summary": "声明从项目具名输入读取的类型，供播放器在替换旧会话前检查。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "written_properties",
+          "signature": "func written_properties() -> Array[NodePath]",
+          "summary": "返回该效果在一个目标上写入的属性，用于定位冲突。空集合适合独占自绘子节点的效果。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "binding_error",
+          "signature": "func binding_error(_target: Object, _inputs: Dictionary) -> String",
+          "summary": "检查目标和输入的额外约束，无副作用。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_target",
+          "signature": "func bind_target(_target: Object, _inputs: Dictionary) -> GFUIMotionBinding",
+          "summary": "创建本次播放的操作。准备阶段只捕获基线，首次采样才向目标写入。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIMotionPlayer": {
+      "owner_kind": "class",
+      "extends": "Node",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_player.gd",
+      "summary": "GFUIMotionPlayer: 在一个宿主中播放双页与组件轨道，逐次绑定，并隔离各次运行、取消和定位。",
+      "visibility": "public",
+      "category": "runtime_service",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "signal",
+          "name": "cue_reached",
+          "signature": "signal cue_reached(cue: StringName, target: Object)",
+          "summary": "轨道对一个元素开始，仅正向播放跨过触点时发送。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "page_entered",
+          "signature": "signal page_entered",
+          "summary": "新页的入场时间已结束，页内轨道可继续播放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "signal",
+          "name": "ended",
+          "signature": "signal ended(reason: GFUIMotionBinding.EndReason)",
+          "summary": "本次会话已经释放绑定。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "take_over_properties",
+          "signature": "var take_over_properties: bool = false",
+          "summary": "允许本播放器接管其他界面播放器已经拥有的属性。默认在修改任何目标前报告冲突。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "play",
+          "signature": "func play( recipe: GFUIMotionRecipe, targets: Dictionary, inputs: Dictionary = {}, paused: bool = false ) -> Error",
+          "summary": "先检查完整配方和具名绑定，再替换本宿主的会话。配置的时间及曲线在本次播放开始时冻结。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "play_transition",
+          "signature": "func play_transition( outgoing: Control, incoming: Control, release: Callable, recipe: GFUIMotionRecipe, bind_roles: Callable, inputs: Dictionary = {} ) -> Error",
+          "summary": "接受 GFUIUtility.navigate_with_presentation 的同步交接。普通页面切换直接播放原有控件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "pause",
+          "signature": "func pause() -> void",
+          "summary": "停止时间推进，同时暂停当前正在播放的外部动作。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "resume",
+          "signature": "func resume() -> void",
+          "summary": "从当前时间继续前进。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "seek",
+          "signature": "func seek(seconds: float) -> bool",
+          "summary": "暂停并直接重建指定时间的姿态，不触发标记或结束会话。实播动作拒绝定位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "finish",
+          "signature": "func finish() -> void",
+          "summary": "应用采样动作的终点，结束已经启动的实播动作，跳过尚未触发的事件。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "cancel",
+          "signature": "func cancel() -> void",
+          "summary": "取消本次播放并释放拥有的临时资源。采样时发起的取消会在当前钩子返回后处理。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "is_active",
+          "signature": "func is_active() -> bool",
+          "summary": "判断会话仍可控制。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "can_seek",
+          "signature": "func can_seek() -> bool",
+          "summary": "当前会话是否所有轨道均可任意定位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_duration_seconds",
+          "signature": "func get_duration_seconds() -> float",
+          "summary": "读取最近一次有效会话的总长。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_time_seconds",
+          "signature": "func get_time_seconds() -> float",
+          "summary": "读取当前的时间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_diagnostic",
+          "signature": "func get_diagnostic() -> String",
+          "summary": "取得最近一次准备错误以定位轨道和输入。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "get_track_intervals",
+          "signature": "func get_track_intervals() -> Array[Dictionary]",
+          "summary": "获取当前会话已绑定的各目标区间，按实际触发时刻排列。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIMotionRecipe": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_recipe.gd",
+      "summary": "GFUIMotionRecipe: 描述同一宿主的双页与局部动效，引用目标由每次播放调用显式提供。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "enter_delay",
+          "signature": "var enter_delay: float = 0.0",
+          "summary": "新页开始进入前的等待秒数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "enter_seconds",
+          "signature": "var enter_seconds: float = 0.4",
+          "summary": "新页入场时长，独立于页内轨道和旧页。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "exit_delay",
+          "signature": "var exit_delay: float = 0.0",
+          "summary": "旧页开始退出前的等待秒数。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "exit_seconds",
+          "signature": "var exit_seconds: float = 0.3",
+          "summary": "旧页退出时长，独立于新页。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "tracks",
+          "signature": "var tracks: Array[GFUIMotionTrack] = []",
+          "summary": "同一时刻按声明顺序触发，各目标的局部持续时间可超过页时钟。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "duplicate_recipe",
+          "signature": "func duplicate_recipe() -> GFUIMotionRecipe",
+          "summary": "深复制配方内嵌的轨道和效果，对外部资源保留显式引用。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIMotionTrack": {
+      "owner_kind": "class",
+      "extends": "Resource",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_track.gd",
+      "summary": "GFUIMotionTrack: 在页面进入、退出或会话时钟上安排效果与标记。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "enum",
+          "name": "Clock",
+          "signature": "enum Clock {\n\t## 以新页入场区间为基准。\n\tENTER,\n\t## 以旧页退出区间为基准。\n\tEXIT,\n\t## 以会话起点、以秒为单位安排动作。\n\tSESSION,\n}",
+          "summary": "定义时刻和相对时长的参考区间。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "cue",
+          "signature": "var cue: StringName",
+          "summary": "轨道开始时发送的标识。单独填写可通知页面播放自己的原生动画。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "target",
+          "signature": "var target: StringName = &\"incoming\"",
+          "summary": "从播放调用的绑定表中查找此目标；目标数组依次错峰。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "clock",
+          "signature": "var clock: Clock = Clock.ENTER",
+          "summary": "选择时间参考系。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "at",
+          "signature": "var at: float = 0.0",
+          "summary": "页时钟下为 0 到 1 的起始比例，会话时钟下直接使用 delay_seconds。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "delay_seconds",
+          "signature": "var delay_seconds: float = 0.0",
+          "summary": "相对触发点的额外延迟，单位秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "duration",
+          "signature": "var duration: float = 1.0",
+          "summary": "局部时长，可按参考区间比例或秒解释。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "relative_duration",
+          "signature": "var relative_duration: bool = true",
+          "summary": "在页时钟中用参考页时长乘 duration。会话时钟始终使用秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "stagger_seconds",
+          "signature": "var stagger_seconds: float = 0.0",
+          "summary": "对目标数组每个后继元素增加的时间偏移，单位秒。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "transition",
+          "signature": "var transition: Tween.TransitionType = Tween.TRANS_LINEAR",
+          "summary": "插值使用的 Godot 曲线类型。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "easing",
+          "signature": "var easing: Tween.EaseType = Tween.EASE_IN_OUT",
+          "summary": "插值曲线的缓入缓出方向。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "curve",
+          "signature": "var curve: Curve",
+          "summary": "可选进度曲线，存在时覆盖原生缓动并允许中途超调。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "effect",
+          "signature": "var effect: GFUIMotionEffect",
+          "summary": "可复用的效果。留空并填写 cue 时只发送瞬时标记，目标及错峰照常生效。",
           "visibility": "public"
         }
       ]
@@ -98360,6 +98865,75 @@
           "name": "get_debug_snapshot",
           "signature": "func get_debug_snapshot() -> Dictionary",
           "summary": "获取稳定调试快照。",
+          "visibility": "public"
+        }
+      ]
+    },
+    "GFUIPropertyMotion": {
+      "owner_kind": "class",
+      "extends": "GFUIMotionEffect",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_property_motion.gd",
+      "summary": "GFUIPropertyMotion: 在绑定对象上插值一个属性，支持按父级布局大小计算的位移和相对初始姿态。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "property",
+          "signature": "var property: NodePath = ^\"modulate:a\"",
+          "summary": "Godot 索引属性路径，例如 position 或 modulate:a。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "start_value",
+          "signature": "var start_value: Variant = 0.0",
+          "summary": "局部进度为零时的值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "end_value",
+          "signature": "var end_value: Variant = 1.0",
+          "summary": "局部进度为一时的值。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "relative",
+          "signature": "var relative: bool = false",
+          "summary": "把端点解释为相对于开始时真实属性的增量。",
+          "visibility": "public"
+        },
+        {
+          "kind": "var",
+          "name": "in_parent_units",
+          "signature": "var in_parent_units: bool = false",
+          "summary": "将 Vector2 起止值按 Control 所在父区域的当前尺寸缩放。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "written_properties",
+          "signature": "func written_properties() -> Array[NodePath]",
+          "summary": "声明本次会话独占的属性路径。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "binding_error",
+          "signature": "func binding_error(target: Object, _inputs: Dictionary) -> String",
+          "summary": "检查属性存在、类型相容和布局坐标要求。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_target",
+          "signature": "func bind_target(target: Object, _inputs: Dictionary) -> GFUIMotionBinding",
+          "summary": "冻结端点及基线，窗口改变时重新读取父区域大小。",
           "visibility": "public"
         }
       ]
@@ -99178,6 +99752,47 @@
         }
       ]
     },
+    "GFUITweenMotion": {
+      "owner_kind": "class",
+      "extends": "GFUIMotionEffect",
+      "module": "extensions/action_queue",
+      "package_id": "gf.extension.action_queue",
+      "path": "addons/gf/extensions/action_queue/ui_motion/gf_ui_tween_motion.gd",
+      "summary": "GFUITweenMotion: 在页面或组件轨道中重用已有 GFTweenActionConfig，通过受控时间轴按局部进度采样。",
+      "visibility": "public",
+      "category": "resource_definition",
+      "since": "unreleased",
+      "members": [
+        {
+          "kind": "var",
+          "name": "configuration",
+          "signature": "var configuration: GFTweenActionConfig",
+          "summary": "配置化 Tween 的来源，按每次绑定复制并启用受控定位。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "written_properties",
+          "signature": "func written_properties() -> Array[NodePath]",
+          "summary": "受控 Tween 从基线重建整个根属性，包括只配置单个分量的步骤。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "binding_error",
+          "signature": "func binding_error(target: Object, _inputs: Dictionary) -> String",
+          "summary": "按受控播放合同检查真实目标。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "bind_target",
+          "signature": "func bind_target(target: Object, _inputs: Dictionary) -> GFUIMotionBinding",
+          "summary": "使用 GF 受控动作的求值、取消及恢复语义。",
+          "visibility": "public"
+        }
+      ]
+    },
     "GFUIUtility": {
       "owner_kind": "class",
       "extends": "GFUtility",
@@ -99411,6 +100026,13 @@
           "name": "pop_panel",
           "signature": "func pop_panel(layer: int = Layer.POPUP, do_free: bool = true) -> void",
           "summary": "弹出指定层级的顶部面板。",
+          "visibility": "public"
+        },
+        {
+          "kind": "func",
+          "name": "navigate_with_presentation",
+          "signature": "func navigate_with_presentation( layer: int, navigate: Callable, present: Callable ) -> Error",
+          "summary": "在当前层执行同步导航，把仍在树内的旧页、新页和一次性释放回调交给表现层。",
           "visibility": "public"
         },
         {

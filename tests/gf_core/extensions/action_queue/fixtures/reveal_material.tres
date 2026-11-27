@@ -1,0 +1,6 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://addons/gf/extensions/action_queue/ui_motion/shaders/reveal.gdshader" id="1"]
+
+[resource]
+shader = ExtResource("1")

@@ -135,6 +135,7 @@ RELEASE_CREATE_COMMAND = (
 	'"build/release/gf-framework-windows-x86_64-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-native-windows-x86_64-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-native-multiplatform-${GITHUB_REF_NAME}.zip" \\ '
+	'"build/release/gf-ui-motion-assets-${GITHUB_REF_NAME}.zip" \\ '
 	'"build/release/gf-release-artifacts-${GITHUB_REF_NAME}.json" \\ '
 	'--verify-tag \\ '
 	'--title "${GITHUB_REF_NAME}" \\ '

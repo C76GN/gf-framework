@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tests/gf_core/extensions/action_queue/fixtures/route_illumination_view.gd" id="view"]
+[ext_resource type="Script" path="res://addons/gf/extensions/action_queue/ui_motion/gf_ui_motion_player.gd" id="playback"]
+[ext_resource type="Resource" path="res://tests/gf_core/extensions/action_queue/fixtures/route_illumination_recipe.tres" id="recipe"]
+
+[node name="RouteIllumination" type="Node2D"]
+script = ExtResource("view")
+recipe = ExtResource("recipe")
+
+[node name="Playback" type="Node" parent="."]
+script = ExtResource("playback")
+
+[node name="Legend" type="Label" parent="."]
+offset_left = 28.0
+offset_top = 25.0
+text = "Survey routes"

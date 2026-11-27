@@ -34,6 +34,11 @@ var _picker: EditorResourcePicker = null
 ## @api private
 var _status: Label = null
 
+## 组合动效工具只在打开时创建预览节点。
+## [br]
+## @api private
+var _motion_panel: Control
+
 
 # --- Godot 生命周期方法 ---
 
@@ -64,6 +69,13 @@ func _ready() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.text = "创建或选择 Tween 配置 → 在 Inspector 调整步骤与样机 → 保存资源 → 复制绑定示例。\n预设只管理步骤；循环、往返和时间策略使用资源原生字段。"
 	add_child(_status)
+	add_child(
+		_WORKSPACE_UI_SCRIPT.make_button(
+			"界面动效",
+			"编辑双页与局部轨道，预览当前配方",
+			_on_motion_pressed
+		)
+	)
 
 
 ## 先清理挂在编辑器宿主下的对话框，再释放本页动作实例，避免页面卸载后残留入口。
@@ -77,16 +89,23 @@ func _exit_tree() -> void:
 
 # --- 框架内部方法 ---
 
-## 工作区任务的固定入口；仅打开创建对话框，不自动写文件。
+## 按工作区任务打开 Tween 资源创建对话框或界面动效面板。
 ## [br]
 ## @api framework_internal
 ## [br]
-## @param action_id: 仅接受 new_resource。
+## @param action_id: 工作区任务标识，支持 new_resource 与 ui_motion。
 ## [br]
-## @return: 对话框是否已经打开。
+## @return: 任务是否成功打开对应入口。
 ## [br]
-## @schema return: Dictionary，ok: bool、status: String（dialog_opened 或 unavailable）、message: String（可读说明）。
+## @schema return: Dictionary，ok: bool、status: String（dialog_opened、opened 或 unavailable）、message: String（可读说明）。
 func run_workspace_task(action_id: String) -> Dictionary:
+	if action_id == "ui_motion" and is_inside_tree():
+		_on_motion_pressed()
+		return {
+			"ok": true,
+			"status": "opened",
+			"message": "界面动效已打开",
+		}
 	if action_id != "new_resource" or _actions == null:
 		return {
 			"ok": false,
@@ -102,6 +121,20 @@ func run_workspace_task(action_id: String) -> Dictionary:
 
 
 # --- 信号处理函数 ---
+
+## 用户打开工作区工具后才实例化编辑器界面。
+## [br]
+## @api private
+func _on_motion_pressed() -> void:
+	if not is_instance_valid(_motion_panel):
+		var script: GDScript = load("res://addons/gf/extensions/action_queue/editor/gf_ui_motion_workbench.gd") as GDScript
+		var instance: Variant = script.new()
+		if not instance is Control:
+			return
+		_motion_panel = instance
+		add_child(_motion_panel)
+	_motion_panel.show()
+
 
 ## 复用工作区任务入口打开创建对话框，文件写入仍由对话框确认触发。
 ## [br]
